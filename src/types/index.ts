@@ -189,13 +189,69 @@ export interface VaultBalanceParams {
 
 // ─── Friendbot / Funding ────────────────────────────────────────────────────
 
-/** Result of funding a testnet account via Friendbot */
+/**
+ * Result of funding a testnet account via Friendbot.
+ *
+ * @remarks **Testnet only.** Friendbot is not available on Stellar mainnet.
+ *
+ * @example
+ * ```ts
+ * const result = await fundTestnetAccount(wallet.publicKey);
+ * if (result.success) {
+ *   console.log('Funded!', result.hash, 'ledger:', result.ledger);
+ * }
+ * ```
+ */
 export interface FundResult {
-  /** Whether funding was successful */
+  /** Whether the funding request was successful */
   success: boolean;
-  /** Transaction hash from Friendbot */
+
+  /**
+   * The Stellar public key (G...) that was funded.
+   * Always present, mirrors the input public key for easy destructuring.
+   */
+  publicKey: string;
+
+  /**
+   * Transaction hash of the Friendbot funding transaction.
+   * Present on success; used to look up the transaction on a block explorer.
+   */
   hash?: string;
-  /** Error message if failed */
+
+  /**
+   * Friendbot's internal operation/record ID.
+   * Useful as a fallback identifier when `hash` is not available.
+   */
+  friendbotId?: string;
+
+  /**
+   * Ledger sequence number the funding transaction was included in.
+   * Present on success.
+   */
+  ledger?: number;
+
+  /**
+   * ISO 8601 timestamp of when the funding transaction was created.
+   * Present on success.
+   */
+  createdAt?: string;
+
+  /**
+   * Fee charged by the Friendbot transaction (in stroops).
+   * Present on success.
+   */
+  feeCharged?: string;
+
+  /**
+   * The Friendbot's own source account public key.
+   * Present on success; useful for audit purposes.
+   */
+  friendbotAccount?: string;
+
+  /**
+   * Human-readable error message when `success` is `false`.
+   * Contains the Friendbot HTTP status and response body on HTTP errors.
+   */
   error?: string;
 }
 
