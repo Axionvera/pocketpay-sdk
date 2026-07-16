@@ -63,21 +63,60 @@ export async function getBalance(
   }
 }
 
-/** Funds a testnet account via Friendbot (10,000 XLM). Testnet only. */
+/**
+ * Funds a testnet account via Friendbot (≈10,000 XLM).
+ *
+ * @remarks **Testnet only.** Calling this on mainnet throws immediately without
+ * making any network request. Use the `network` config or the
+ * `STELLAR_NETWORK` environment variable to set the active network.
+ *
+ * @param publicKey - Stellar public key (G...) of the account to fund
+ * @returns A {@link FundResult} with the funded public key, transaction hash,
+ *   ledger number, timestamp, fee, and Friendbot source account on success;
+ *   or a descriptive `error` message on failure.
+ * @throws {PocketPayError} with code `TESTNET_ONLY` if not on testnet,
+ *   `INVALID_PUBLIC_KEY` for an invalid public key, `FRIENDBOT_ERROR` for
+ *   non-2xx HTTP responses, or `FUND_ERROR` for network/fetch failures.
+ *
+ * @example
+ * ```ts
+ * const result = await fundTestnetAccount(wallet.publicKey);
+ * if (result.success) {
+ *   console.log('Funded! tx hash:', result.hash, 'ledger:', result.ledger);
+ * }
+ * ```
+ */
 export async function fundTestnetAccount(publicKey: string): Promise<FundResult> {
   validatePublicKey(publicKey);
   const cfg = resolveConfig();
   if (cfg.network !== 'testnet') {
-    throw new PocketPayError('Friendbot is only available on testnet', 'TESTNET_ONLY');
+    throw new PocketPayError(
+      'fundTestnetAccount is only available on testnet. ' +
+      'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
+      'TESTNET_ONLY',
+    );
   }
   try {
     const resp = await fetch(`${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`);
     if (!resp.ok) {
-      const body = await resp.text();
-      throw new PocketPayError(`Friendbot HTTP ${resp.status}: ${body}`, 'FRIENDBOT_ERROR', resp.status);
+      const body = await resp.text().catch(() => '(no body)');
+      throw new PocketPayError(
+        `Friendbot HTTP ${resp.status}: ${body}`,
+        'FRIENDBOT_ERROR',
+        resp.status,
+      );
     }
-    const data: any = await resp.json();
-    return { success: true, hash: data.hash || data.id || 'unknown' };
+    const data = (await resp.json()) as Record<string, unknown>;
+    return {
+      success: true,
+      publicKey,
+      hash: typeof data['hash'] === 'string' ? data['hash'] : undefined,
+      friendbotId: typeof data['id'] === 'string' ? data['id'] : undefined,
+      ledger: typeof data['ledger'] === 'number' ? data['ledger'] : undefined,
+      createdAt: typeof data['created_at'] === 'string' ? data['created_at'] : undefined,
+      feeCharged: typeof data['fee_charged'] === 'string' ? data['fee_charged'] : undefined,
+      friendbotAccount: typeof data['source_account'] === 'string' ? data['source_account'] : undefined,
+    };
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Failed to fund testnet account', 'FUND_ERROR');
