@@ -163,6 +163,11 @@ Fetches recent payment operations for an account.
 
 ### Soroban Vault
 
+> 📖 **See [docs/soroban-vault.md](docs/soroban-vault.md)** for a full guide:
+> `VAULT_CONTRACT_ID` resolution, how each helper maps to the on-chain contract,
+> and current contract limitations.
+
+
 #### `depositToVault(params: VaultDepositParams, config?): Promise<VaultResult>`
 Deposits XLM into the savings vault smart contract.
 
