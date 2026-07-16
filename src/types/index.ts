@@ -17,6 +17,10 @@ export interface SDKConfig {
   horizonUrl: string;
   /** Soroban RPC URL (auto-resolved if omitted) */
   sorobanRpcUrl: string;
+  /** Request timeout in milliseconds (default: 30000) */
+  timeout?: number;
+  /** Soroban contract ID for vault operations (optional) */
+  contractId?: string;
 }
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
