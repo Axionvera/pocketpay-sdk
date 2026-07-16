@@ -10,6 +10,8 @@ npm install @axionvera/pocketpay-sdk
 
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
+- [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
+- [Security Best Practices](./docs/security.md) - Key management and transaction safety
 
 ## Quick Start
 
