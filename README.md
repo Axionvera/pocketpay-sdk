@@ -8,6 +8,28 @@
 
 ---
 
+## Project Status
+
+**This SDK is in active development and is not production-ready.**
+
+The current focus is on Stellar Testnet wallet helpers, XLM payments, transaction queries, and early Soroban vault utilities. The vault features are experimental and depend on a separate smart contract repository. Production deployments should not rely on this SDK until a stable release is announced.
+
+---
+
+## Ecosystem
+
+This SDK is one piece of the PocketPay project. It provides the TypeScript client layer that sits between the mobile app and the Stellar network.
+
+| Repository | Purpose |
+| --- | --- |
+| **stellar-pocketpay-sdk** (this package) | TypeScript SDK for wallet operations, payments, transaction queries, and vault contract interactions |
+| [Axionvera/pocketpay-mobile](https://github.com/Axionvera/pocketpay-mobile) | React Native mobile app that consumes this SDK |
+| [Axionvera/pocketpay-contracts](https://github.com/Axionvera/pocketpay-contracts) | Soroban smart contracts (savings vault) deployed to Stellar Testnet |
+
+The mobile app imports this SDK to handle all Stellar network communication. The vault contract functions in this SDK call into the contracts deployed from the `pocketpay-contracts` repository.
+
+---
+
 ## Features
 
 | Module         | Functions                                          |
@@ -30,7 +52,7 @@ npm install stellar-pocketpay-sdk
 Or clone and link locally:
 
 ```bash
-git clone https://github.com/Stellar-PocketPay/stellar-pocketpay-sdk.git
+git clone https://github.com/Axionvera/stellar-pocketpay-sdk.git
 cd stellar-pocketpay-sdk
 npm install
 npm run build
@@ -97,7 +119,9 @@ stellar-pocketpay-sdk/
 
 ## Configuration
 
-The SDK defaults to **Stellar Testnet**. Configure via environment variables or programmatic overrides:
+The SDK defaults to **Stellar Testnet**. There is currently no support for Stellar Mainnet. All account funding, payments, and vault operations target the Testnet network.
+
+Configure via environment variables or programmatic overrides:
 
 ```bash
 # .env
@@ -161,7 +185,9 @@ Fetches recent transactions for an account.
 #### `getPayments(publicKey, limit?, order?, config?): Promise<PaymentList>`
 Fetches recent payment operations for an account.
 
-### Soroban Vault
+### Soroban Vault (Experimental)
+
+These functions interact with the savings vault smart contract defined in [Axionvera/pocketpay-contracts](https://github.com/Axionvera/pocketpay-contracts). The vault integration is in early development and may change without notice.
 
 #### `depositToVault(params: VaultDepositParams, config?): Promise<VaultResult>`
 Deposits XLM into the savings vault smart contract.
