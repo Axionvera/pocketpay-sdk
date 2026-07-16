@@ -13,6 +13,10 @@ npm install @axionvera/pocketpay-sdk
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 
+## Examples
+
+- [Fetch Transaction History](./examples/get-transactions.ts) - Query recent transactions and payments for an account
+
 ## Quick Start
 
 import { PocketPay } from '@axionvera/pocketpay-sdk';
