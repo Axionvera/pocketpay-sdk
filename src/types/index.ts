@@ -49,6 +49,45 @@ export interface AccountBalance {
   nativeBalance: string;
 }
 
+// ─── Balance Result (discriminated union) ───────────────────────────────────
+
+/**
+ * Result of {@link getBalanceOrUnfunded} — a discriminated union on `status`.
+ *
+ * Use `result.status` to branch without try/catch:
+ * - `"funded"` — the account exists on-chain; `balance` is populated.
+ * - `"unfunded"` — Horizon returned 404; the account has never been funded.
+ *
+ * Any unexpected Horizon failure (5xx, network error, etc.) is still thrown
+ * as a {@link PocketPayError} so genuine errors are never silently swallowed.
+ *
+ * @example
+ * ```ts
+ * const result = await getBalanceOrUnfunded(wallet.publicKey);
+ * if (result.status === 'funded') {
+ *   console.log('XLM balance:', result.balance.nativeBalance);
+ * } else {
+ *   // result.status === 'unfunded'
+ *   console.log('Wallet not yet funded — call fundTestnetAccount()');
+ * }
+ * ```
+ */
+export type BalanceResult =
+  | {
+      /** Account exists and has been funded. */
+      status: 'funded';
+      /** The queried public key. */
+      publicKey: string;
+      /** Full account balance detail. */
+      balance: AccountBalance;
+    }
+  | {
+      /** Account does not exist on Horizon (never funded). */
+      status: 'unfunded';
+      /** The queried public key. */
+      publicKey: string;
+    };
+
 // ─── Payments ───────────────────────────────────────────────────────────────
 
 /** Parameters for sending an XLM payment */

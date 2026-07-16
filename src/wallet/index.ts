@@ -8,7 +8,7 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
 import {
   WalletKeypair, AccountBalance, AssetBalance,
-  FundResult, PocketPayError, SDKConfig,
+  BalanceResult, FundResult, PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
 
@@ -31,14 +31,19 @@ export function getPublicKey(secretKey: string): string {
   return StellarSDK.Keypair.fromSecret(secretKey).publicKey();
 }
 
-/** Fetches all asset balances for a Stellar account. */
-export async function getBalance(
+// ─── Private helpers ────────────────────────────────────────────────────────
+
+/**
+ * Internal: loads and maps Horizon balances for a public key.
+ * Throws PocketPayError with ACCOUNT_NOT_FOUND (status 404) if unfunded,
+ * or BALANCE_ERROR for any other failure.
+ */
+async function _loadAccountBalance(
   publicKey: string,
-  config?: Partial<SDKConfig>
+  config?: Partial<SDKConfig>,
 ): Promise<AccountBalance> {
-  validatePublicKey(publicKey);
+  const server = getHorizonServer(config);
   try {
-    const server = getHorizonServer(config);
     const account = await server.loadAccount(publicKey);
     const balances: AssetBalance[] = account.balances.map((bal: any) => {
       if (bal.asset_type === 'native') {
@@ -56,10 +61,84 @@ export async function getBalance(
     if (error instanceof Error && (error as any).response?.status === 404) {
       throw new PocketPayError(
         `Account not found: ${publicKey}. It may not be funded yet.`,
-        'ACCOUNT_NOT_FOUND', 404
+        'ACCOUNT_NOT_FOUND', 404,
       );
     }
     throw wrapError(error, 'Failed to fetch balance', 'BALANCE_ERROR');
+  }
+}
+
+// ─── Public functions ────────────────────────────────────────────────────────
+
+/**
+ * Fetches all asset balances for a Stellar account.
+ *
+ * @param publicKey - Stellar public key (G...) to query
+ * @param config - Optional SDK config overrides
+ * @returns {@link AccountBalance} with all asset balances and native XLM shortcut
+ * @throws {PocketPayError} with code `ACCOUNT_NOT_FOUND` (HTTP 404) if the
+ *   account has never been funded, or `BALANCE_ERROR` for other Horizon failures
+ *
+ * @see {@link getBalanceOrUnfunded} for a non-throwing alternative that returns
+ *   a discriminated union instead of throwing on unfunded accounts.
+ */
+export async function getBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<AccountBalance> {
+  validatePublicKey(publicKey);
+  return _loadAccountBalance(publicKey, config);
+}
+
+/**
+ * Fetches the balance for a Stellar account, returning a discriminated
+ * {@link BalanceResult} instead of throwing when the account is unfunded.
+ *
+ * This is the recommended balance helper for **mobile app onboarding** and
+ * any UI that must cleanly handle the "wallet created but not yet funded"
+ * state (e.g. after Friendbot funding or before a first deposit).
+ *
+ * | Result `status` | Meaning |
+ * |---|---|
+ * | `"funded"` | Account exists; `result.balance` contains full balance data. |
+ * | `"unfunded"` | Horizon returned 404; account has never been funded. |
+ *
+ * Unexpected errors (Horizon 5xx, network failures, etc.) are **not** swallowed
+ * — they are still thrown as {@link PocketPayError} with code `BALANCE_ERROR`.
+ *
+ * @param publicKey - Stellar public key (G...) to query
+ * @param config - Optional SDK config overrides
+ * @returns A {@link BalanceResult} with `status: "funded"` or `"unfunded"`
+ * @throws {PocketPayError} with code `INVALID_PUBLIC_KEY` for a bad key, or
+ *   `BALANCE_ERROR` for unexpected Horizon/network failures
+ *
+ * @example
+ * ```ts
+ * const result = await getBalanceOrUnfunded(wallet.publicKey);
+ *
+ * if (result.status === 'unfunded') {
+ *   // Guide the user to fund their new wallet
+ *   await fundTestnetAccount(wallet.publicKey);
+ *   return;
+ * }
+ *
+ * // result.status === 'funded'
+ * console.log('XLM balance:', result.balance.nativeBalance);
+ * ```
+ */
+export async function getBalanceOrUnfunded(
+  publicKey: string,
+  config?: Partial<SDKConfig>,
+): Promise<BalanceResult> {
+  validatePublicKey(publicKey);
+  try {
+    const balance = await _loadAccountBalance(publicKey, config);
+    return { status: 'funded', publicKey, balance };
+  } catch (error) {
+    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
+      return { status: 'unfunded', publicKey };
+    }
+    throw error;
   }
 }
 
