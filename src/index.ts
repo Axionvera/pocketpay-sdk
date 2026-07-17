@@ -16,6 +16,7 @@ export type {
   WalletKeypair,
   AssetBalance,
   AccountBalance,
+  BalanceResult,
   SendXLMParams,
   PaymentResult,
   TransactionRecord,
@@ -37,6 +38,7 @@ export {
   importWallet,
   getPublicKey,
   getBalance,
+  getBalanceOrUnfunded,
   fundTestnetAccount,
 } from './wallet';
 
@@ -55,6 +57,11 @@ export {
   getHorizonServer,
   getNetworkPassphrase,
   getFriendbotUrl,
+  validateNetwork,
+  validateHorizonUrl,
+  validateSorobanRpcUrl,
+  validateTimeout,
+  validateContractId,
 } from './config';
 
 // ─── Utils ──────────────────────────────────────────────────────────────────
