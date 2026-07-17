@@ -133,6 +133,43 @@ export async function getBalanceOrUnfunded(
 }
 
 /**
+ * Fetches the account balance for a funded Stellar account.
+ *
+ * Throws a PocketPayError if the account is unfunded or if Horizon returns
+ * another failure.
+ */
+export async function getBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<AccountBalance> {
+  validatePublicKey(publicKey);
+  return _loadAccountBalance(publicKey, config);
+}
+
+/**
+ * Fetches the account balance or reports when the account is unfunded.
+ *
+ * Unlike getBalance, this helper returns a discriminated union so callers can
+ * explicitly handle the normal "unfunded" case without throwing.
+ */
+export async function getBalanceOrUnfunded(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<BalanceResult> {
+  validatePublicKey(publicKey);
+
+  try {
+    const balance = await _loadAccountBalance(publicKey, config);
+    return { status: 'funded', publicKey, balance };
+  } catch (error) {
+    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
+      return { status: 'unfunded', publicKey };
+    }
+    throw error;
+  }
+}
+
+/**
  * Funds a testnet account via Friendbot (≈10,000 XLM).
  *
  * @remarks **Testnet only.** Calling this on mainnet throws immediately without
