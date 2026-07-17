@@ -73,7 +73,33 @@ export function validateAmount(amount: string): boolean {
   return true;
 }
 
-// ─── Formatting ─────────────────────────────────────────────────────────────
+/**
+ * Validates a memo string for use in a Stellar transaction.
+ *
+ * Stellar text memos are limited to 28 bytes (not characters — multi-byte
+ * Unicode characters count for more than one byte each). An empty string or
+ * `undefined` memo is treated as "no memo" and is always valid, since memos
+ * are optional on most PocketPay SDK operations.
+ *
+ * @param memo - The memo text to validate, or undefined for no memo
+ * @returns true if the memo is valid (including empty/undefined)
+ * @throws PocketPayError if the memo exceeds the 28-byte limit
+ */
+export function validateMemo(memo?: string): boolean {
+  if (!memo) return true;
+
+  const byteLength = Buffer.byteLength(memo, 'utf-8');
+  if (byteLength > 28) {
+    throw new PocketPayError(
+      `Memo text exceeds 28-byte limit (got ${byteLength} bytes): "${memo}"`,
+      'INVALID_MEMO'
+    );
+  }
+
+  return true;
+}
+
+
 
 /**
  * Converts stroops (1 XLM = 10,000,000 stroops) to XLM string.
