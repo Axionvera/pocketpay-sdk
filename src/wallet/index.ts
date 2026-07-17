@@ -31,6 +31,54 @@ export function getPublicKey(secretKey: string): string {
   return StellarSDK.Keypair.fromSecret(secretKey).publicKey();
 }
 
+/**
+ * Fetches the full account balance for a Stellar public key.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param config - Optional SDK config overrides
+ * @returns The account balance with all asset entries
+ * @throws {PocketPayError} with code `INVALID_PUBLIC_KEY` for invalid keys,
+ *   `ACCOUNT_NOT_FOUND` (status 404) for unfunded accounts, or `BALANCE_ERROR`
+ *   for network/Horizon failures.
+ */
+export async function getBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>,
+): Promise<AccountBalance> {
+  validatePublicKey(publicKey);
+  return _loadAccountBalance(publicKey, config);
+}
+
+/**
+ * Fetches balance but returns a discriminated union instead of throwing for
+ * unfunded accounts.
+ *
+ * - `{ status: "funded", publicKey, balance }` — the account exists on-chain.
+ * - `{ status: "unfunded", publicKey }` — Horizon returned 404.
+ *
+ * Non-404 errors (5xx, network failures, etc.) are still thrown so genuine
+ * failures are never silently swallowed.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param config - Optional SDK config overrides
+ * @returns A {@link BalanceResult} discriminated union
+ */
+export async function getBalanceOrUnfunded(
+  publicKey: string,
+  config?: Partial<SDKConfig>,
+): Promise<BalanceResult> {
+  validatePublicKey(publicKey);
+  try {
+    const balance = await _loadAccountBalance(publicKey, config);
+    return { status: 'funded' as const, publicKey, balance };
+  } catch (error) {
+    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
+      return { status: 'unfunded' as const, publicKey };
+    }
+    throw error;
+  }
+}
+
 // ─── Private helpers ────────────────────────────────────────────────────────
 
 /**

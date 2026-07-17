@@ -17,6 +17,7 @@ const EXPECTED_PUBLIC_EXPORTS = [
   'importWallet',
   'getPublicKey',
   'getBalance',
+  'getBalanceOrUnfunded',
   'fundTestnetAccount',
   // payments
   'sendXLM',
@@ -32,6 +33,11 @@ const EXPECTED_PUBLIC_EXPORTS = [
   'getHorizonServer',
   'getNetworkPassphrase',
   'getFriendbotUrl',
+  'validateNetwork',
+  'validateHorizonUrl',
+  'validateSorobanRpcUrl',
+  'validateTimeout',
+  'validateContractId',
   // utils
   'validatePublicKey',
   'validateSecretKey',
@@ -39,6 +45,17 @@ const EXPECTED_PUBLIC_EXPORTS = [
   'stroopsToXLM',
   'xlmToStroops',
   'truncateAddress',
+  'findAssetBalance',
+  // result helpers
+  'toSuccessResult',
+  'toFailureResult',
+  'toResult',
+  // safe wrappers
+  'safeGetBalance',
+  'safeFundTestnetAccount',
+  'safeSendXLM',
+  'safeGetTransactions',
+  'safeGetPayments',
 ];
 
 // Helpers that exist internally (e.g. in src/utils) but should never be

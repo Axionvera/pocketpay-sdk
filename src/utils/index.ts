@@ -6,6 +6,7 @@
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
+  AssetBalance,
   PocketPayError,
   SuccessResult,
   FailureResult,
@@ -117,6 +118,48 @@ export function truncateAddress(
 ): string {
   if (address.length <= startChars + endChars) return address;
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+}
+
+// ─── Asset Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Finds a specific asset balance from an array of asset balances.
+ *
+ * For native XLM, pass `"XLM"` as the asset code. For issued assets, pass the
+ * asset code and optionally the issuer to disambiguate.
+ *
+ * @param balances - Array of asset balances to search
+ * @param assetCode - Asset code to find (e.g. `"XLM"`, `"USDC"`)
+ * @param assetIssuer - Issuer public key (required for issued assets with
+ *   multiple issuers; ignored for native XLM)
+ * @returns The matching `AssetBalance` or `undefined` if not found
+ *
+ * @example
+ * ```ts
+ * // Native XLM
+ * const xlm = findAssetBalance(balances, 'XLM');
+ *
+ * // USDC from a specific issuer
+ * const usdc = findAssetBalance(balances, 'USDC', 'GA5ZSE...KZVN');
+ *
+ * // First USDC balance (any issuer)
+ * const anyUsdc = findAssetBalance(balances, 'USDC');
+ * ```
+ */
+export function findAssetBalance(
+  balances: AssetBalance[],
+  assetCode: string,
+  assetIssuer?: string,
+): AssetBalance | undefined {
+  return balances.find((b) => {
+    if (assetCode === 'XLM') {
+      return b.asset === 'XLM';
+    }
+    if (assetIssuer) {
+      return b.asset === assetCode && b.issuer === assetIssuer;
+    }
+    return b.asset === assetCode;
+  });
 }
 
 // ─── Error Wrapping ─────────────────────────────────────────────────────────
@@ -306,7 +349,7 @@ export async function safeGetTransactions(
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
-    () => getTransactions(publicKey, limit, config),
+    () => getTransactions(publicKey, limit, undefined, config),
     'Failed to fetch transactions',
     'TRANSACTION_ERROR'
   );
@@ -326,7 +369,7 @@ export async function safeGetPayments(
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
-    () => getPayments(publicKey, limit, config),
+    () => getPayments(publicKey, limit, undefined, config),
     'Failed to fetch payments',
     'PAYMENT_ERROR'
   );
