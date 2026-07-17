@@ -2,7 +2,7 @@
  * Stellar PocketPay SDK — Utility Helpers
  *
  * Shared validation, formatting, and conversion utilities.
- */
+ */ 
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
@@ -14,13 +14,6 @@ import {
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
-/**
- * Validates that a string is a valid Stellar public key (G...).
- *
- * @param publicKey - The public key to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validatePublicKey(publicKey: string): boolean {
   try {
     StellarSDK.Keypair.fromPublicKey(publicKey);
@@ -33,13 +26,6 @@ export function validatePublicKey(publicKey: string): boolean {
   }
 }
 
-/**
- * Validates that a string is a valid Stellar secret key (S...).
- *
- * @param secretKey - The secret key to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validateSecretKey(secretKey: string): boolean {
   try {
     StellarSDK.Keypair.fromSecret(secretKey);
@@ -52,22 +38,24 @@ export function validateSecretKey(secretKey: string): boolean {
   }
 }
 
-/**
- * Validates that an amount string is a positive number with valid precision.
- *
- * @param amount - The amount string to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validateAmount(amount: string): boolean {
-  const num = parseFloat(amount);
-  if (isNaN(num) || num <= 0) {
+  // Must be a plain positive decimal string: digits, optionally one decimal
+  // point followed by digits. This rejects '', whitespace, '10abc', '1e3',
+  // 'Infinity', 'NaN', signs, and any other non-decimal input up front —
+  // parseFloat alone would accept many of these (e.g. parseFloat('10abc') === 10).
+  if (typeof amount !== 'string' || !/^\d+(\.\d+)?$/.test(amount)) {
     throw new PocketPayError(
-      `Invalid amount: "${amount}". Must be a positive number.`,
+      `Invalid amount: "${amount}". Must be a positive decimal string.`,
       'INVALID_AMOUNT'
     );
   }
-  // Stellar supports up to 7 decimal places
+  const num = parseFloat(amount);
+  if (num <= 0) {
+    throw new PocketPayError(
+      `Invalid amount: "${amount}". Must be greater than zero.`,
+      'INVALID_AMOUNT'
+    );
+  }
   const parts = amount.split('.');
   if (parts[1] && parts[1].length > 7) {
     throw new PocketPayError(
@@ -78,38 +66,44 @@ export function validateAmount(amount: string): boolean {
   return true;
 }
 
-// ─── Formatting ─────────────────────────────────────────────────────────────
-
 /**
- * Converts stroops (1 XLM = 10,000,000 stroops) to XLM string.
+ * Validates a memo string for use in a Stellar transaction.
  *
- * @param stroops - Amount in stroops
- * @returns Formatted XLM amount string
+ * Stellar text memos are limited to 28 bytes (not characters — multi-byte
+ * Unicode characters count for more than one byte each). An empty string or
+ * `undefined` memo is treated as "no memo" and is always valid, since memos
+ * are optional on most PocketPay SDK operations.
+ *
+ * @param memo - The memo text to validate, or undefined for no memo
+ * @returns true if the memo is valid (including empty/undefined)
+ * @throws PocketPayError if the memo exceeds the 28-byte limit
  */
+export function validateMemo(memo?: string): boolean {
+  if (!memo) return true;
+
+  const byteLength = Buffer.byteLength(memo, 'utf-8');
+  if (byteLength > 28) {
+    throw new PocketPayError(
+      `Memo text exceeds 28-byte limit (got ${byteLength} bytes): "${memo}"`,
+      'INVALID_MEMO'
+    );
+  }
+
+  return true;
+}
+
+
+
 export function stroopsToXLM(stroops: string | number): string {
   const value = typeof stroops === 'string' ? parseInt(stroops, 10) : stroops;
   return (value / 10_000_000).toFixed(7);
 }
 
-/**
- * Converts XLM amount to stroops.
- *
- * @param xlm - Amount in XLM
- * @returns Amount in stroops
- */
 export function xlmToStroops(xlm: string | number): number {
   const value = typeof xlm === 'string' ? parseFloat(xlm) : xlm;
   return Math.round(value * 10_000_000);
 }
 
-/**
- * Truncates a Stellar address for display purposes.
- *
- * @param address - Full public key
- * @param startChars - Number of characters from the start (default: 4)
- * @param endChars - Number of characters from the end (default: 4)
- * @returns Truncated address like "GABCD...WXYZ"
- */
 export function truncateAddress(
   address: string,
   startChars: number = 4,
@@ -121,14 +115,6 @@ export function truncateAddress(
 
 // ─── Error Wrapping ─────────────────────────────────────────────────────────
 
-/**
- * Wraps an unknown error into a PocketPayError with context.
- *
- * @param error - The caught error
- * @param context - Description of what was being attempted
- * @param code - Machine-readable error code
- * @returns PocketPayError instance
- */
 export function wrapError(
   error: unknown,
   context: string,
@@ -150,68 +136,20 @@ export function wrapError(
 
 // ─── Misc ───────────────────────────────────────────────────────────────────
 
-/**
- * Delays execution for the specified number of milliseconds.
- *
- * @param ms - Milliseconds to sleep
- */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ─── Result Helpers ─────────────────────────────────────────────────────────
 
-/**
- * Creates a `SuccessResult<T>` wrapping the given value.
- *
- * @param value - The successful result value
- * @returns A `SuccessResult<T>` with `ok: true`
- *
- * @example
- * ```ts
- * return toSuccessResult(balance);
- * // → { ok: true, value: balance }
- * ```
- */
 export function toSuccessResult<T>(value: T): SuccessResult<T> {
   return { ok: true, value };
 }
 
-/**
- * Converts a `PocketPayError` into a `FailureResult`.
- *
- * @param error - The `PocketPayError` to wrap
- * @returns A `FailureResult` with `ok: false`
- *
- * @example
- * ```ts
- * catch (err) {
- *   return toFailureResult(err instanceof PocketPayError ? err : wrapError(err, 'context', 'CODE'));
- * }
- * ```
- */
 export function toFailureResult(error: PocketPayError): FailureResult {
   return { ok: false, error };
 }
 
-/**
- * Wraps a `Promise`-returning thunk and returns a `PocketPayResult<T>`
- * instead of throwing. Any error that is not already a `PocketPayError`
- * is normalised via {@link wrapError}.
- *
- * This is the low-level building block used by the `safe*` helpers below.
- * You can use it to wrap any SDK call in one line:
- *
- * @example
- * ```ts
- * const result = await toResult(() => sendXLM(params, config));
- * if (result.ok) {
- *   console.log('tx hash:', result.value.hash);
- * } else {
- *   console.error(result.error.code);
- * }
- * ```
- */
 export async function toResult<T>(
   fn: () => Promise<T>,
   errorContext?: string,
@@ -230,14 +168,6 @@ export async function toResult<T>(
 }
 
 // ─── Safe Wrappers ──────────────────────────────────────────────────────────
-//
-// These functions mirror the core SDK APIs but return PocketPayResult<T>
-// instead of throwing. Existing throwing APIs are unchanged and still work
-// exactly as before — these are purely additive alternatives for consumers
-// that prefer explicit error handling over try/catch.
-//
-// Import the underlying functions directly rather than going through the
-// barrel to avoid circular-dependency issues at the utils layer.
 
 import { getBalance, fundTestnetAccount } from '../wallet';
 import { sendXLM } from '../payments';
@@ -252,13 +182,6 @@ import {
   SDKConfig,
 } from '../types';
 
-/**
- * Non-throwing alternative to {@link getBalance}.
- *
- * @param publicKey - Stellar public key (G...)
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<AccountBalance>` — never throws
- */
 export async function safeGetBalance(
   publicKey: string,
   config?: Partial<SDKConfig>
@@ -266,25 +189,12 @@ export async function safeGetBalance(
   return toResult(() => getBalance(publicKey, config), 'Failed to fetch balance', 'BALANCE_ERROR');
 }
 
-/**
- * Non-throwing alternative to {@link fundTestnetAccount}.
- *
- * @param publicKey - Stellar public key (G...) to fund
- * @returns `PocketPayResult<FundResult>` — never throws
- */
 export async function safeFundTestnetAccount(
   publicKey: string
 ): Promise<PocketPayResult<FundResult>> {
   return toResult(() => fundTestnetAccount(publicKey), 'Failed to fund testnet account', 'FUND_ERROR');
 }
 
-/**
- * Non-throwing alternative to {@link sendXLM}.
- *
- * @param params - Payment parameters
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<PaymentResult>` — never throws
- */
 export async function safeSendXLM(
   params: SendXLMParams,
   config?: Partial<SDKConfig>

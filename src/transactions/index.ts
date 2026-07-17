@@ -6,8 +6,8 @@
 
 import { getHorizonServer } from '../config';
 import {
-  TransactionRecord, TransactionList,
-  PaymentRecord, PaymentList,
+  TransactionSummary, TransactionList,
+  PaymentSummary, PaymentList,
   PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, wrapError } from '../utils';
@@ -19,7 +19,7 @@ import { validatePublicKey, wrapError } from '../utils';
  * @param limit - Max number of records (default: 10, max: 200)
  * @param order - Sort order (default: "desc" = newest first)
  * @param config - Optional SDK config overrides
- * @returns Paginated transaction list
+ * @returns Paginated transaction list of {@link TransactionSummary} records
  */
 export async function getTransactions(
   publicKey: string,
@@ -39,7 +39,7 @@ export async function getTransactions(
       .order(order)
       .call();
 
-    const records: TransactionRecord[] = page.records.map((tx: any) => ({
+    const records: TransactionSummary[] = page.records.map((tx: any) => ({
       hash: tx.hash,
       ledger: tx.ledger,
       createdAt: tx.created_at,
@@ -49,9 +49,14 @@ export async function getTransactions(
       successful: tx.successful,
       memo: tx.memo || undefined,
       memoType: tx.memo_type,
+      pagingToken: tx.paging_token,
     }));
 
-    return { records, count: records.length };
+    return {
+      records,
+      count: records.length,
+      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
+    };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {
       throw new PocketPayError(
@@ -70,7 +75,7 @@ export async function getTransactions(
  * @param limit - Max number of records (default: 10, max: 200)
  * @param order - Sort order (default: "desc" = newest first)
  * @param config - Optional SDK config overrides
- * @returns Paginated payment list
+ * @returns Paginated payment list of {@link PaymentSummary} records
  */
 export async function getPayments(
   publicKey: string,
@@ -90,7 +95,7 @@ export async function getPayments(
       .order(order)
       .call();
 
-    const records: PaymentRecord[] = page.records
+    const records: PaymentSummary[] = page.records
       .filter((op: any) =>
         ['payment', 'create_account', 'path_payment_strict_send', 'path_payment_strict_receive'].includes(op.type)
       )
@@ -104,9 +109,14 @@ export async function getPayments(
         amount: op.amount || op.starting_balance || '0',
         asset: op.asset_type === 'native' ? 'XLM' : (op.asset_code || 'XLM'),
         assetIssuer: op.asset_issuer || '',
+        pagingToken: op.paging_token,
       }));
 
-    return { records, count: records.length };
+    return {
+      records,
+      count: records.length,
+      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
+    };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {
       throw new PocketPayError(
