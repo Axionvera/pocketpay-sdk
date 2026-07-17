@@ -27,9 +27,11 @@ const EXPECTED_PUBLIC_EXPORTS = [
   'depositToVault',
   'withdrawFromVault',
   'getVaultBalance',
-  // config
+// config
   'resolveConfig',
   'getHorizonServer',
+  'setHorizonServerFactory',
+  'resetHorizonServerFactory',
   'getNetworkPassphrase',
   'getFriendbotUrl',
   // utils

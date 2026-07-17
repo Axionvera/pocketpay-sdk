@@ -191,7 +191,42 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
   return { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
 }
 /**
+ * Factory used to construct Horizon server instances. Defaults to a real
+ * Horizon server. Tests can override this via {@link setHorizonServerFactory}
+ * to run offline without live network calls, then restore the default with
+ * {@link resetHorizonServerFactory}. Production code never needs to touch it.
+ */
+type HorizonServerFactory = (url: string) => StellarSDK.Horizon.Server;
+
+const defaultHorizonServerFactory: HorizonServerFactory = (url) =>
+  new StellarSDK.Horizon.Server(url);
+
+let horizonServerFactory: HorizonServerFactory = defaultHorizonServerFactory;
+
+/**
+ * Overrides the Horizon server factory. Intended for tests, so SDK modules
+ * can be exercised against a mock Horizon client instead of a live server.
+ *
+ * @param factory - A function that returns a Horizon.Server-like object for a URL
+ */
+export function setHorizonServerFactory(factory: HorizonServerFactory): void {
+  horizonServerFactory = factory;
+}
+
+/**
+ * Restores the default factory that builds a real Horizon server.
+ * Call this in test teardown to avoid leaking a mock between test files.
+ */
+export function resetHorizonServerFactory(): void {
+  horizonServerFactory = defaultHorizonServerFactory;
+}
+
+/**
  * Creates a configured Horizon server instance.
+ *
+ * By default this returns a real Horizon server. In tests, the instance is
+ * produced by whatever factory was installed via {@link setHorizonServerFactory},
+ * which is how SDK modules are tested offline.
  *
  * @param config - Optional SDK config (resolved automatically if omitted)
  * @returns Horizon.Server instance
@@ -201,7 +236,7 @@ export function getHorizonServer(
   config?: Partial<SDKConfig>
 ): StellarSDK.Horizon.Server {
   const resolved = resolveConfig(config);
-  return new StellarSDK.Horizon.Server(resolved.horizonUrl);
+  return horizonServerFactory(resolved.horizonUrl);
 }
 /**
  * Returns the network passphrase for the configured network.
