@@ -7,6 +7,7 @@ import {
   validatePublicKey,
   validateSecretKey,
   validateAmount,
+  validateMemo,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
@@ -42,11 +43,19 @@ describe('Utils Module', () => {
     });
   });
 
-  describe('validateAmount', () => {
+describe('validateAmount', () => {
     it('should accept valid amounts', () => {
       expect(validateAmount('10')).toBe(true);
       expect(validateAmount('0.001')).toBe(true);
       expect(validateAmount('100.1234567')).toBe(true);
+    });
+
+    it('should accept the smallest valid amount (7 decimals)', () => {
+      expect(validateAmount('0.0000001')).toBe(true);
+    });
+
+    it('should accept a normal valid amount', () => {
+      expect(validateAmount('1234.5')).toBe(true);
     });
 
     it('should reject zero', () => {
@@ -61,8 +70,86 @@ describe('Utils Module', () => {
       expect(() => validateAmount('abc')).toThrow(PocketPayError);
     });
 
+    it('should reject empty string', () => {
+      expect(() => validateAmount('')).toThrow(PocketPayError);
+    });
+
+    it('should reject whitespace-only', () => {
+      expect(() => validateAmount('   ')).toThrow(PocketPayError);
+    });
+
+    it('should reject numbers with trailing garbage', () => {
+      expect(() => validateAmount('10abc')).toThrow(PocketPayError);
+    });
+
+    it('should reject scientific notation', () => {
+      expect(() => validateAmount('1e3')).toThrow(PocketPayError);
+    });
+
+    it('should reject Infinity', () => {
+      expect(() => validateAmount('Infinity')).toThrow(PocketPayError);
+    });
+
+    it('should reject amounts with leading/trailing whitespace', () => {
+      expect(() => validateAmount('  10  ')).toThrow(PocketPayError);
+    });
+
     it('should reject amounts with too many decimals', () => {
       expect(() => validateAmount('1.12345678')).toThrow(PocketPayError);
+    });
+
+    it('should throw INVALID_AMOUNT_PRECISION for over-precision', () => {
+      expect(() => validateAmount('1.12345678')).toThrow(
+        expect.objectContaining({ code: 'INVALID_AMOUNT_PRECISION' })
+      );
+    });
+  });
+
+  describe('validateMemo', () => {
+    it('should accept an undefined memo', () => {
+      expect(validateMemo(undefined)).toBe(true);
+    });
+
+    it('should accept an empty string memo', () => {
+      expect(validateMemo('')).toBe(true);
+    });
+
+    it('should accept a valid short memo', () => {
+      expect(validateMemo('Invoice #1234')).toBe(true);
+    });
+
+    it('should accept a memo exactly at the 28-byte limit', () => {
+      const memo = 'a'.repeat(28);
+      expect(validateMemo(memo)).toBe(true);
+    });
+
+    it('should reject a memo exceeding 28 bytes', () => {
+      const memo = 'This memo is way too long and exceeds the twenty eight byte limit!';
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
+      expect(() => validateMemo(memo)).toThrow('Memo text exceeds 28-byte limit');
+    });
+
+    it('should reject a memo one byte over the limit', () => {
+      const memo = 'a'.repeat(29);
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
+    });
+
+    it('should measure Unicode memos by byte length, not character length', () => {
+      // Each '🚀' is 4 bytes in UTF-8, so 7 of them is 28 bytes — right at the limit.
+      const atLimit = '🚀'.repeat(7);
+      expect(Buffer.byteLength(atLimit, 'utf-8')).toBe(28);
+      expect(validateMemo(atLimit)).toBe(true);
+
+      // 8 of them is 32 bytes — over the limit, even though it's only 8 characters.
+      const overLimit = '🚀'.repeat(8);
+      expect(() => validateMemo(overLimit)).toThrow(PocketPayError);
+    });
+
+    it('should reject accented/multi-byte Unicode memos that exceed the byte limit', () => {
+      // 'é' is 2 bytes in UTF-8; 15 of them is 30 bytes, over the 28-byte limit,
+      // despite being only 15 characters.
+      const memo = 'é'.repeat(15);
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
     });
   });
 
@@ -241,4 +328,42 @@ describe('Utils Module', () => {
       });
     });
   });
+
+  it('should reject empty string', () => {
+      expect(() => validateAmount('')).toThrow(PocketPayError);
+    });
+
+    it('should reject whitespace-only', () => {
+      expect(() => validateAmount('   ')).toThrow(PocketPayError);
+    });
+
+    it('should reject numbers with trailing garbage', () => {
+      expect(() => validateAmount('10abc')).toThrow(PocketPayError);
+    });
+
+    it('should reject scientific notation', () => {
+      expect(() => validateAmount('1e3')).toThrow(PocketPayError);
+    });
+
+    it('should reject Infinity', () => {
+      expect(() => validateAmount('Infinity')).toThrow(PocketPayError);
+    });
+
+    it('should reject amounts with leading/trailing whitespace', () => {
+      expect(() => validateAmount('  10  ')).toThrow(PocketPayError);
+    });
+
+    it('should accept the smallest valid amount (7 decimals)', () => {
+      expect(validateAmount('0.0000001')).toBe(true);
+    });
+
+    it('should accept a normal valid amount', () => {
+      expect(validateAmount('1234.5')).toBe(true);
+    });
+
+    it('should reject INVALID_AMOUNT_PRECISION code for over-precision', () => {
+      expect(() => validateAmount('1.12345678')).toThrow(
+        expect.objectContaining({ code: 'INVALID_AMOUNT_PRECISION' })
+      );
+    });
 });

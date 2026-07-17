@@ -6,9 +6,8 @@
 
 import { getHorizonServer } from '../config';
 import {
-  TransactionRecord, TransactionList,
-  PaymentRecord, PaymentList,
-  PaginationOptions,
+  TransactionSummary, TransactionList,
+  PaymentSummary, PaymentList,
   PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, wrapError } from '../utils';
@@ -57,10 +56,10 @@ function normalizePaginationArgs(
  * ```
  *
  * @param publicKey - Stellar public key (G...)
- * @param limitOrOptions - Either a max record count (legacy), or a {@link PaginationOptions} object
- * @param orderOrConfig - Sort order (legacy form), or SDK config overrides (options-object form)
- * @param maybeConfig - SDK config overrides (legacy form only)
- * @returns Paginated transaction list, including a `cursor` for fetching the next page
+ * @param limit - Max number of records (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns Paginated transaction list of {@link TransactionSummary} records
  */
 export async function getTransactions(
   publicKey: string,
@@ -91,7 +90,7 @@ export async function getTransactions(
 
     const page = await callBuilder.call();
 
-    const records: TransactionRecord[] = page.records.map((tx: any) => ({
+    const records: TransactionSummary[] = page.records.map((tx: any) => ({
       hash: tx.hash,
       ledger: tx.ledger,
       createdAt: tx.created_at,
@@ -104,13 +103,10 @@ export async function getTransactions(
       pagingToken: tx.paging_token,
     }));
 
-    const lastRecord = records[records.length - 1];
-
     return {
       records,
       count: records.length,
-      cursor: lastRecord?.pagingToken,
-      hasMore: records.length === clampedLimit,
+      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
     };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {
@@ -139,10 +135,10 @@ export async function getTransactions(
  * ```
  *
  * @param publicKey - Stellar public key (G...)
- * @param limitOrOptions - Either a max record count (legacy), or a {@link PaginationOptions} object
- * @param orderOrConfig - Sort order (legacy form), or SDK config overrides (options-object form)
- * @param maybeConfig - SDK config overrides (legacy form only)
- * @returns Paginated payment list, including a `cursor` for fetching the next page
+ * @param limit - Max number of records (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns Paginated payment list of {@link PaymentSummary} records
  */
 export async function getPayments(
   publicKey: string,
@@ -173,7 +169,7 @@ export async function getPayments(
 
     const page = await callBuilder.call();
 
-    const records: PaymentRecord[] = page.records
+    const records: PaymentSummary[] = page.records
       .filter((op: any) =>
         ['payment', 'create_account', 'path_payment_strict_send', 'path_payment_strict_receive'].includes(op.type)
       )
@@ -190,13 +186,10 @@ export async function getPayments(
         pagingToken: op.paging_token,
       }));
 
-    const lastRecord = records[records.length - 1];
-
     return {
       records,
       count: records.length,
-      cursor: lastRecord?.pagingToken,
-      hasMore: records.length === clampedLimit,
+      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
     };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {

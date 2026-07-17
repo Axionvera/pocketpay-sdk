@@ -1,211 +1,234 @@
 /**
- * Tests for the Transactions module — getTransactions / getPayments,
- * including cursor-based pagination support.
+ * Tests for getTransactions and getPayments — mocked Horizon responses.
  *
- * The Horizon server is fully mocked (via ../src/config's getHorizonServer)
- * so these tests run deterministically and offline.
+ * Verifies that raw Horizon records are mapped into the SDK's typed
+ * TransactionSummary / PaymentSummary models, including pagingToken and the
+ * list-level nextCursor. No real network calls are made; the Horizon server's
+ * transaction/payment query builders are stubbed via vi.mock.
  */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getTransactions, getPayments, PocketPayError } from '../src';
-import { transactionList, paymentList } from './fixtures';
+import { getTransactions, getPayments, createWallet, PocketPayError } from '../src';
 
-vi.mock('../src/config', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/config')>();
+// ─── Mock @stellar/stellar-sdk ───────────────────────────────────────────────
+// Stub Horizon.Server so the transaction/payment builder chain is controllable
+// offline. Keypair, Networks, etc. remain real via importActual, so
+// createWallet() still produces valid keys.
+const mockTxCall = vi.fn();
+const mockPayCall = vi.fn();
+
+function makeChain(callFn: ReturnType<typeof vi.fn>) {
+  const chain: any = {
+    forAccount: () => chain,
+    limit: () => chain,
+    order: () => chain,
+    call: callFn,
+  };
+  return chain;
+}
+
+vi.mock('@stellar/stellar-sdk', async (importActual) => {
+  const actual = await importActual<typeof import('@stellar/stellar-sdk')>();
   return {
     ...actual,
-    getHorizonServer: vi.fn(),
+    Horizon: {
+      ...actual.Horizon,
+      Server: vi.fn().mockImplementation(() => ({
+        transactions: () => makeChain(mockTxCall),
+        payments: () => makeChain(mockPayCall),
+      })),
+    },
   };
 });
 
-import { getHorizonServer } from '../src/config';
+// ─── Horizon response fixtures ───────────────────────────────────────────────
 
-const TEST_PUBLIC_KEY = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
-
-/** Builds a chainable Horizon CallBuilder mock that resolves to a page shaped
- *  like what @stellar/stellar-sdk's CallBuilder.call() actually returns
- *  (a flat `.records` array, not the raw HAL `_embedded.records` body). */
-function makeCallBuilder(fixture: { _embedded: { records: unknown[] } } | { records: unknown[] }) {
-  const page = '_embedded' in fixture ? { records: fixture._embedded.records } : fixture;
-  const builder: any = {};
-  builder.forAccount = vi.fn(() => builder);
-  builder.limit = vi.fn(() => builder);
-  builder.order = vi.fn(() => builder);
-  builder.cursor = vi.fn(() => builder);
-  builder.call = vi.fn(() => Promise.resolve(page));
-  return builder;
+function makeHorizonTxPage() {
+  return {
+    records: [
+      {
+        hash: 'txhash1',
+        ledger: 5000000,
+        created_at: '2024-01-15T10:30:00Z',
+        source_account: 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H',
+        fee_charged: '100',
+        operation_count: 1,
+        successful: true,
+        memo: 'hello',
+        memo_type: 'text',
+        paging_token: '123456789',
+      },
+      {
+        hash: 'txhash2',
+        ledger: 5000001,
+        created_at: '2024-01-15T11:00:00Z',
+        source_account: 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H',
+        fee_charged: '100',
+        operation_count: 2,
+        successful: true,
+        memo_type: 'none',
+        paging_token: '123456790',
+      },
+    ],
+  };
 }
 
-/** Builds a chainable CallBuilder mock whose .call() rejects (e.g. 404). */
-function makeFailingCallBuilder(error: unknown) {
-  const builder: any = {};
-  builder.forAccount = vi.fn(() => builder);
-  builder.limit = vi.fn(() => builder);
-  builder.order = vi.fn(() => builder);
-  builder.cursor = vi.fn(() => builder);
-  builder.call = vi.fn(() => Promise.reject(error));
-  return builder;
+function makeHorizonPaymentPage() {
+  return {
+    records: [
+      {
+        id: 'op1',
+        transaction_hash: 'txhash1',
+        type: 'payment',
+        created_at: '2024-01-15T10:30:00Z',
+        from: 'GSENDER00000000000000000000000000000000000000000000000000',
+        to: 'GRECEIVER0000000000000000000000000000000000000000000000000',
+        amount: '10.5000000',
+        asset_type: 'native',
+        paging_token: '987654321',
+      },
+      {
+        id: 'op2',
+        transaction_hash: 'txhash2',
+        type: 'create_account',
+        created_at: '2024-01-15T11:00:00Z',
+        funder: 'GFUNDER00000000000000000000000000000000000000000000000000',
+        account: 'GNEWACCT00000000000000000000000000000000000000000000000000',
+        starting_balance: '5.0000000',
+        asset_type: 'native',
+        paging_token: '987654322',
+      },
+      {
+        // non-payment op type — should be filtered out
+        id: 'op3',
+        transaction_hash: 'txhash3',
+        type: 'manage_data',
+        created_at: '2024-01-15T11:30:00Z',
+        paging_token: '987654323',
+      },
+    ],
+  };
 }
 
-describe('Transactions Module', () => {
+function makeHorizon404Error() {
+  const err = new Error('not found') as any;
+  err.response = { status: 404 };
+  return err;
+}
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+describe('Transactions Module - getTransactions', () => {
+  const account = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockTxCall.mockReset();
   });
 
-  describe('getTransactions', () => {
-    it('accepts the legacy positional (limit, order) form', async () => {
-      const txBuilder = makeCallBuilder(transactionList);
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, 2, 'asc');
-
-      expect(txBuilder.limit).toHaveBeenCalledWith(2);
-      expect(txBuilder.order).toHaveBeenCalledWith('asc');
-      expect(txBuilder.cursor).not.toHaveBeenCalled();
-      expect(result.records).toHaveLength(2);
-    });
-
-    it('accepts a pagination-options object', async () => {
-      const txBuilder = makeCallBuilder(transactionList);
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, { limit: 2, order: 'desc', cursor: '123456789' });
-
-      expect(txBuilder.limit).toHaveBeenCalledWith(2);
-      expect(txBuilder.order).toHaveBeenCalledWith('desc');
-      expect(txBuilder.cursor).toHaveBeenCalledWith('123456789');
-      expect(result.records).toHaveLength(2);
-    });
-
-    it('does not call .cursor() when no cursor is provided', async () => {
-      const txBuilder = makeCallBuilder(transactionList);
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      await getTransactions(TEST_PUBLIC_KEY, { limit: 10 });
-
-      expect(txBuilder.cursor).not.toHaveBeenCalled();
-    });
-
-    it('returns older records via cursor (paging_token) mapped from each record', async () => {
-      const txBuilder = makeCallBuilder(transactionList);
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, { limit: 2 });
-
-      expect(result.records[0].pagingToken).toBe('123456789');
-      expect(result.records[1].pagingToken).toBe('123456790');
-      // cursor should be the paging token of the last record in the page,
-      // ready to be passed back in to fetch the next page.
-      expect(result.cursor).toBe('123456790');
-    });
-
-    it('sets hasMore: true when the page is full', async () => {
-      const txBuilder = makeCallBuilder(transactionList); // 2 fixture records
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, { limit: 2 });
-
-      expect(result.hasMore).toBe(true);
-    });
-
-    it('sets hasMore: false when the page is not full', async () => {
-      const txBuilder = makeCallBuilder(transactionList); // 2 fixture records
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, { limit: 10 });
-
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('returns cursor: undefined and hasMore: false when there are no records', async () => {
-      const emptyBuilder = makeCallBuilder({ _embedded: { records: [] } });
-      (getHorizonServer as any).mockReturnValue({ transactions: () => emptyBuilder });
-
-      const result = await getTransactions(TEST_PUBLIC_KEY, { limit: 10 });
-
-      expect(result.records).toHaveLength(0);
-      expect(result.cursor).toBeUndefined();
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('clamps limit to 200 and to a minimum of 1', async () => {
-      const txBuilder = makeCallBuilder(transactionList);
-      (getHorizonServer as any).mockReturnValue({ transactions: () => txBuilder });
-
-      await getTransactions(TEST_PUBLIC_KEY, { limit: 999 });
-      expect(txBuilder.limit).toHaveBeenCalledWith(200);
-
-      await getTransactions(TEST_PUBLIC_KEY, { limit: -5 });
-      expect(txBuilder.limit).toHaveBeenCalledWith(1);
-    });
-
-    it('throws ACCOUNT_NOT_FOUND for a 404 response', async () => {
-      const failingBuilder = makeFailingCallBuilder({ response: { status: 404 } });
-      (getHorizonServer as any).mockReturnValue({ transactions: () => failingBuilder });
-
-      await expect(getTransactions(TEST_PUBLIC_KEY)).rejects.toThrow(PocketPayError);
-      await expect(getTransactions(TEST_PUBLIC_KEY)).rejects.toThrow(/Account not found/);
-    });
-
-    it('rejects an invalid public key before hitting the network', async () => {
-      await expect(getTransactions('NOT-A-KEY')).rejects.toThrow(PocketPayError);
+  it('maps Horizon records to TransactionSummary fields', async () => {
+    mockTxCall.mockResolvedValue(makeHorizonTxPage());
+    const result = await getTransactions(account);
+    expect(result.count).toBe(2);
+    const first = result.records[0];
+    expect(first).toEqual({
+      hash: 'txhash1',
+      ledger: 5000000,
+      createdAt: '2024-01-15T10:30:00Z',
+      sourceAccount: account,
+      fee: '100',
+      operationCount: 1,
+      successful: true,
+      memo: 'hello',
+      memoType: 'text',
+      pagingToken: '123456789',
     });
   });
 
-  describe('getPayments', () => {
-    it('accepts the legacy positional (limit, order) form', async () => {
-      const payBuilder = makeCallBuilder(paymentList);
-      (getHorizonServer as any).mockReturnValue({ payments: () => payBuilder });
+  it('maps a missing memo to undefined', async () => {
+    mockTxCall.mockResolvedValue(makeHorizonTxPage());
+    const result = await getTransactions(account);
+    expect(result.records[1].memo).toBeUndefined();
+  });
 
-      const result = await getPayments(TEST_PUBLIC_KEY, 2, 'asc');
+  it('sets nextCursor to the last record paging token', async () => {
+    mockTxCall.mockResolvedValue(makeHorizonTxPage());
+    const result = await getTransactions(account);
+    expect(result.nextCursor).toBe('123456790');
+  });
 
-      expect(payBuilder.limit).toHaveBeenCalledWith(2);
-      expect(payBuilder.order).toHaveBeenCalledWith('asc');
-      expect(payBuilder.cursor).not.toHaveBeenCalled();
-      expect(result.records).toHaveLength(2);
+  it('sets nextCursor undefined for an empty page', async () => {
+    mockTxCall.mockResolvedValue({ records: [] });
+    const result = await getTransactions(account);
+    expect(result.count).toBe(0);
+    expect(result.nextCursor).toBeUndefined();
+  });
+
+  it('rejects an invalid public key before any network call', async () => {
+    await expect(getTransactions('BADKEY')).rejects.toThrow(PocketPayError);
+    expect(mockTxCall).not.toHaveBeenCalled();
+  });
+
+  it('maps a Horizon 404 to ACCOUNT_NOT_FOUND', async () => {
+    mockTxCall.mockRejectedValue(makeHorizon404Error());
+    await expect(getTransactions(account)).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
+  });
+});
+
+describe('Transactions Module - getPayments', () => {
+  const account = 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H';
+
+  beforeEach(() => {
+    mockPayCall.mockReset();
+  });
+
+  it('maps Horizon payment records to PaymentSummary fields', async () => {
+    mockPayCall.mockResolvedValue(makeHorizonPaymentPage());
+    const result = await getPayments(account);
+    const first = result.records[0];
+    expect(first).toEqual({
+      id: 'op1',
+      transactionHash: 'txhash1',
+      type: 'payment',
+      createdAt: '2024-01-15T10:30:00Z',
+      from: 'GSENDER00000000000000000000000000000000000000000000000000',
+      to: 'GRECEIVER0000000000000000000000000000000000000000000000000',
+      amount: '10.5000000',
+      asset: 'XLM',
+      assetIssuer: '',
+      pagingToken: '987654321',
     });
+  });
 
-    it('accepts a pagination-options object with a cursor', async () => {
-      const payBuilder = makeCallBuilder(paymentList);
-      (getHorizonServer as any).mockReturnValue({ payments: () => payBuilder });
+  it('maps create_account funder/account/starting_balance correctly', async () => {
+    mockPayCall.mockResolvedValue(makeHorizonPaymentPage());
+    const result = await getPayments(account);
+    const second = result.records[1];
+    expect(second.type).toBe('create_account');
+    expect(second.from).toBe('GFUNDER00000000000000000000000000000000000000000000000000');
+    expect(second.to).toBe('GNEWACCT00000000000000000000000000000000000000000000000000');
+    expect(second.amount).toBe('5.0000000');
+  });
 
-      const result = await getPayments(TEST_PUBLIC_KEY, { limit: 2, cursor: '987654321' });
+  it('filters out non-payment operation types', async () => {
+    mockPayCall.mockResolvedValue(makeHorizonPaymentPage());
+    const result = await getPayments(account);
+    // 3 records in, manage_data filtered out → 2 records
+    expect(result.count).toBe(2);
+    expect(result.records.every(r => r.type !== 'manage_data')).toBe(true);
+  });
 
-      expect(payBuilder.cursor).toHaveBeenCalledWith('987654321');
-      expect(result.records).toHaveLength(2);
-    });
+  it('sets nextCursor to the last mapped record paging token', async () => {
+    mockPayCall.mockResolvedValue(makeHorizonPaymentPage());
+    const result = await getPayments(account);
+    expect(result.nextCursor).toBe('987654322');
+  });
 
-    it('maps paging_token onto each record and derives the next cursor', async () => {
-      const payBuilder = makeCallBuilder(paymentList);
-      (getHorizonServer as any).mockReturnValue({ payments: () => payBuilder });
+  it('rejects an invalid public key before any network call', async () => {
+    await expect(getPayments('BADKEY')).rejects.toThrow(PocketPayError);
+    expect(mockPayCall).not.toHaveBeenCalled();
+  });
 
-      const result = await getPayments(TEST_PUBLIC_KEY, { limit: 2 });
-
-      expect(result.records[0].pagingToken).toBe('987654321');
-      expect(result.records[1].pagingToken).toBe('987654322');
-      expect(result.cursor).toBe('987654322');
-    });
-
-    it('sets hasMore based on whether the page was full', async () => {
-      const payBuilder = makeCallBuilder(paymentList); // 2 fixture records
-      (getHorizonServer as any).mockReturnValue({ payments: () => payBuilder });
-
-      const full = await getPayments(TEST_PUBLIC_KEY, { limit: 2 });
-      expect(full.hasMore).toBe(true);
-
-      const notFull = await getPayments(TEST_PUBLIC_KEY, { limit: 50 });
-      expect(notFull.hasMore).toBe(false);
-    });
-
-    it('throws ACCOUNT_NOT_FOUND for a 404 response', async () => {
-      const failingBuilder = makeFailingCallBuilder({ response: { status: 404 } });
-      (getHorizonServer as any).mockReturnValue({ payments: () => failingBuilder });
-
-      await expect(getPayments(TEST_PUBLIC_KEY)).rejects.toThrow(PocketPayError);
-    });
-
-    it('rejects an invalid public key before hitting the network', async () => {
-      await expect(getPayments('NOT-A-KEY')).rejects.toThrow(PocketPayError);
-    });
+  it('maps a Horizon 404 to ACCOUNT_NOT_FOUND', async () => {
+    mockPayCall.mockRejectedValue(makeHorizon404Error());
+    await expect(getPayments(account)).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
   });
 });

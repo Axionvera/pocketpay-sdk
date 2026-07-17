@@ -128,26 +128,8 @@ export interface PaymentResult {
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 
-/**
- * Options for cursor-based pagination, accepted by {@link getTransactions}
- * and {@link getPayments} as an alternative to the legacy positional
- * `(limit, order)` arguments.
- */
-export interface PaginationOptions {
-  /** Max number of records to return (default: 10, max: 200) */
-  limit?: number;
-  /** Sort order (default: "desc" = newest first) */
-  order?: 'asc' | 'desc';
-  /**
-   * Paging token to resume from — pass the `cursor` (or a specific record's
-   * `pagingToken`) from a previous page's result to fetch the next page of
-   * older (or newer, depending on `order`) records.
-   */
-  cursor?: string;
-}
-
-/** A single transaction record */
-export interface TransactionRecord {
+/** A single transaction summary — the SDK's stable typed model for one transaction. */
+export interface TransactionSummary {
   /** Transaction hash */
   hash: string;
   /** Ledger number */
@@ -166,12 +148,16 @@ export interface TransactionRecord {
   memo?: string;
   /** Memo type */
   memoType: string;
-  /** Horizon paging token for this record — usable as a cursor */
+  /** Horizon paging token (cursor) for this record */
   pagingToken: string;
 }
-
-/** A single payment operation record */
-export interface PaymentRecord {
+/**
+ * @deprecated Use {@link TransactionSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type TransactionRecord = TransactionSummary;
+/** A single payment summary — the SDK's stable typed model for one payment operation. */
+export interface PaymentSummary {
   /** Operation ID */
   id: string;
   /** Transaction hash this operation belongs to */
@@ -190,48 +176,31 @@ export interface PaymentRecord {
   asset: string;
   /** Asset issuer (empty for native) */
   assetIssuer: string;
-  /** Horizon paging token for this record — usable as a cursor */
+  /** Horizon paging token (cursor) for this record */
   pagingToken: string;
 }
-
+/**
+ * @deprecated Use {@link PaymentSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type PaymentRecord = PaymentSummary;
 /** Paginated transaction list */
 export interface TransactionList {
-  /** Array of transaction records */
-  records: TransactionRecord[];
+  /** Array of transaction summaries */
+  records: TransactionSummary[];
   /** Number of records returned */
   count: number;
-  /**
-   * Cursor to pass back in as `cursor` to fetch the next page (older records
-   * when `order` is "desc", newer records when `order` is "asc").
-   * Undefined when there are no records.
-   */
-  cursor?: string;
-  /**
-   * True if this page was full (i.e. `count === limit`), suggesting more
-   * records may be available beyond this page. Not a guarantee — the next
-   * page could still come back empty.
-   */
-  hasMore: boolean;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
-
 /** Paginated payment list */
 export interface PaymentList {
-  /** Array of payment records */
-  records: PaymentRecord[];
+  /** Array of payment summaries */
+  records: PaymentSummary[];
   /** Number of records returned */
   count: number;
-  /**
-   * Cursor to pass back in as `cursor` to fetch the next page (older records
-   * when `order` is "desc", newer records when `order` is "asc").
-   * Undefined when there are no records.
-   */
-  cursor?: string;
-  /**
-   * True if this page was full (i.e. `count === limit`), suggesting more
-   * records may be available beyond this page. Not a guarantee — the next
-   * page could still come back empty.
-   */
-  hasMore: boolean;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
 
 // ─── Soroban / Vault ────────────────────────────────────────────────────────

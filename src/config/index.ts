@@ -4,32 +4,24 @@
  * Resolves Horizon and Soroban RPC endpoints based on the selected network.
  * Defaults to Stellar Testnet. Override via environment variables or programmatic config.
  */
-
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { SDKConfig, StellarNetwork } from '../types';
 import { PocketPayError } from '../types';
-
 // ─── Default URLs ───────────────────────────────────────────────────────────
-
 const HORIZON_URLS: Record<StellarNetwork, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
   mainnet: 'https://horizon.stellar.org',
 };
-
 const SOROBAN_RPC_URLS: Record<StellarNetwork, string> = {
   testnet: 'https://soroban-testnet.stellar.org',
   mainnet: 'https://soroban.stellar.org',
 };
-
 const NETWORK_PASSPHRASES: Record<StellarNetwork, string> = {
   testnet: StellarSDK.Networks.TESTNET,
   mainnet: StellarSDK.Networks.PUBLIC,
 };
-
 const FRIENDBOT_URL = 'https://friendbot.stellar.org';
-
 // ─── Validation ─────────────────────────────────────────────────────────────
-
 /**
  * Validates that a network name is supported.
  *
@@ -44,15 +36,15 @@ export function validateNetwork(network: unknown): asserts network is StellarNet
     );
   }
 }
-
 /**
  * Validates that a URL string is a valid HTTP(S) URL.
  *
  * @param url - The URL to validate
- * @param fieldName - Name of the field being validated (for error messages)
+ * @param fieldName - Human-readable field name (for error messages)
+ * @param errorCode - Machine-readable error code to attach on failure
  * @throws PocketPayError if URL is invalid
  */
-export function validateUrl(url: string, fieldName: string): void {
+export function validateUrl(url: string, fieldName: string, errorCode: string): void {
   try {
     const parsed = new URL(url);
     if (!parsed.protocol.startsWith('http')) {
@@ -61,11 +53,10 @@ export function validateUrl(url: string, fieldName: string): void {
   } catch (error) {
     throw new PocketPayError(
       `Invalid ${fieldName}: "${url}". Must be a valid HTTP(S) URL.`,
-      `INVALID_${fieldName.toUpperCase()}`
+      errorCode
     );
   }
 }
-
 /**
  * Validates Horizon URL format.
  *
@@ -73,9 +64,8 @@ export function validateUrl(url: string, fieldName: string): void {
  * @throws PocketPayError if URL is invalid
  */
 export function validateHorizonUrl(url: string): void {
-  validateUrl(url, 'Horizon URL');
+  validateUrl(url, 'Horizon URL', 'INVALID_HORIZON_URL');
 }
-
 /**
  * Validates Soroban RPC URL format.
  *
@@ -83,9 +73,8 @@ export function validateHorizonUrl(url: string): void {
  * @throws PocketPayError if URL is invalid
  */
 export function validateSorobanRpcUrl(url: string): void {
-  validateUrl(url, 'Soroban RPC URL');
+  validateUrl(url, 'Soroban RPC URL', 'INVALID_SOROBAN_RPC_URL');
 }
-
 /**
  * Validates timeout value.
  *
@@ -112,7 +101,6 @@ export function validateTimeout(timeout: unknown): asserts timeout is number {
     );
   }
 }
-
 /**
  * Validates Soroban contract ID format.
  * Contract IDs are 56-character base32-encoded strings starting with 'C'.
@@ -141,65 +129,104 @@ export function validateContractId(contractId: string): void {
     );
   }
 }
-
 // ─── Resolve Config ─────────────────────────────────────────────────────────
-
 /**
  * Resolves the SDK configuration by merging environment variables with defaults.
  *
  * Priority: explicit param > env var > default (testnet)
- * All configuration values are validated before returning.
+ * All configuration values are validated before returning. Values passed
+ * explicitly in `overrides` are validated as-is: an explicit `null`, empty
+ * string, or other invalid value is rejected rather than silently replaced
+ * by a default.
  *
  * @param overrides - Optional partial config to override defaults
  * @returns Fully resolved and validated SDK configuration
  * @throws PocketPayError if any configuration value is invalid
  */
 export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
+  // Network: an explicitly-provided value (including null) must be validated
+  // as-is; only undefined falls through to env var, then the testnet default.
   const network: unknown =
-    overrides?.network ??
-    process.env.STELLAR_NETWORK ??
-    'testnet';
-
-  // Validate network
+    overrides?.network !== undefined
+      ? overrides.network
+      : process.env.STELLAR_NETWORK ?? 'testnet';
   validateNetwork(network);
 
+  // Horizon URL: an explicitly-provided value (including '') is validated
+  // as-is; only undefined falls through to env var, then the network default.
   const horizonUrl =
-    overrides?.horizonUrl ||
-    process.env.STELLAR_HORIZON_URL ||
-    HORIZON_URLS[network];
-
-  // Validate Horizon URL
+    overrides?.horizonUrl !== undefined
+      ? overrides.horizonUrl
+      : process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[network];
   validateHorizonUrl(horizonUrl);
 
+  // Soroban RPC URL: same explicit-value semantics as Horizon URL.
   const sorobanRpcUrl =
-    overrides?.sorobanRpcUrl ||
-    process.env.STELLAR_SOROBAN_RPC_URL ||
-    SOROBAN_RPC_URLS[network];
-
-  // Validate Soroban RPC URL
+    overrides?.sorobanRpcUrl !== undefined
+      ? overrides.sorobanRpcUrl
+      : process.env.STELLAR_SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[network];
   validateSorobanRpcUrl(sorobanRpcUrl);
 
-  // Validate timeout if provided
-  const timeout = overrides?.timeout ?? (process.env.STELLAR_TIMEOUT
-    ? parseInt(process.env.STELLAR_TIMEOUT, 10)
-    : undefined);
-
+  // Timeout: validate only when provided.
+  const timeout =
+    overrides?.timeout ??
+    (process.env.STELLAR_TIMEOUT
+      ? parseInt(process.env.STELLAR_TIMEOUT, 10)
+      : undefined);
   if (timeout !== undefined) {
     validateTimeout(timeout);
   }
 
-  // Validate contract ID if provided
-  const contractId = overrides?.contractId || process.env.STELLAR_CONTRACT_ID;
-
+  // Contract ID: preserve an explicitly-provided value (including '').
+  // An empty string is a valid "no contract configured" sentinel and is
+  // passed through unvalidated; a non-empty value is validated.
+  const contractId =
+    overrides?.contractId !== undefined
+      ? overrides.contractId
+      : process.env.STELLAR_CONTRACT_ID;
   if (contractId !== undefined && contractId.length > 0) {
     validateContractId(contractId);
   }
 
   return { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
 }
+/**
+ * Factory used to construct Horizon server instances. Defaults to a real
+ * Horizon server. Tests can override this via {@link setHorizonServerFactory}
+ * to run offline without live network calls, then restore the default with
+ * {@link resetHorizonServerFactory}. Production code never needs to touch it.
+ */
+type HorizonServerFactory = (url: string) => StellarSDK.Horizon.Server;
+
+const defaultHorizonServerFactory: HorizonServerFactory = (url) =>
+  new StellarSDK.Horizon.Server(url);
+
+let horizonServerFactory: HorizonServerFactory = defaultHorizonServerFactory;
+
+/**
+ * Overrides the Horizon server factory. Intended for tests, so SDK modules
+ * can be exercised against a mock Horizon client instead of a live server.
+ *
+ * @param factory - A function that returns a Horizon.Server-like object for a URL
+ */
+export function setHorizonServerFactory(factory: HorizonServerFactory): void {
+  horizonServerFactory = factory;
+}
+
+/**
+ * Restores the default factory that builds a real Horizon server.
+ * Call this in test teardown to avoid leaking a mock between test files.
+ */
+export function resetHorizonServerFactory(): void {
+  horizonServerFactory = defaultHorizonServerFactory;
+}
 
 /**
  * Creates a configured Horizon server instance.
+ *
+ * By default this returns a real Horizon server. In tests, the instance is
+ * produced by whatever factory was installed via {@link setHorizonServerFactory},
+ * which is how SDK modules are tested offline.
  *
  * @param config - Optional SDK config (resolved automatically if omitted)
  * @returns Horizon.Server instance
@@ -209,9 +236,22 @@ export function getHorizonServer(
   config?: Partial<SDKConfig>
 ): StellarSDK.Horizon.Server {
   const resolved = resolveConfig(config);
-  return new StellarSDK.Horizon.Server(resolved.horizonUrl);
+  return horizonServerFactory(resolved.horizonUrl);
 }
 
+/**
+ * Returns the resolved Soroban RPC URL for the given (or ambient) config.
+ *
+ * Resolution follows the same precedence as {@link resolveConfig}:
+ * explicit override > STELLAR_SOROBAN_RPC_URL env var > network default.
+ *
+ * @param config - Optional SDK config (resolved automatically if omitted)
+ * @returns The resolved Soroban RPC URL
+ * @throws PocketPayError if configuration is invalid
+ */
+export function getSorobanRpcUrl(config?: Partial<SDKConfig>): string {
+  return resolveConfig(config).sorobanRpcUrl;
+}
 /**
  * Returns the network passphrase for the configured network.
  *
@@ -224,7 +264,6 @@ export function getNetworkPassphrase(network?: StellarNetwork): string {
   validateNetwork(resolvedNetwork);
   return NETWORK_PASSPHRASES[resolvedNetwork];
 }
-
 /**
  * Returns the Friendbot URL for testnet funding.
  *
@@ -233,7 +272,6 @@ export function getNetworkPassphrase(network?: StellarNetwork): string {
 export function getFriendbotUrl(): string {
   return FRIENDBOT_URL;
 }
-
 export {
   HORIZON_URLS,
   SOROBAN_RPC_URLS,
