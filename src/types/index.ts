@@ -128,8 +128,8 @@ export interface PaymentResult {
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 
-/** A single transaction record */
-export interface TransactionRecord {
+/** A single transaction summary — the SDK's stable typed model for one transaction. */
+export interface TransactionSummary {
   /** Transaction hash */
   hash: string;
   /** Ledger number */
@@ -148,10 +148,16 @@ export interface TransactionRecord {
   memo?: string;
   /** Memo type */
   memoType: string;
+  /** Horizon paging token (cursor) for this record */
+  pagingToken: string;
 }
-
-/** A single payment operation record */
-export interface PaymentRecord {
+/**
+ * @deprecated Use {@link TransactionSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type TransactionRecord = TransactionSummary;
+/** A single payment summary — the SDK's stable typed model for one payment operation. */
+export interface PaymentSummary {
   /** Operation ID */
   id: string;
   /** Transaction hash this operation belongs to */
@@ -170,22 +176,31 @@ export interface PaymentRecord {
   asset: string;
   /** Asset issuer (empty for native) */
   assetIssuer: string;
+  /** Horizon paging token (cursor) for this record */
+  pagingToken: string;
 }
-
+/**
+ * @deprecated Use {@link PaymentSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type PaymentRecord = PaymentSummary;
 /** Paginated transaction list */
 export interface TransactionList {
-  /** Array of transaction records */
-  records: TransactionRecord[];
+  /** Array of transaction summaries */
+  records: TransactionSummary[];
   /** Number of records returned */
   count: number;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
-
 /** Paginated payment list */
 export interface PaymentList {
-  /** Array of payment records */
-  records: PaymentRecord[];
+  /** Array of payment summaries */
+  records: PaymentSummary[];
   /** Number of records returned */
   count: number;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
 
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
