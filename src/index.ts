@@ -28,6 +28,9 @@ export type {
   VaultBalanceParams,
   VaultResult,
   FundResult,
+  SuccessResult,
+  FailureResult,
+  PocketPayResult,
 } from './types';
 
 export { PocketPayError } from './types';
@@ -72,4 +75,14 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Result helpers
+  toSuccessResult,
+  toFailureResult,
+  toResult,
+  // Safe (non-throwing) wrappers
+  safeGetBalance,
+  safeFundTestnetAccount,
+  safeSendXLM,
+  safeGetTransactions,
+  safeGetPayments,
 } from './utils';
