@@ -14,6 +14,7 @@ import {
   validateContractId,
   PocketPayError,
 } from '../src';
+import { getSorobanRpcUrl } from '../src/config';
 
 describe('Config Module', () => {
   const originalEnv = { ...process.env };
@@ -472,4 +473,29 @@ describe('Config Module', () => {
       expect(url).toBe('https://friendbot.stellar.org');
     });
   });
+
+  describe('getSorobanRpcUrl', () => {
+    it('should return the testnet Soroban RPC URL by default', () => {
+      delete process.env.STELLAR_NETWORK;
+      delete process.env.STELLAR_SOROBAN_RPC_URL;
+      expect(getSorobanRpcUrl()).toBe('https://soroban-testnet.stellar.org');
+    });
+
+    it('should return the mainnet Soroban RPC URL for mainnet', () => {
+      delete process.env.STELLAR_SOROBAN_RPC_URL;
+      expect(getSorobanRpcUrl({ network: 'mainnet' })).toBe('https://soroban.stellar.org');
+    });
+
+    it('should respect an explicit sorobanRpcUrl override', () => {
+      expect(
+        getSorobanRpcUrl({ sorobanRpcUrl: 'https://custom-soroban.example.org' })
+      ).toBe('https://custom-soroban.example.org');
+    });
+
+    it('should respect the STELLAR_SOROBAN_RPC_URL env var', () => {
+      process.env.STELLAR_SOROBAN_RPC_URL = 'https://env-soroban.example.org';
+      expect(getSorobanRpcUrl()).toBe('https://env-soroban.example.org');
+    });
+  });
 });
+
