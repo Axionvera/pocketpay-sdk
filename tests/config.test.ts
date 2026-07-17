@@ -420,7 +420,7 @@ describe('Config Module', () => {
     });
 
     it('should accept contract ID with base32 characters', () => {
-      const validId = 'CBZC2IJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV2RL5';
+      const validId = 'CBZC2IJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV2RL57';
       expect(() => validateContractId(validId)).not.toThrow();
     });
 

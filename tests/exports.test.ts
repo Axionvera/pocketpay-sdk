@@ -27,46 +27,61 @@ import type {
   WalletKeypair,
 } from '../src';
 
-const REQUIRED_PUBLIC_EXPORTS = {
-  wallet: [
-    'createWallet',
-    'importWallet',
-    'getPublicKey',
-    'getBalance',
-    'getBalanceOrUnfunded',
-    'fundTestnetAccount',
-  ],
-  payments: ['sendXLM'],
-  transactions: ['getTransactions', 'getPayments'],
-  soroban: ['depositToVault', 'withdrawFromVault', 'getVaultBalance'],
-  config: ['resolveConfig', 'getHorizonServer', 'getNetworkPassphrase', 'getFriendbotUrl'],
-  utilities: [
-    'validatePublicKey',
-    'validateSecretKey',
-    'validateAmount',
-    'stroopsToXLM',
-    'xlmToStroops',
-    'truncateAddress',
-    'toSuccessResult',
-    'toFailureResult',
-    'toResult',
-    'safeGetBalance',
-    'safeFundTestnetAccount',
-    'safeSendXLM',
-    'safeGetTransactions',
-    'safeGetPayments',
-  ],
-  errors: ['PocketPayError'],
-} as const;
+const EXPECTED_PUBLIC_EXPORTS = [
+  // errors
+  'PocketPayError',
+  // wallet
+  'createWallet',
+  'importWallet',
+  'getPublicKey',
+  'getBalance',
+  'fundTestnetAccount',
+  // payments
+  'sendXLM',
+  // transactions
+  'getTransactions',
+  'getPayments',
+  // soroban vault
+  'depositToVault',
+  'withdrawFromVault',
+  'getVaultBalance',
+  // config
+  'resolveConfig',
+  'getHorizonServer',
+  'getNetworkPassphrase',
+  'getFriendbotUrl',
+  // utils
+  'validatePublicKey',
+  'validateSecretKey',
+  'validateAmount',
+  'stroopsToXLM',
+  'xlmToStroops',
+  'truncateAddress',
+  // wallet (result-aware + safe)
+  'getBalanceOrUnfunded',
+  // config validators
+  'validateNetwork',
+  'validateHorizonUrl',
+  'validateSorobanRpcUrl',
+  'validateTimeout',
+  'validateContractId',
+  // memo validation
+  'validateMemo',
+  // result helpers
+  'toSuccessResult',
+  'toFailureResult',
+  'toResult',
+  // safe (non-throwing) wrappers
+  'safeGetBalance',
+  'safeFundTestnetAccount',
+  'safeSendXLM',
+  'safeGetTransactions',
+  'safeGetPayments',
+];
 
-const INTERNAL_ONLY = ['wrapError', 'sleep'] as const;
-
-function expectExported(name: string): void {
-  expect(
-    (PocketPay as Record<string, unknown>)[name],
-    `expected "${name}" to be exported from the package root`
-  ).toBeDefined();
-}
+// Helpers that exist internally (e.g. in src/utils) but should never be
+// exposed on the package root, since they're implementation details.
+const INTERNAL_ONLY = ['wrapError', 'sleep'];
 
 describe('Package root exports', () => {
   it('exports wallet helpers from the package root', () => {

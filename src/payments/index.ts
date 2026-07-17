@@ -7,7 +7,7 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase } from '../config';
 import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
+import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError } from '../utils';
 
 /**
  * Sends XLM from one account to another.
@@ -27,10 +27,7 @@ export async function sendXLM(
   validateSecretKey(sourceSecret);
   validatePublicKey(destination);
   validateAmount(amount);
-
-  if (memo && Buffer.byteLength(memo, 'utf-8') > 28) {
-    throw new PocketPayError('Memo text exceeds 28-byte limit', 'INVALID_MEMO');
-  }
+  validateMemo(memo);
 
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const sourcePublic = sourceKeypair.publicKey();
