@@ -4,6 +4,13 @@
   "description": "Reusable TypeScript SDK for Stellar PocketPay — wallet management, XLM payments, transaction history, and Soroban vault interactions on Stellar Testnet.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
@@ -13,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
+    "verify": "npm run lint && npm run test && npm run build",
     "prepublishOnly": "npm run build"
   },
   "repository": {

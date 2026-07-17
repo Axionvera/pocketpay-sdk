@@ -1,14 +1,6 @@
-/**
- * Tests for the Wallet module.
- */
-
 import { describe, it, expect } from 'vitest';
-import {
-  createWallet,
-  importWallet,
-  getPublicKey,
-  PocketPayError,
-} from '../src';
+import { createWallet, importWallet, getPublicKey, PocketPayError } from '../src';
+import { fundedAccount } from './fixtures';
 
 describe('Wallet Module', () => {
   describe('createWallet', () => {
@@ -55,6 +47,14 @@ describe('Wallet Module', () => {
 
     it('should throw for invalid secret key', () => {
       expect(() => getPublicKey('not-a-key')).toThrow(PocketPayError);
+    });
+  });
+
+  describe('fixture validation', () => {
+    it('fundedAccount fixture should have valid structure', () => {
+      expect(fundedAccount.account_id).toMatch(/^G[A-Z0-9]{55}$/);
+      expect(fundedAccount.balances.length).toBeGreaterThan(0);
+      expect(fundedAccount.signers.length).toBeGreaterThan(0);
     });
   });
 });

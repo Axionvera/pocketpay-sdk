@@ -17,6 +17,10 @@ export interface SDKConfig {
   horizonUrl: string;
   /** Soroban RPC URL (auto-resolved if omitted) */
   sorobanRpcUrl: string;
+  /** Request timeout in milliseconds (default: 30000) */
+  timeout?: number;
+  /** Soroban contract ID for vault operations (optional) */
+  contractId?: string;
 }
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
@@ -48,6 +52,45 @@ export interface AccountBalance {
   /** Native XLM balance (convenience shortcut) */
   nativeBalance: string;
 }
+
+// ─── Balance Result (discriminated union) ───────────────────────────────────
+
+/**
+ * Result of {@link getBalanceOrUnfunded} — a discriminated union on `status`.
+ *
+ * Use `result.status` to branch without try/catch:
+ * - `"funded"` — the account exists on-chain; `balance` is populated.
+ * - `"unfunded"` — Horizon returned 404; the account has never been funded.
+ *
+ * Any unexpected Horizon failure (5xx, network error, etc.) is still thrown
+ * as a {@link PocketPayError} so genuine errors are never silently swallowed.
+ *
+ * @example
+ * ```ts
+ * const result = await getBalanceOrUnfunded(wallet.publicKey);
+ * if (result.status === 'funded') {
+ *   console.log('XLM balance:', result.balance.nativeBalance);
+ * } else {
+ *   // result.status === 'unfunded'
+ *   console.log('Wallet not yet funded — call fundTestnetAccount()');
+ * }
+ * ```
+ */
+export type BalanceResult =
+  | {
+      /** Account exists and has been funded. */
+      status: 'funded';
+      /** The queried public key. */
+      publicKey: string;
+      /** Full account balance detail. */
+      balance: AccountBalance;
+    }
+  | {
+      /** Account does not exist on Horizon (never funded). */
+      status: 'unfunded';
+      /** The queried public key. */
+      publicKey: string;
+    };
 
 // ─── Payments ───────────────────────────────────────────────────────────────
 
@@ -300,6 +343,69 @@ export interface FundResult {
    */
   error?: string;
 }
+
+// ─── Result Wrappers ────────────────────────────────────────────────────────
+
+/**
+ * A typed success result. Returned by safe wrapper functions when an
+ * operation completes without throwing.
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result = await safeGetBalance(publicKey);
+ * if (result.ok) {
+ *   console.log(result.value.nativeBalance);
+ * }
+ * ```
+ */
+export interface SuccessResult<T> {
+  /** Always `true` — use this to narrow to `SuccessResult<T>` */
+  ok: true;
+  /** The successful return value */
+  value: T;
+}
+
+/**
+ * A typed failure result. Returned by safe wrapper functions when an
+ * operation throws. The original `PocketPayError` is always preserved.
+ *
+ * @example
+ * ```ts
+ * const result = await safeGetBalance(publicKey);
+ * if (!result.ok) {
+ *   console.error(result.error.code, result.error.message);
+ * }
+ * ```
+ */
+export interface FailureResult {
+  /** Always `false` — use this to narrow to `FailureResult` */
+  ok: false;
+  /** The `PocketPayError` that caused the failure */
+  error: PocketPayError;
+}
+
+/**
+ * A discriminated union of {@link SuccessResult} and {@link FailureResult}.
+ *
+ * Check the `ok` property to narrow to the correct variant:
+ * - `ok === true`  → `SuccessResult<T>` — access `.value`
+ * - `ok === false` → `FailureResult`    — access `.error`
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result: PocketPayResult<AccountBalance> = await safeGetBalance(key);
+ * if (result.ok) {
+ *   console.log(result.value.nativeBalance);
+ * } else {
+ *   console.error(result.error.code);
+ * }
+ * ```
+ */
+export type PocketPayResult<T> = SuccessResult<T> | FailureResult;
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
