@@ -50,7 +50,10 @@ npm install @axionvera/pocketpay-sdk
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
+- [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Vault Balance Example](./examples/vault-balance.ts) - Query a vault balance (read-only, no deposit needed)
+- [Vault Operations Example](./examples/vault-operations.ts) - Full deposit, balance check, and withdraw flow
 
 ## Package Root Imports
 
