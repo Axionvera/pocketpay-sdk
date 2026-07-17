@@ -8,7 +8,7 @@ import { getHorizonServer } from '../config';
 import {
   TransactionSummary, TransactionList,
   PaymentSummary, PaymentList,
-  PocketPayError, SDKConfig,
+  PocketPayError, SDKConfig, PaginationOptions,
 } from '../types';
 import { validatePublicKey, wrapError } from '../utils';
 
