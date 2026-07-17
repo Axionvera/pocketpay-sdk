@@ -255,6 +255,69 @@ export interface FundResult {
   error?: string;
 }
 
+// ─── Result Wrappers ────────────────────────────────────────────────────────
+
+/**
+ * A typed success result. Returned by safe wrapper functions when an
+ * operation completes without throwing.
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result = await safeGetBalance(publicKey);
+ * if (result.ok) {
+ *   console.log(result.value.nativeBalance);
+ * }
+ * ```
+ */
+export interface SuccessResult<T> {
+  /** Always `true` — use this to narrow to `SuccessResult<T>` */
+  ok: true;
+  /** The successful return value */
+  value: T;
+}
+
+/**
+ * A typed failure result. Returned by safe wrapper functions when an
+ * operation throws. The original `PocketPayError` is always preserved.
+ *
+ * @example
+ * ```ts
+ * const result = await safeGetBalance(publicKey);
+ * if (!result.ok) {
+ *   console.error(result.error.code, result.error.message);
+ * }
+ * ```
+ */
+export interface FailureResult {
+  /** Always `false` — use this to narrow to `FailureResult` */
+  ok: false;
+  /** The `PocketPayError` that caused the failure */
+  error: PocketPayError;
+}
+
+/**
+ * A discriminated union of {@link SuccessResult} and {@link FailureResult}.
+ *
+ * Check the `ok` property to narrow to the correct variant:
+ * - `ok === true`  → `SuccessResult<T>` — access `.value`
+ * - `ok === false` → `FailureResult`    — access `.error`
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result: PocketPayResult<AccountBalance> = await safeGetBalance(key);
+ * if (result.ok) {
+ *   console.log(result.value.nativeBalance);
+ * } else {
+ *   console.error(result.error.code);
+ * }
+ * ```
+ */
+export type PocketPayResult<T> = SuccessResult<T> | FailureResult;
+
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
 /** Custom SDK error with additional context */

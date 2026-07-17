@@ -5,7 +5,12 @@
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
-import { PocketPayError } from '../types';
+import {
+  PocketPayError,
+  SuccessResult,
+  FailureResult,
+  PocketPayResult,
+} from '../types';
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
@@ -152,4 +157,177 @@ export function wrapError(
  */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ─── Result Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Creates a `SuccessResult<T>` wrapping the given value.
+ *
+ * @param value - The successful result value
+ * @returns A `SuccessResult<T>` with `ok: true`
+ *
+ * @example
+ * ```ts
+ * return toSuccessResult(balance);
+ * // → { ok: true, value: balance }
+ * ```
+ */
+export function toSuccessResult<T>(value: T): SuccessResult<T> {
+  return { ok: true, value };
+}
+
+/**
+ * Converts a `PocketPayError` into a `FailureResult`.
+ *
+ * @param error - The `PocketPayError` to wrap
+ * @returns A `FailureResult` with `ok: false`
+ *
+ * @example
+ * ```ts
+ * catch (err) {
+ *   return toFailureResult(err instanceof PocketPayError ? err : wrapError(err, 'context', 'CODE'));
+ * }
+ * ```
+ */
+export function toFailureResult(error: PocketPayError): FailureResult {
+  return { ok: false, error };
+}
+
+/**
+ * Wraps a `Promise`-returning thunk and returns a `PocketPayResult<T>`
+ * instead of throwing. Any error that is not already a `PocketPayError`
+ * is normalised via {@link wrapError}.
+ *
+ * This is the low-level building block used by the `safe*` helpers below.
+ * You can use it to wrap any SDK call in one line:
+ *
+ * @example
+ * ```ts
+ * const result = await toResult(() => sendXLM(params, config));
+ * if (result.ok) {
+ *   console.log('tx hash:', result.value.hash);
+ * } else {
+ *   console.error(result.error.code);
+ * }
+ * ```
+ */
+export async function toResult<T>(
+  fn: () => Promise<T>,
+  errorContext?: string,
+  errorCode?: string
+): Promise<PocketPayResult<T>> {
+  try {
+    const value = await fn();
+    return toSuccessResult(value);
+  } catch (err) {
+    const pocketErr =
+      err instanceof PocketPayError
+        ? err
+        : wrapError(err, errorContext ?? 'Operation failed', errorCode ?? 'UNKNOWN_ERROR');
+    return toFailureResult(pocketErr);
+  }
+}
+
+// ─── Safe Wrappers ──────────────────────────────────────────────────────────
+//
+// These functions mirror the core SDK APIs but return PocketPayResult<T>
+// instead of throwing. Existing throwing APIs are unchanged and still work
+// exactly as before — these are purely additive alternatives for consumers
+// that prefer explicit error handling over try/catch.
+//
+// Import the underlying functions directly rather than going through the
+// barrel to avoid circular-dependency issues at the utils layer.
+
+import { getBalance, fundTestnetAccount } from '../wallet';
+import { sendXLM } from '../payments';
+import { getTransactions, getPayments } from '../transactions';
+import {
+  AccountBalance,
+  FundResult,
+  PaymentResult,
+  TransactionList,
+  PaymentList,
+  SendXLMParams,
+  SDKConfig,
+} from '../types';
+
+/**
+ * Non-throwing alternative to {@link getBalance}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<AccountBalance>` — never throws
+ */
+export async function safeGetBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<AccountBalance>> {
+  return toResult(() => getBalance(publicKey, config), 'Failed to fetch balance', 'BALANCE_ERROR');
+}
+
+/**
+ * Non-throwing alternative to {@link fundTestnetAccount}.
+ *
+ * @param publicKey - Stellar public key (G...) to fund
+ * @returns `PocketPayResult<FundResult>` — never throws
+ */
+export async function safeFundTestnetAccount(
+  publicKey: string
+): Promise<PocketPayResult<FundResult>> {
+  return toResult(() => fundTestnetAccount(publicKey), 'Failed to fund testnet account', 'FUND_ERROR');
+}
+
+/**
+ * Non-throwing alternative to {@link sendXLM}.
+ *
+ * @param params - Payment parameters
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentResult>` — never throws
+ */
+export async function safeSendXLM(
+  params: SendXLMParams,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<PaymentResult>> {
+  return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
+}
+
+/**
+ * Non-throwing alternative to {@link getTransactions}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<TransactionList>` — never throws
+ */
+export async function safeGetTransactions(
+  publicKey: string,
+  limit?: number,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<TransactionList>> {
+  return toResult(
+    () => getTransactions(publicKey, limit, config),
+    'Failed to fetch transactions',
+    'TRANSACTION_ERROR'
+  );
+}
+
+/**
+ * Non-throwing alternative to {@link getPayments}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentList>` — never throws
+ */
+export async function safeGetPayments(
+  publicKey: string,
+  limit?: number,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<PaymentList>> {
+  return toResult(
+    () => getPayments(publicKey, limit, config),
+    'Failed to fetch payments',
+    'PAYMENT_ERROR'
+  );
 }
