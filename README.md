@@ -1,6 +1,43 @@
 # PocketPay SDK
 
 Stellar-based payment SDK for the PocketPay ecosystem.
+# PocketPay SDK
+
+Stellar-based payment SDK for the PocketPay ecosystem.
+
+## Project Status
+
+This SDK is under active development and is **Testnet-focused**. Wallet
+creation, XLM payments, and transaction/payment history are implemented and
+tested against Stellar's public Testnet (Horizon + Friendbot).
+
+The Soroban savings-vault helpers (`depositToVault`, `withdrawFromVault`,
+`getVaultBalance`) are implemented in this SDK, but they call out to a
+separate savings-vault smart contract that must be deployed independently —
+see [Relationship to other repos](#relationship-to-other-repos) below. Treat
+the vault helpers as pre-release: their contract-call shape may still change
+as the contract itself evolves.
+
+Nothing in this SDK has been audited or hardened for Mainnet/production use.
+If you plan to use it beyond Testnet experimentation, review the code
+yourself first — don't treat this as production-ready as-is.
+
+## Relationship to other repos
+
+PocketPay is split across three repos, each with a distinct job:
+
+- **[Axionvera/pocketpay-sdk](.)** (this repo) — the TypeScript helper
+  library in this document: wallet management, payments, transaction
+  history, and Soroban vault call wrappers.
+- **[Axionvera/pocketpay-mobile](https://github.com/Axionvera/pocketpay-mobile)**
+  — the mobile app that consumes this SDK from its package root (see
+  [Quick Start](#quick-start) below) to power the actual PocketPay user
+  experience.
+- **[Axionvera/pocketpay-contracts](https://github.com/Axionvera/pocketpay-contracts)**
+  — the Soroban smart contracts, including the savings vault contract that
+  the vault helpers in this SDK call into. The vault helpers here are only
+  useful once a contract from that repo is deployed and its `VAULT_CONTRACT_ID`
+  is supplied to the SDK.
 
 ## Installation
 
