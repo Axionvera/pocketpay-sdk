@@ -296,17 +296,19 @@ export async function safeSendXLM(
  * Non-throwing alternative to {@link getTransactions}.
  *
  * @param publicKey - Stellar public key (G...)
- * @param limit - Maximum number of records to return
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
  * @param config - Optional SDK config overrides
  * @returns `PocketPayResult<TransactionList>` — never throws
  */
 export async function safeGetTransactions(
   publicKey: string,
   limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
-    () => getTransactions(publicKey, limit, config),
+    () => getTransactions(publicKey, limit, order, config),
     'Failed to fetch transactions',
     'TRANSACTION_ERROR'
   );
@@ -316,17 +318,19 @@ export async function safeGetTransactions(
  * Non-throwing alternative to {@link getPayments}.
  *
  * @param publicKey - Stellar public key (G...)
- * @param limit - Maximum number of records to return
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
  * @param config - Optional SDK config overrides
  * @returns `PocketPayResult<PaymentList>` — never throws
  */
 export async function safeGetPayments(
   publicKey: string,
   limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
-    () => getPayments(publicKey, limit, config),
+    () => getPayments(publicKey, limit, order, config),
     'Failed to fetch payments',
     'PAYMENT_ERROR'
   );
