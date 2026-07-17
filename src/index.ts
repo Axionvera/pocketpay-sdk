@@ -16,6 +16,7 @@ export type {
   WalletKeypair,
   AssetBalance,
   AccountBalance,
+  BalanceResult,
   SendXLMParams,
   PaymentResult,
   TransactionRecord,
@@ -27,6 +28,9 @@ export type {
   VaultBalanceParams,
   VaultResult,
   FundResult,
+  SuccessResult,
+  FailureResult,
+  PocketPayResult,
 } from './types';
 
 export { PocketPayError } from './types';
@@ -37,6 +41,7 @@ export {
   importWallet,
   getPublicKey,
   getBalance,
+  getBalanceOrUnfunded,
   fundTestnetAccount,
 } from './wallet';
 
@@ -55,6 +60,11 @@ export {
   getHorizonServer,
   getNetworkPassphrase,
   getFriendbotUrl,
+  validateNetwork,
+  validateHorizonUrl,
+  validateSorobanRpcUrl,
+  validateTimeout,
+  validateContractId,
 } from './config';
 
 // ─── Utils ──────────────────────────────────────────────────────────────────
@@ -66,4 +76,14 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Result helpers
+  toSuccessResult,
+  toFailureResult,
+  toResult,
+  // Safe (non-throwing) wrappers
+  safeGetBalance,
+  safeFundTestnetAccount,
+  safeSendXLM,
+  safeGetTransactions,
+  safeGetPayments,
 } from './utils';
