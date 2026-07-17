@@ -8,7 +8,7 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
 import {
   WalletKeypair, AccountBalance, AssetBalance,
-  FundResult, PocketPayError, SDKConfig,
+  BalanceResult, FundResult, PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
 
@@ -31,14 +31,19 @@ export function getPublicKey(secretKey: string): string {
   return StellarSDK.Keypair.fromSecret(secretKey).publicKey();
 }
 
-/** Fetches all asset balances for a Stellar account. */
-export async function getBalance(
+// ─── Private helpers ────────────────────────────────────────────────────────
+
+/**
+ * Internal: loads and maps Horizon balances for a public key.
+ * Throws PocketPayError with ACCOUNT_NOT_FOUND (status 404) if unfunded,
+ * or BALANCE_ERROR for any other failure.
+ */
+async function _loadAccountBalance(
   publicKey: string,
-  config?: Partial<SDKConfig>
+  config?: Partial<SDKConfig>,
 ): Promise<AccountBalance> {
-  validatePublicKey(publicKey);
+  const server = getHorizonServer(config);
   try {
-    const server = getHorizonServer(config);
     const account = await server.loadAccount(publicKey);
     const balances: AssetBalance[] = account.balances.map((bal: any) => {
       if (bal.asset_type === 'native') {
@@ -56,7 +61,7 @@ export async function getBalance(
     if (error instanceof Error && (error as any).response?.status === 404) {
       throw new PocketPayError(
         `Account not found: ${publicKey}. It may not be funded yet.`,
-        'ACCOUNT_NOT_FOUND', 404
+        'ACCOUNT_NOT_FOUND', 404,
       );
     }
     throw wrapError(error, 'Failed to fetch balance', 'BALANCE_ERROR');
