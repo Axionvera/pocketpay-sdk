@@ -203,6 +203,20 @@ export function getHorizonServer(
   const resolved = resolveConfig(config);
   return new StellarSDK.Horizon.Server(resolved.horizonUrl);
 }
+
+/**
+ * Returns the resolved Soroban RPC URL for the given (or ambient) config.
+ *
+ * Resolution follows the same precedence as {@link resolveConfig}:
+ * explicit override > STELLAR_SOROBAN_RPC_URL env var > network default.
+ *
+ * @param config - Optional SDK config (resolved automatically if omitted)
+ * @returns The resolved Soroban RPC URL
+ * @throws PocketPayError if configuration is invalid
+ */
+export function getSorobanRpcUrl(config?: Partial<SDKConfig>): string {
+  return resolveConfig(config).sorobanRpcUrl;
+}
 /**
  * Returns the network passphrase for the configured network.
  *
