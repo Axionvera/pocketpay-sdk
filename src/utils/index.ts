@@ -2,7 +2,7 @@
  * Stellar PocketPay SDK — Utility Helpers
  *
  * Shared validation, formatting, and conversion utilities.
- */
+ */ 
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
@@ -39,10 +39,20 @@ export function validateSecretKey(secretKey: string): boolean {
 }
 
 export function validateAmount(amount: string): boolean {
-  const num = parseFloat(amount);
-  if (isNaN(num) || num <= 0) {
+  // Must be a plain positive decimal string: digits, optionally one decimal
+  // point followed by digits. This rejects '', whitespace, '10abc', '1e3',
+  // 'Infinity', 'NaN', signs, and any other non-decimal input up front —
+  // parseFloat alone would accept many of these (e.g. parseFloat('10abc') === 10).
+  if (typeof amount !== 'string' || !/^\d+(\.\d+)?$/.test(amount)) {
     throw new PocketPayError(
-      `Invalid amount: "${amount}". Must be a positive number.`,
+      `Invalid amount: "${amount}". Must be a positive decimal string.`,
+      'INVALID_AMOUNT'
+    );
+  }
+  const num = parseFloat(amount);
+  if (num <= 0) {
+    throw new PocketPayError(
+      `Invalid amount: "${amount}". Must be greater than zero.`,
       'INVALID_AMOUNT'
     );
   }
