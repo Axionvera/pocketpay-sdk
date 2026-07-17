@@ -72,6 +72,7 @@ export {
   validatePublicKey,
   validateSecretKey,
   validateAmount,
+  validateMemo,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,

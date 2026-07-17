@@ -39,6 +39,26 @@ const EXPECTED_PUBLIC_EXPORTS = [
   'stroopsToXLM',
   'xlmToStroops',
   'truncateAddress',
+  // wallet (result-aware + safe)
+  'getBalanceOrUnfunded',
+  // config validators
+  'validateNetwork',
+  'validateHorizonUrl',
+  'validateSorobanRpcUrl',
+  'validateTimeout',
+  'validateContractId',
+  // memo validation
+  'validateMemo',
+  // result helpers
+  'toSuccessResult',
+  'toFailureResult',
+  'toResult',
+  // safe (non-throwing) wrappers
+  'safeGetBalance',
+  'safeFundTestnetAccount',
+  'safeSendXLM',
+  'safeGetTransactions',
+  'safeGetPayments',
 ];
 
 // Helpers that exist internally (e.g. in src/utils) but should never be

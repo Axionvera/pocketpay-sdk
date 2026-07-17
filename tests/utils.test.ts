@@ -7,6 +7,7 @@ import {
   validatePublicKey,
   validateSecretKey,
   validateAmount,
+  validateMemo,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
@@ -63,6 +64,54 @@ describe('Utils Module', () => {
 
     it('should reject amounts with too many decimals', () => {
       expect(() => validateAmount('1.12345678')).toThrow(PocketPayError);
+    });
+  });
+
+  describe('validateMemo', () => {
+    it('should accept an undefined memo', () => {
+      expect(validateMemo(undefined)).toBe(true);
+    });
+
+    it('should accept an empty string memo', () => {
+      expect(validateMemo('')).toBe(true);
+    });
+
+    it('should accept a valid short memo', () => {
+      expect(validateMemo('Invoice #1234')).toBe(true);
+    });
+
+    it('should accept a memo exactly at the 28-byte limit', () => {
+      const memo = 'a'.repeat(28);
+      expect(validateMemo(memo)).toBe(true);
+    });
+
+    it('should reject a memo exceeding 28 bytes', () => {
+      const memo = 'This memo is way too long and exceeds the twenty eight byte limit!';
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
+      expect(() => validateMemo(memo)).toThrow('Memo text exceeds 28-byte limit');
+    });
+
+    it('should reject a memo one byte over the limit', () => {
+      const memo = 'a'.repeat(29);
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
+    });
+
+    it('should measure Unicode memos by byte length, not character length', () => {
+      // Each '🚀' is 4 bytes in UTF-8, so 7 of them is 28 bytes — right at the limit.
+      const atLimit = '🚀'.repeat(7);
+      expect(Buffer.byteLength(atLimit, 'utf-8')).toBe(28);
+      expect(validateMemo(atLimit)).toBe(true);
+
+      // 8 of them is 32 bytes — over the limit, even though it's only 8 characters.
+      const overLimit = '🚀'.repeat(8);
+      expect(() => validateMemo(overLimit)).toThrow(PocketPayError);
+    });
+
+    it('should reject accented/multi-byte Unicode memos that exceed the byte limit', () => {
+      // 'é' is 2 bytes in UTF-8; 15 of them is 30 bytes, over the 28-byte limit,
+      // despite being only 15 characters.
+      const memo = 'é'.repeat(15);
+      expect(() => validateMemo(memo)).toThrow(PocketPayError);
     });
   });
 
