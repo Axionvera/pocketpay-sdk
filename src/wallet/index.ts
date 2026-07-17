@@ -77,8 +77,7 @@ export async function fundTestnetAccount(publicKey: string): Promise<FundResult>
       throw new PocketPayError(`Friendbot HTTP ${resp.status}: ${body}`, 'FRIENDBOT_ERROR', resp.status);
     }
     const data: any = await resp.json();
-    return { success: true, hash: data.hash || data.id || 'unknown' };
-  } catch (error) {
+return { success: true, publicKey, hash: data.hash || data.id || 'unknown' };  } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Failed to fund testnet account', 'FUND_ERROR');
   }

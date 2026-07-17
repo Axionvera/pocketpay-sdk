@@ -85,6 +85,24 @@ export interface PaymentResult {
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 
+/**
+ * Options for cursor-based pagination, accepted by {@link getTransactions}
+ * and {@link getPayments} as an alternative to the legacy positional
+ * `(limit, order)` arguments.
+ */
+export interface PaginationOptions {
+  /** Max number of records to return (default: 10, max: 200) */
+  limit?: number;
+  /** Sort order (default: "desc" = newest first) */
+  order?: 'asc' | 'desc';
+  /**
+   * Paging token to resume from — pass the `cursor` (or a specific record's
+   * `pagingToken`) from a previous page's result to fetch the next page of
+   * older (or newer, depending on `order`) records.
+   */
+  cursor?: string;
+}
+
 /** A single transaction record */
 export interface TransactionRecord {
   /** Transaction hash */
@@ -105,6 +123,8 @@ export interface TransactionRecord {
   memo?: string;
   /** Memo type */
   memoType: string;
+  /** Horizon paging token for this record — usable as a cursor */
+  pagingToken: string;
 }
 
 /** A single payment operation record */
@@ -127,6 +147,8 @@ export interface PaymentRecord {
   asset: string;
   /** Asset issuer (empty for native) */
   assetIssuer: string;
+  /** Horizon paging token for this record — usable as a cursor */
+  pagingToken: string;
 }
 
 /** Paginated transaction list */
@@ -135,6 +157,18 @@ export interface TransactionList {
   records: TransactionRecord[];
   /** Number of records returned */
   count: number;
+  /**
+   * Cursor to pass back in as `cursor` to fetch the next page (older records
+   * when `order` is "desc", newer records when `order` is "asc").
+   * Undefined when there are no records.
+   */
+  cursor?: string;
+  /**
+   * True if this page was full (i.e. `count === limit`), suggesting more
+   * records may be available beyond this page. Not a guarantee — the next
+   * page could still come back empty.
+   */
+  hasMore: boolean;
 }
 
 /** Paginated payment list */
@@ -143,6 +177,18 @@ export interface PaymentList {
   records: PaymentRecord[];
   /** Number of records returned */
   count: number;
+  /**
+   * Cursor to pass back in as `cursor` to fetch the next page (older records
+   * when `order` is "desc", newer records when `order` is "asc").
+   * Undefined when there are no records.
+   */
+  cursor?: string;
+  /**
+   * True if this page was full (i.e. `count === limit`), suggesting more
+   * records may be available beyond this page. Not a guarantee — the next
+   * page could still come back empty.
+   */
+  hasMore: boolean;
 }
 
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
@@ -189,13 +235,69 @@ export interface VaultBalanceParams {
 
 // ─── Friendbot / Funding ────────────────────────────────────────────────────
 
-/** Result of funding a testnet account via Friendbot */
+/**
+ * Result of funding a testnet account via Friendbot.
+ *
+ * @remarks **Testnet only.** Friendbot is not available on Stellar mainnet.
+ *
+ * @example
+ * ```ts
+ * const result = await fundTestnetAccount(wallet.publicKey);
+ * if (result.success) {
+ *   console.log('Funded!', result.hash, 'ledger:', result.ledger);
+ * }
+ * ```
+ */
 export interface FundResult {
-  /** Whether funding was successful */
+  /** Whether the funding request was successful */
   success: boolean;
-  /** Transaction hash from Friendbot */
+
+  /**
+   * The Stellar public key (G...) that was funded.
+   * Always present, mirrors the input public key for easy destructuring.
+   */
+  publicKey: string;
+
+  /**
+   * Transaction hash of the Friendbot funding transaction.
+   * Present on success; used to look up the transaction on a block explorer.
+   */
   hash?: string;
-  /** Error message if failed */
+
+  /**
+   * Friendbot's internal operation/record ID.
+   * Useful as a fallback identifier when `hash` is not available.
+   */
+  friendbotId?: string;
+
+  /**
+   * Ledger sequence number the funding transaction was included in.
+   * Present on success.
+   */
+  ledger?: number;
+
+  /**
+   * ISO 8601 timestamp of when the funding transaction was created.
+   * Present on success.
+   */
+  createdAt?: string;
+
+  /**
+   * Fee charged by the Friendbot transaction (in stroops).
+   * Present on success.
+   */
+  feeCharged?: string;
+
+  /**
+   * The Friendbot's own source account public key.
+   * Present on success; useful for audit purposes.
+   */
+  friendbotAccount?: string;
+
+  /**
+   * Human-readable error message when `success` is `false`.
+   * Contains the Friendbot HTTP status and response body on HTTP errors.
+   */
   error?: string;
 }
 

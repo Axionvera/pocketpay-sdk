@@ -27,6 +27,7 @@ export type {
   VaultBalanceParams,
   VaultResult,
   FundResult,
+  PaginationOptions,
 } from './types';
 
 export { PocketPayError } from './types';
