@@ -156,6 +156,13 @@ export async function fundTestnetAccount(publicKey: string): Promise<FundResult>
       'fundTestnetAccount is only available on testnet. ' +
       'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
       'TESTNET_ONLY',
+      {
+        validation: {
+          field: 'network',
+          reason: 'not_testnet',
+          value: cfg.network
+        }
+      }
     );
   }
   try {

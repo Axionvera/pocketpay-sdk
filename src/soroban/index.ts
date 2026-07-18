@@ -25,7 +25,13 @@ function resolveContractId(contractId?: string): string {
   if (!id) {
     throw new PocketPayError(
       'Vault contract ID is required. Pass it as a param or set VAULT_CONTRACT_ID env var.',
-      'MISSING_CONTRACT_ID'
+      'MISSING_CONTRACT_ID',
+      {
+        validation: {
+          field: 'contractId',
+          reason: 'missing'
+        }
+      }
     );
   }
   return id;
