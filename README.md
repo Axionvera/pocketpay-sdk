@@ -1,6 +1,7 @@
 # PocketPay SDK
 
 Stellar-based payment SDK for the PocketPay ecosystem.
+
 # PocketPay SDK
 
 Stellar-based payment SDK for the PocketPay ecosystem.
@@ -46,6 +47,7 @@ npm install @axionvera/pocketpay-sdk
 ## Documentation
 
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
+- [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
@@ -58,7 +60,7 @@ Everything the SDK exposes is available from the package root — this is the
 only supported entry point:
 
 ```typescript
-import { createWallet, sendXLM, getBalance } from 'stellar-pocketpay-sdk';
+import { createWallet, sendXLM, getBalance } from "stellar-pocketpay-sdk";
 ```
 
 Deep imports (e.g. `stellar-pocketpay-sdk/wallet`) are **not supported** and
@@ -84,10 +86,10 @@ record and is `undefined` when the page is empty; pass it back to fetch the
 following page.
 
 ```typescript
-import { getTransactions } from 'stellar-pocketpay-sdk';
+import { getTransactions } from "stellar-pocketpay-sdk";
 
-const page = await getTransactions(publicKey, 10, 'desc');
-console.log(page.count, 'transactions');
+const page = await getTransactions(publicKey, 10, "desc");
+console.log(page.count, "transactions");
 for (const tx of page.records) {
   console.log(tx.hash, tx.createdAt, tx.successful);
 }

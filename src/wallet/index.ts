@@ -1,5 +1,5 @@
 /**
- * Stellar PocketPay SDK — Wallet Module
+ * Stellar PocketPay SDK â€” Wallet Module
  *
  * Create, import, and manage Stellar keypairs. Query balances. Fund testnet accounts.
  */
@@ -31,7 +31,7 @@ export function getPublicKey(secretKey: string): string {
   return StellarSDK.Keypair.fromSecret(secretKey).publicKey();
 }
 
-// ─── Private helpers ────────────────────────────────────────────────────────
+// â”€â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Internal: loads and maps Horizon balances for a public key.
@@ -68,7 +68,7 @@ async function _loadAccountBalance(
   }
 }
 
-// ─── Balance queries ────────────────────────────────────────────────────────
+// â”€â”€â”€ Balance queries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Fetches the on-chain balances for a Stellar account.
@@ -133,44 +133,7 @@ export async function getBalanceOrUnfunded(
 }
 
 /**
- * Fetches the account balance for a funded Stellar account.
- *
- * Throws a PocketPayError if the account is unfunded or if Horizon returns
- * another failure.
- */
-export async function getBalance(
-  publicKey: string,
-  config?: Partial<SDKConfig>
-): Promise<AccountBalance> {
-  validatePublicKey(publicKey);
-  return _loadAccountBalance(publicKey, config);
-}
-
-/**
- * Fetches the account balance or reports when the account is unfunded.
- *
- * Unlike getBalance, this helper returns a discriminated union so callers can
- * explicitly handle the normal "unfunded" case without throwing.
- */
-export async function getBalanceOrUnfunded(
-  publicKey: string,
-  config?: Partial<SDKConfig>
-): Promise<BalanceResult> {
-  validatePublicKey(publicKey);
-
-  try {
-    const balance = await _loadAccountBalance(publicKey, config);
-    return { status: 'funded', publicKey, balance };
-  } catch (error) {
-    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
-      return { status: 'unfunded', publicKey };
-    }
-    throw error;
-  }
-}
-
-/**
- * Funds a testnet account via Friendbot (≈10,000 XLM).
+ * Funds a testnet account via Friendbot (â‰ˆ10,000 XLM).
  *
  * @remarks **Testnet only.** Calling this on mainnet throws immediately without
  * making any network request. Use the `network` config or the
