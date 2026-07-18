@@ -13,7 +13,7 @@ Your Stellar account's address — starts with `G`, 56 characters long. Safe to 
 The private key that signs transactions and authorizes spending — starts with `S`, 56 characters long. Whoever holds this controls the wallet's funds.
 
 > [!CAUTION]
-> Never hardcode or commit secret keys to version control. See the [Getting Started guide](./getting-started.md#2-wallet-creation) for secure handling.
+> Never hardcode or commit secret keys to version control. `createWallet` returns the secret key but does not store it anywhere — backing it up is the consuming app's or user's responsibility. See the [Getting Started guide](./getting-started.md#2-wallet-creation) and [Wallet Backup Responsibility](./security.md#wallet-backup-responsibility) for secure handling.
 
 ## Horizon
 
