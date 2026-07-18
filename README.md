@@ -46,6 +46,7 @@ npm install @axionvera/pocketpay-sdk
 ## Documentation
 
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
+- [Runtime Compatibility](./docs/runtime-compatibility.md) - Node.js, Expo, and browser support matrix with polyfill guidance
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
