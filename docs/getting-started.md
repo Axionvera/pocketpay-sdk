@@ -2,7 +2,21 @@
 
 This guide provides a step-by-step walkthrough to get you up and running with the **PocketPay SDK**. You will learn how to install the package, create a new wallet, fund it on the Stellar Testnet, check its balance, and send a test payment.
 
----
+---- [Wallet Lifecycle Example](./examples/create-wallet.ts) - Runnable script: create a wallet, fund it on Testnet, and check the balance
+
+## Runnable example
+
+A complete wallet-lifecycle script lives at
+[`examples/create-wallet.ts`](../examples/create-wallet.ts). It creates a
+wallet, funds it on Testnet via Friendbot, and checks the balance. Run it with:
+
+```bash
+npm run example:wallet
+```
+
+The example never prints your secret key. Back up `wallet.secretKey` to secure
+storage yourself right after creation; the SDK does not persist it and it
+cannot be recovered if lost.
 
 ## Prerequisites
 

@@ -17,11 +17,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
+    "example:wallet": "tsx examples/create-wallet.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "verify": "npm run lint && npm run test && npm run build",
     "prepublishOnly": "npm run build"
+    
   },
   "repository": {
     "type": "git",
