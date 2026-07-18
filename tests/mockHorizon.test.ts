@@ -40,6 +40,15 @@ describe('Mockable Horizon seam (#12)', () => {
     });
   });
 
+  it('surfaces slow Horizon account lookups as REQUEST_TIMEOUT', async () => {
+    horizon.loadAccount.mockReturnValue(new Promise(() => undefined));
+
+    await expect(getBalance(wallet.publicKey, { timeout: 5 })).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT',
+      message: 'Horizon account lookup timed out after 5ms',
+    });
+  });
+
   it('is deterministic — no live network dependency', async () => {
     horizon.loadAccount.mockResolvedValue({
       balances: [{ asset_type: 'native', balance: '1.0000000' }],

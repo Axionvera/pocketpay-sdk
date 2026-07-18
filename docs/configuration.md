@@ -9,7 +9,7 @@ This SDK can be configured via environment variables. If you also pass configura
 | `STELLAR_NETWORK` | Selects the Stellar network to connect to. | No | `testnet` | `STELLAR_NETWORK=testnet` |
 | `STELLAR_HORIZON_URL` | Overrides the Horizon server URL used for ledger queries. | No | Based on `STELLAR_NETWORK` | `STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org` |
 | `STELLAR_SOROBAN_RPC_URL` | Overrides the Soroban RPC endpoint used for Soroban contract interactions. | No | Based on `STELLAR_NETWORK` | `STELLAR_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org` |
-| `STELLAR_TIMEOUT` | Request timeout in milliseconds. | No | Not set (SDK default behavior) | `STELLAR_TIMEOUT=45000` |
+| `STELLAR_TIMEOUT` | Request timeout in milliseconds. | No | `30000` | `STELLAR_TIMEOUT=45000` |
 | `STELLAR_CONTRACT_ID` | Optional Soroban contract id used when resolving config (validated if provided). | No | Not set | `STELLAR_CONTRACT_ID=C...` |
 | `VAULT_CONTRACT_ID` | Vault contract id used by vault functions when `contractId` is not provided via params. | Conditional | No default — must be provided for vault ops without param | `VAULT_CONTRACT_ID=C...` |
 
@@ -50,4 +50,14 @@ VAULT_CONTRACT_ID=CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 STELLAR_TIMEOUT=45000
 # STELLAR_CONTRACT_ID=C...   # optional (validated if provided)
 ```
+
+## Request timeouts
+
+Network-dependent SDK functions use a 30 second timeout by default. Override it
+with `STELLAR_TIMEOUT` or pass `{ timeout: 10000 }` to functions that accept SDK
+config, such as `getBalance`, `getTransactions`, `getPayments`, `sendXLM`, and
+`fundTestnetAccount`.
+
+When a request times out, the SDK throws a `PocketPayError` with code
+`REQUEST_TIMEOUT` and a message that includes the operation and timeout duration.
 

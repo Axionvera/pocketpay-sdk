@@ -11,6 +11,8 @@ import {
   PocketPayError, SDKConfig, PaginationOptions,
 } from '../types';
 import { validatePublicKey, wrapError } from '../utils';
+import { resolveConfig } from '../config';
+import { withTimeout } from '../network';
 
 /**
  * Resolves the legacy positional-args overload and the new options-object
@@ -77,6 +79,7 @@ export async function getTransactions(
   const clampedLimit = Math.min(Math.max(1, limit), 200);
 
   try {
+    const cfg = resolveConfig(config);
     const server = getHorizonServer(config);
     let callBuilder = server
       .transactions()
@@ -88,7 +91,11 @@ export async function getTransactions(
       callBuilder = callBuilder.cursor(cursor);
     }
 
-    const page = await callBuilder.call();
+    const page = await withTimeout(
+      'Horizon transactions request',
+      cfg.timeout,
+      callBuilder.call(),
+    );
 
     const records: TransactionSummary[] = page.records.map((tx: any) => ({
       hash: tx.hash,
@@ -156,6 +163,7 @@ export async function getPayments(
   const clampedLimit = Math.min(Math.max(1, limit), 200);
 
   try {
+    const cfg = resolveConfig(config);
     const server = getHorizonServer(config);
     let callBuilder = server
       .payments()
@@ -167,7 +175,11 @@ export async function getPayments(
       callBuilder = callBuilder.cursor(cursor);
     }
 
-    const page = await callBuilder.call();
+    const page = await withTimeout(
+      'Horizon payments request',
+      cfg.timeout,
+      callBuilder.call(),
+    );
 
     const records: PaymentSummary[] = page.records
       .filter((op: any) =>
