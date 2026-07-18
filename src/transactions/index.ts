@@ -8,12 +8,52 @@ import { getHorizonServer } from '../config';
 import {
   TransactionSummary, TransactionList,
   PaymentSummary, PaymentList,
-  PocketPayError, SDKConfig,
+  PocketPayError, SDKConfig, PaginationOptions,
 } from '../types';
 import { validatePublicKey, wrapError } from '../utils';
 
 /**
+ * Resolves the legacy positional-args overload and the new options-object
+ * overload into a single normalized shape.
+ */
+function normalizePaginationArgs(
+  limitOrOptions: number | PaginationOptions | undefined,
+  orderOrConfig: 'asc' | 'desc' | Partial<SDKConfig> | undefined,
+  maybeConfig: Partial<SDKConfig> | undefined
+): { limit: number; order: 'asc' | 'desc'; cursor?: string; config?: Partial<SDKConfig> } {
+  if (typeof limitOrOptions === 'object' && limitOrOptions !== null) {
+    // New-style: getX(publicKey, { limit, order, cursor }, config?)
+    return {
+      limit: limitOrOptions.limit ?? 10,
+      order: limitOrOptions.order ?? 'desc',
+      cursor: limitOrOptions.cursor,
+      config: orderOrConfig as Partial<SDKConfig> | undefined,
+    };
+  }
+
+  // Legacy: getX(publicKey, limit?, order?, config?)
+  return {
+    limit: limitOrOptions ?? 10,
+    order: (orderOrConfig as 'asc' | 'desc') ?? 'desc',
+    cursor: undefined,
+    config: maybeConfig,
+  };
+}
+
+/**
  * Fetches recent transactions for a Stellar account.
+ *
+ * Supports both the legacy positional-args form and a pagination-options
+ * object for cursor-based paging:
+ *
+ * ```typescript
+ * // Legacy form (still works):
+ * await getTransactions(publicKey, 20, 'desc');
+ *
+ * // Pagination-options form:
+ * const page1 = await getTransactions(publicKey, { limit: 20 });
+ * const page2 = await getTransactions(publicKey, { limit: 20, cursor: page1.cursor });
+ * ```
  *
  * @param publicKey - Stellar public key (G...)
  * @param limit - Max number of records (default: 10, max: 200)
@@ -23,21 +63,32 @@ import { validatePublicKey, wrapError } from '../utils';
  */
 export async function getTransactions(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
-  config?: Partial<SDKConfig>
+  limitOrOptions?: number | PaginationOptions,
+  orderOrConfig?: 'asc' | 'desc' | Partial<SDKConfig>,
+  maybeConfig?: Partial<SDKConfig>
 ): Promise<TransactionList> {
   validatePublicKey(publicKey);
+
+  const { limit, order, cursor, config } = normalizePaginationArgs(
+    limitOrOptions,
+    orderOrConfig,
+    maybeConfig
+  );
   const clampedLimit = Math.min(Math.max(1, limit), 200);
 
   try {
     const server = getHorizonServer(config);
-    const page = await server
+    let callBuilder = server
       .transactions()
       .forAccount(publicKey)
       .limit(clampedLimit)
-      .order(order)
-      .call();
+      .order(order);
+
+    if (cursor) {
+      callBuilder = callBuilder.cursor(cursor);
+    }
+
+    const page = await callBuilder.call();
 
     const records: TransactionSummary[] = page.records.map((tx: any) => ({
       hash: tx.hash,
@@ -71,6 +122,18 @@ export async function getTransactions(
 /**
  * Fetches recent payment operations for a Stellar account.
  *
+ * Supports both the legacy positional-args form and a pagination-options
+ * object for cursor-based paging:
+ *
+ * ```typescript
+ * // Legacy form (still works):
+ * await getPayments(publicKey, 20, 'desc');
+ *
+ * // Pagination-options form:
+ * const page1 = await getPayments(publicKey, { limit: 20 });
+ * const page2 = await getPayments(publicKey, { limit: 20, cursor: page1.cursor });
+ * ```
+ *
  * @param publicKey - Stellar public key (G...)
  * @param limit - Max number of records (default: 10, max: 200)
  * @param order - Sort order (default: "desc" = newest first)
@@ -79,21 +142,32 @@ export async function getTransactions(
  */
 export async function getPayments(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
-  config?: Partial<SDKConfig>
+  limitOrOptions?: number | PaginationOptions,
+  orderOrConfig?: 'asc' | 'desc' | Partial<SDKConfig>,
+  maybeConfig?: Partial<SDKConfig>
 ): Promise<PaymentList> {
   validatePublicKey(publicKey);
+
+  const { limit, order, cursor, config } = normalizePaginationArgs(
+    limitOrOptions,
+    orderOrConfig,
+    maybeConfig
+  );
   const clampedLimit = Math.min(Math.max(1, limit), 200);
 
   try {
     const server = getHorizonServer(config);
-    const page = await server
+    let callBuilder = server
       .payments()
       .forAccount(publicKey)
       .limit(clampedLimit)
-      .order(order)
-      .call();
+      .order(order);
+
+    if (cursor) {
+      callBuilder = callBuilder.cursor(cursor);
+    }
+
+    const page = await callBuilder.call();
 
     const records: PaymentSummary[] = page.records
       .filter((op: any) =>
