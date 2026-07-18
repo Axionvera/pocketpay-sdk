@@ -77,6 +77,7 @@ export {
   validateSecretKey,
   validateAmount,
   validateMemo,
+  validateTransactionHash,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,

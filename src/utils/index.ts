@@ -93,6 +93,24 @@ export function validateMemo(memo?: string): boolean {
 }
 
 
+/**
+ * Validates a Stellar transaction hash.
+ *
+ * Stellar transaction hashes are 64-character hexadecimal strings (32 bytes
+ * represented in hex). This utility throws a `PocketPayError` on invalid
+ * input and returns `true` when the hash is valid.
+ */
+export function validateTransactionHash(hash: string): boolean {
+  if (typeof hash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hash)) {
+    throw new PocketPayError(
+      `Invalid transaction hash: ${hash}`,
+      'INVALID_TRANSACTION_HASH'
+    );
+  }
+  return true;
+}
+
+
 
 export function stroopsToXLM(stroops: string | number): string {
   const value = typeof stroops === 'string' ? parseInt(stroops, 10) : stroops;
