@@ -11,6 +11,7 @@ import {
   BalanceResult, FundResult, PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
+import { fetchWithTimeout, withTimeout } from '../network';
 
 /**
  * Creates a new random Stellar keypair.
@@ -76,8 +77,13 @@ async function _loadAccountBalance(
   config?: Partial<SDKConfig>,
 ): Promise<AccountBalance> {
   const server = getHorizonServer(config);
+  const cfg = resolveConfig(config);
   try {
-    const account = await server.loadAccount(publicKey);
+    const account = await withTimeout(
+      'Horizon account lookup',
+      cfg.timeout,
+      server.loadAccount(publicKey),
+    );
     const balances: AssetBalance[] = account.balances.map((bal: any) => {
       if (bal.asset_type === 'native') {
         return { asset: 'XLM', balance: bal.balance, issuer: '' };
@@ -181,9 +187,12 @@ export async function getBalanceOrUnfunded(
  * }
  * ```
  */
-export async function fundTestnetAccount(publicKey: string): Promise<FundResult> {
+export async function fundTestnetAccount(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<FundResult> {
   validatePublicKey(publicKey);
-  const cfg = resolveConfig();
+  const cfg = resolveConfig(config);
   if (cfg.network !== 'testnet') {
     throw new PocketPayError(
       'fundTestnetAccount is only available on testnet. ' +
@@ -199,7 +208,12 @@ export async function fundTestnetAccount(publicKey: string): Promise<FundResult>
     );
   }
   try {
-    const resp = await fetch(`${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`);
+    const resp = await fetchWithTimeout(
+      `${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`,
+      undefined,
+      'Friendbot funding request',
+      cfg.timeout,
+    );
     if (!resp.ok) {
       const body = await resp.text().catch(() => '(no body)');
       throw new PocketPayError(

@@ -16,6 +16,7 @@ import {
   PocketPayError, SDKConfig,
 } from '../types';
 import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
+import { withTimeout } from '../network';
 
 /**
  * Resolves the vault contract ID from params or environment.
@@ -65,9 +66,14 @@ export async function depositToVault(
   const publicKey = keypair.publicKey();
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(publicKey),
+    );
 
     // Convert amount to i128 (stroops-like representation)
     const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
@@ -88,7 +94,11 @@ export async function depositToVault(
       .build();
 
     // Simulate, then prepare and submit
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
       return {
@@ -100,17 +110,29 @@ export async function depositToVault(
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(keypair);
 
-    const sendResult = await sorobanServer.sendTransaction(prepared);
+    const sendResult = await withTimeout(
+      'Soroban transaction submission',
+      cfg.timeout,
+      sorobanServer.sendTransaction(prepared),
+    );
 
     if (sendResult.status === 'ERROR') {
       return { success: false, error: `Send error: ${sendResult.errorResult}` };
     }
 
     // Poll for result
-    let getResult = await sorobanServer.getTransaction(sendResult.hash);
+    let getResult = await withTimeout(
+      'Soroban transaction status request',
+      cfg.timeout,
+      sorobanServer.getTransaction(sendResult.hash),
+    );
     while (getResult.status === 'NOT_FOUND') {
       await new Promise((r) => setTimeout(r, 1000));
-      getResult = await sorobanServer.getTransaction(sendResult.hash);
+      getResult = await withTimeout(
+        'Soroban transaction status request',
+        cfg.timeout,
+        sorobanServer.getTransaction(sendResult.hash),
+      );
     }
 
     if (getResult.status === 'SUCCESS') {
@@ -144,9 +166,14 @@ export async function withdrawFromVault(
   const publicKey = keypair.publicKey();
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(publicKey),
+    );
 
     const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
 
@@ -165,7 +192,11 @@ export async function withdrawFromVault(
       .setTimeout(30)
       .build();
 
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
       return {
@@ -177,16 +208,28 @@ export async function withdrawFromVault(
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(keypair);
 
-    const sendResult = await sorobanServer.sendTransaction(prepared);
+    const sendResult = await withTimeout(
+      'Soroban transaction submission',
+      cfg.timeout,
+      sorobanServer.sendTransaction(prepared),
+    );
 
     if (sendResult.status === 'ERROR') {
       return { success: false, error: `Send error: ${sendResult.errorResult}` };
     }
 
-    let getResult = await sorobanServer.getTransaction(sendResult.hash);
+    let getResult = await withTimeout(
+      'Soroban transaction status request',
+      cfg.timeout,
+      sorobanServer.getTransaction(sendResult.hash),
+    );
     while (getResult.status === 'NOT_FOUND') {
       await new Promise((r) => setTimeout(r, 1000));
-      getResult = await sorobanServer.getTransaction(sendResult.hash);
+      getResult = await withTimeout(
+        'Soroban transaction status request',
+        cfg.timeout,
+        sorobanServer.getTransaction(sendResult.hash),
+      );
     }
 
     if (getResult.status === 'SUCCESS') {
@@ -215,9 +258,14 @@ export async function getVaultBalance(
   const contractId = resolveContractId(params.contractId);
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(params.publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(params.publicKey),
+    );
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {
@@ -233,7 +281,11 @@ export async function getVaultBalance(
       .setTimeout(30)
       .build();
 
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
       return {

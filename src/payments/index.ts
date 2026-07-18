@@ -4,9 +4,10 @@
  * Send XLM payments on the Stellar network.
  */
 import * as StellarSDK from '@stellar/stellar-sdk';
-import { getHorizonServer, getNetworkPassphrase } from '../config';
+import { getHorizonServer, getNetworkPassphrase, resolveConfig } from '../config';
 import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig } from '../types';
 import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError } from '../utils';
+import { withTimeout } from '../network';
 /**
  * Sends XLM from one account to another.
  *
@@ -42,9 +43,14 @@ export async function sendXLM(
     });
   }
   try {
+    const cfg = resolveConfig(config);
     const server = getHorizonServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const sourceAccount = await server.loadAccount(sourcePublic);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const sourceAccount = await withTimeout(
+      'Horizon source account lookup',
+      cfg.timeout,
+      server.loadAccount(sourcePublic),
+    );
     // Build transaction
     const builder = new StellarSDK.TransactionBuilder(sourceAccount, {
       fee: StellarSDK.BASE_FEE,
@@ -63,7 +69,11 @@ export async function sendXLM(
     builder.setTimeout(30);
     const transaction = builder.build();
     transaction.sign(sourceKeypair);
-    const result = await server.submitTransaction(transaction);
+    const result = await withTimeout(
+      'Horizon transaction submission',
+      cfg.timeout,
+      server.submitTransaction(transaction),
+    );
     const resultObj = result as any;
     return {
       success: true,

@@ -250,9 +250,10 @@ export async function safeGetBalance(
 }
 
 export async function safeFundTestnetAccount(
-  publicKey: string
+  publicKey: string,
+  config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<FundResult>> {
-  return toResult(() => fundTestnetAccount(publicKey), 'Failed to fund testnet account', 'FUND_ERROR');
+  return toResult(() => fundTestnetAccount(publicKey, config), 'Failed to fund testnet account', 'FUND_ERROR');
 }
 
 export async function safeSendXLM(

@@ -171,6 +171,15 @@ describe('Transactions Module - getTransactions', () => {
     mockTxCall.mockRejectedValue(makeHorizon404Error());
     await expect(getTransactions(account)).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
   });
+
+  it('maps a slow Horizon transactions request to REQUEST_TIMEOUT', async () => {
+    mockTxCall.mockReturnValue(new Promise(() => undefined));
+
+    await expect(getTransactions(account, { limit: 10 }, { timeout: 5 })).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT',
+      message: 'Horizon transactions request timed out after 5ms',
+    });
+  });
 });
 
 describe('Transactions Module - getPayments', () => {
@@ -230,5 +239,14 @@ describe('Transactions Module - getPayments', () => {
   it('maps a Horizon 404 to ACCOUNT_NOT_FOUND', async () => {
     mockPayCall.mockRejectedValue(makeHorizon404Error());
     await expect(getPayments(account)).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
+  });
+
+  it('maps a slow Horizon payments request to REQUEST_TIMEOUT', async () => {
+    mockPayCall.mockReturnValue(new Promise(() => undefined));
+
+    await expect(getPayments(account, { limit: 10 }, { timeout: 5 })).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT',
+      message: 'Horizon payments request timed out after 5ms',
+    });
   });
 });

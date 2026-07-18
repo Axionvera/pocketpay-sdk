@@ -21,6 +21,7 @@ const NETWORK_PASSPHRASES: Record<StellarNetwork, string> = {
   mainnet: StellarSDK.Networks.PUBLIC,
 };
 const FRIENDBOT_URL = 'https://friendbot.stellar.org';
+const DEFAULT_TIMEOUT_MS = 30_000;
 // ─── Validation ─────────────────────────────────────────────────────────────
 /**
  * Validates that a network name is supported.
@@ -223,15 +224,13 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
       : process.env.STELLAR_SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[network];
   validateSorobanRpcUrl(sorobanRpcUrl);
 
-  // Timeout: validate only when provided.
+  // Timeout: explicit override > env var > SDK default.
   const timeout =
     overrides?.timeout ??
     (process.env.STELLAR_TIMEOUT
       ? parseInt(process.env.STELLAR_TIMEOUT, 10)
-      : undefined);
-  if (timeout !== undefined) {
-    validateTimeout(timeout);
-  }
+      : DEFAULT_TIMEOUT_MS);
+  validateTimeout(timeout);
 
   // Contract ID: preserve an explicitly-provided value (including '').
   // An empty string is a valid "no contract configured" sentinel and is
@@ -332,4 +331,5 @@ export {
   HORIZON_URLS,
   SOROBAN_RPC_URLS,
   NETWORK_PASSPHRASES,
+  DEFAULT_TIMEOUT_MS,
 };
