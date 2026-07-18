@@ -21,7 +21,14 @@ export function validatePublicKey(publicKey: string): boolean {
   } catch {
     throw new PocketPayError(
       `Invalid Stellar public key: ${publicKey}`,
-      'INVALID_PUBLIC_KEY'
+      'INVALID_PUBLIC_KEY',
+      {
+        validation: {
+          field: 'publicKey',
+          reason: 'invalid_format',
+          value: publicKey
+        }
+      }
     );
   }
 }
@@ -33,7 +40,14 @@ export function validateSecretKey(secretKey: string): boolean {
   } catch {
     throw new PocketPayError(
       'Invalid Stellar secret key',
-      'INVALID_SECRET_KEY'
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_format'
+          // Do NOT include value (secret!)
+        }
+      }
     );
   }
 }
@@ -46,21 +60,42 @@ export function validateAmount(amount: string): boolean {
   if (typeof amount !== 'string' || !/^\d+(\.\d+)?$/.test(amount)) {
     throw new PocketPayError(
       `Invalid amount: "${amount}". Must be a positive decimal string.`,
-      'INVALID_AMOUNT'
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'invalid_format',
+          value: amount
+        }
+      }
     );
   }
   const num = parseFloat(amount);
   if (num <= 0) {
     throw new PocketPayError(
       `Invalid amount: "${amount}". Must be greater than zero.`,
-      'INVALID_AMOUNT'
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'not_positive',
+          value: amount
+        }
+      }
     );
   }
   const parts = amount.split('.');
   if (parts[1] && parts[1].length > 7) {
     throw new PocketPayError(
       `Amount "${amount}" exceeds maximum precision of 7 decimal places.`,
-      'INVALID_AMOUNT_PRECISION'
+      'INVALID_AMOUNT_PRECISION',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'too_precise',
+          value: amount
+        }
+      }
     );
   }
   return true;
@@ -85,7 +120,14 @@ export function validateMemo(memo?: string): boolean {
   if (byteLength > 28) {
     throw new PocketPayError(
       `Memo text exceeds 28-byte limit (got ${byteLength} bytes): "${memo}"`,
-      'INVALID_MEMO'
+      'INVALID_MEMO',
+      {
+        validation: {
+          field: 'memo',
+          reason: 'too_long',
+          value: memo
+        }
+      }
     );
   }
 

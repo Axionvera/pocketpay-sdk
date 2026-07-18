@@ -33,7 +33,13 @@ export async function sendXLM(
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const sourcePublic = sourceKeypair.publicKey();
   if (sourcePublic === destination) {
-    throw new PocketPayError('Cannot send XLM to yourself', 'SELF_PAYMENT');
+    throw new PocketPayError('Cannot send XLM to yourself', 'SELF_PAYMENT', {
+      validation: {
+        field: 'destination',
+        reason: 'same_as_source',
+        value: destination
+      }
+    });
   }
   try {
     const server = getHorizonServer(config);
