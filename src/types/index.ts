@@ -401,3 +401,13 @@ export class PocketPayError extends Error {
     Object.setPrototypeOf(this, PocketPayError.prototype);
   }
 }
+
+/** Options for cursor-based pagination on list queries. */
+export interface PaginationOptions {
+  /** Max records to return (default: 10) */
+  limit?: number;
+  /** Sort order by ledger time (default: "desc") */
+  order?: 'asc' | 'desc';
+  /** Horizon paging token to start after (for fetching the next page) */
+  cursor?: string;
+}
