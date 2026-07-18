@@ -52,6 +52,7 @@ npm install @axionvera/pocketpay-sdk
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 
 ## Package Root Imports
 
