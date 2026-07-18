@@ -43,24 +43,48 @@ import { createWallet } from '@axionvera/pocketpay-sdk';
 const wallet = createWallet();
 
 console.log('🔑 New Stellar Wallet Created:');
-console.log(`   Public Key:  ${wallet.publicKey}`);
-console.log(`   Secret Key:  ${wallet.secretKey}`);
+console.log(`   Public Key: ${wallet.publicKey}`);
+// Don't log wallet.secretKey — persist it to secure storage instead. See the
+// backup warning below.
 ```
 
 ### Expected Output
 ```text
 🔑 New Stellar Wallet Created:
-   Public Key:  GD4...EXAMPLE...PUBLIC...KEY
-   Secret Key:  SB1...EXAMPLE...SECRET...KEY
+   Public Key: GD4...EXAMPLE...PUBLIC...KEY
 ```
 
 > [!CAUTION]
-> **Secret Key Warning**
-> The secret key (starting with `S`) is highly sensitive and grants full access to the wallet and all its assets.
+> **`createWallet` does not back up your keys**
+> `createWallet` only *generates* a keypair in memory and returns it — the SDK does not persist, store, or back it up anywhere. Once `wallet.secretKey` goes out of scope without being saved, it is gone permanently and the funds it controls become unrecoverable. There is no "forgot password" flow for a Stellar secret key.
+>
+> **Your app (or the user) is responsible for backing up `wallet.secretKey` immediately after creation**, for example by:
+> - Writing it to encrypted device storage or a secure vault (e.g. OS keychain, HSM).
+> - Prompting the user to save it via a recovery-phrase / secret-key export flow before they navigate away.
+> - Using environment variables (e.g. via `dotenv`) for server-side scripts and test fixtures — **never** for real user wallets.
+>
+> Additional handling rules:
 > - **Never** hardcode secret keys in your source code.
 > - **Never** commit secret keys to version control systems (like Git).
-> - Use environment variables (e.g., using `dotenv`) or a secure vault to store secret keys.
+> - **Never** log secret keys (see [Logging Guidance](./logging.md)) — log `publicKey` instead.
 > - Anyone who has access to your secret key has full control over your funds.
+>
+> See [Security Best Practices](./security.md#wallet-backup-responsibility) for more on backup strategies.
+
+### Restoring a Backed-Up Wallet
+
+Once a secret key has been backed up, use `importWallet` to restore the same wallet in a later session — the SDK does not store or retrieve it for you, so your app must supply the secret key from wherever it was backed up:
+
+```typescript
+import { importWallet } from '@axionvera/pocketpay-sdk';
+
+// secretKey retrieved from your app's secure storage / vault, not hardcoded
+const wallet = importWallet(secretKeyFromSecureStorage);
+
+console.log('   Public Key:', wallet.publicKey);
+```
+
+`importWallet` throws `INVALID_SECRET_KEY` if the value isn't a well-formed Stellar secret key. The same backup and no-logging rules from above apply to imported wallets too.
 
 ---
 
@@ -195,16 +219,16 @@ async function runOnboarding() {
   console.log('🚀 Starting PocketPay SDK Guided Onboarding...\n');
 
   // 1. Create Sender Wallet
+  // In a real app, back up sender.secretKey to secure storage right here —
+  // it is never persisted by the SDK and cannot be recovered later.
   console.log('🔑 Creating Sender Wallet...');
   const sender = createWallet();
-  console.log(`   Public Key:  ${sender.publicKey}`);
-  console.log(`   Secret Key:  ${sender.secretKey}\n`);
+  console.log(`   Public Key:  ${sender.publicKey}\n`);
 
   // 2. Create Receiver Wallet
   console.log('🔑 Creating Receiver Wallet...');
   const receiver = createWallet();
-  console.log(`   Public Key:  ${receiver.publicKey}`);
-  console.log(`   Secret Key:  ${receiver.secretKey}\n`);
+  console.log(`   Public Key:  ${receiver.publicKey}\n`);
 
   // 3. Fund both wallets on Testnet
   console.log('💧 Funding Sender Account via Friendbot...');

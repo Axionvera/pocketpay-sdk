@@ -12,13 +12,46 @@ import {
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
 
-/** Creates a new random Stellar keypair. Does NOT activate it on-chain. */
+/**
+ * Creates a new random Stellar keypair.
+ *
+ * @remarks **This does not activate the account on-chain** (see
+ * {@link fundTestnetAccount} for testnet) and **the SDK does not persist or
+ * back up the returned keys in any way** — `secretKey` exists only in the
+ * value returned here. If it's lost, access to the account is lost
+ * permanently; there is no recovery mechanism. The consuming app or user is
+ * responsible for backing it up (e.g. encrypted storage, a secure vault, or
+ * a user-facing recovery phrase flow) immediately after calling this
+ * function. See the [Security Best Practices guide](../../docs/security.md)
+ * for guidance, and avoid logging `secretKey` — see the
+ * [Logging Guidance](../../docs/logging.md).
+ *
+ * @returns A {@link WalletKeypair} with a freshly generated `publicKey` and
+ *   `secretKey`.
+ *
+ * @example
+ * ```ts
+ * const wallet = createWallet();
+ * console.log('Public Key:', wallet.publicKey); // safe to log
+ * // Persist wallet.secretKey to secure storage now — it cannot be recovered later.
+ * ```
+ */
 export function createWallet(): WalletKeypair {
   const kp = StellarSDK.Keypair.random();
   return { publicKey: kp.publicKey(), secretKey: kp.secret() };
 }
 
-/** Imports an existing wallet from a secret key. */
+/**
+ * Imports an existing wallet from a secret key.
+ *
+ * @remarks Use this to restore a wallet from a secret key the consuming app
+ * or user backed up after a prior {@link createWallet} call — the SDK itself
+ * does not store or retrieve keys on your behalf.
+ *
+ * @param secretKey - Stellar secret key (S...) to import
+ * @returns A {@link WalletKeypair} derived from the given secret key
+ * @throws {PocketPayError} `INVALID_SECRET_KEY` if the secret key is malformed
+ */
 export function importWallet(secretKey: string): WalletKeypair {
   validateSecretKey(secretKey);
   const kp = StellarSDK.Keypair.fromSecret(secretKey);

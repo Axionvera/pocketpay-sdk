@@ -66,6 +66,14 @@ are not guaranteed to work across versions. Internal helpers that aren't
 listed in the Features table above are implementation details and are not
 part of the public API.
 
+> [!CAUTION]
+> `createWallet` generates a keypair but does not back it up — the SDK never
+> persists a secret key anywhere. Losing it means losing access to the
+> wallet permanently. Your application (or the user) must save it to secure
+> storage right after creation. See
+> [Wallet Creation](./docs/getting-started.md#2-wallet-creation) and
+> [Security Best Practices](./docs/security.md#wallet-backup-responsibility).
+
 ## Response models
 
 `getTransactions` and `getPayments` return SDK-owned typed models rather than

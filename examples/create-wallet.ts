@@ -12,8 +12,10 @@ async function main() {
   const wallet = createWallet();
 
   console.log(`  Public Key:  ${wallet.publicKey}`);
-  console.log(`  Secret Key:  ${wallet.secretKey}`);
-  console.log('\n⚠️  Store your secret key securely! Never share it.\n');
+  // createWallet does not persist wallet.secretKey anywhere — back it up to
+  // secure storage now (and avoid logging it; see docs/logging.md). It
+  // cannot be recovered if lost.
+  console.log('\n⚠️  Back up your secret key to secure storage now — it cannot be recovered if lost.\n');
 
   console.log('💧 Funding wallet on testnet via Friendbot...');
   const fundResult = await fundTestnetAccount(wallet.publicKey);
