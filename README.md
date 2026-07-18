@@ -44,7 +44,8 @@ PocketPay is split across three repos, each with a distinct job:
 npm install @axionvera/pocketpay-sdk
 
 ## Documentation
-- [Wallet Lifecycle Example](./examples/create-wallet.ts) - Runnable script: create a wallet, fund it on Testnet, and check the balance
+
+- [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
