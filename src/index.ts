@@ -81,6 +81,9 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Redaction
+  redactSecretKey,
+  redactSensitiveValue,
   // Result helpers
   toSuccessResult,
   toFailureResult,

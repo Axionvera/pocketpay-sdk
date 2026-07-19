@@ -69,6 +69,8 @@ const REQUIRED_PUBLIC_EXPORTS = {
     'safeSendXLM',
     'safeGetTransactions',
     'safeGetPayments',
+    'redactSecretKey',
+    'redactSensitiveValue',
   ],
 } as const;
 
