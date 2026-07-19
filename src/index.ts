@@ -85,6 +85,8 @@ export {
   toSuccessResult,
   toFailureResult,
   toResult,
+  // Asset helpers
+  findAssetBalance,
   // Safe (non-throwing) wrappers
   safeGetBalance,
   safeFundTestnetAccount,
