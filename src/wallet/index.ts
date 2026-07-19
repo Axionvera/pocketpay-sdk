@@ -155,62 +155,21 @@ async function _loadAccountBalance(
   }
 }
 
-// ─── Balance queries ────────────────────────────────────────────────────────
+// ─── Public functions ───────────────────────────────────────────────────────
 
 /**
- * Fetches the on-chain balances for a Stellar account.
+ * Fetches all asset balances for a Stellar account.
  *
- * @param publicKey - Stellar public key (G...)
+ * @param publicKey - Stellar public key (G...) to query
  * @param config - Optional SDK config overrides
- * @returns The account's {@link AccountBalance}
- * @throws {PocketPayError} `INVALID_PUBLIC_KEY` for an invalid key,
- *   `ACCOUNT_NOT_FOUND` (404) if the account is not funded, or
- *   `BALANCE_ERROR` for any other failure.
+ * @returns {@link AccountBalance} with all asset balances and native XLM shortcut
+ * @throws {PocketPayError} with code `ACCOUNT_NOT_FOUND` (HTTP 404) if the
+ *   account has never been funded, or `BALANCE_ERROR` for other Horizon failures
  *
- * @example
- * ```ts
- * const balance = await getBalance(wallet.publicKey);
- * console.log('XLM:', balance.nativeBalance);
- * ```
+ * @see {@link getBalanceOrUnfunded} for a non-throwing alternative that returns
+ *   a discriminated union instead of throwing on unfunded accounts.
  */
 
-
-/**
- * Fetches the account balance for a funded Stellar account.
- *
- * Throws a PocketPayError if the account is unfunded or if Horizon returns
- * another failure.
- */
-export async function getBalance(
-  publicKey: string,
-  config?: Partial<SDKConfig>
-): Promise<AccountBalance> {
-  validatePublicKey(publicKey);
-  return _loadAccountBalance(publicKey, config);
-}
-
-/**
- * Fetches the account balance or reports when the account is unfunded.
- *
- * Unlike getBalance, this helper returns a discriminated union so callers can
- * explicitly handle the normal "unfunded" case without throwing.
- */
-export async function getBalanceOrUnfunded(
-  publicKey: string,
-  config?: Partial<SDKConfig>
-): Promise<BalanceResult> {
-  validatePublicKey(publicKey);
-
-  try {
-    const balance = await _loadAccountBalance(publicKey, config);
-    return { status: 'funded', publicKey, balance };
-  } catch (error) {
-    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
-      return { status: 'unfunded', publicKey };
-    }
-    throw error;
-  }
-}
 
 /**
  * Funds a testnet account via Friendbot (≈10,000 XLM).

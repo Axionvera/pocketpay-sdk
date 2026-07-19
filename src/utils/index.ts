@@ -306,10 +306,19 @@ export async function safeSendXLM(
   return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
 }
 
+/**
+ * Non-throwing alternative to {@link getTransactions}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<TransactionList>` — never throws
+ */
 export async function safeGetTransactions(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
@@ -319,10 +328,19 @@ export async function safeGetTransactions(
   );
 }
 
+/**
+ * Non-throwing alternative to {@link getPayments}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentList>` — never throws
+ */
 export async function safeGetPayments(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
