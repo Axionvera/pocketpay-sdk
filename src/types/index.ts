@@ -378,6 +378,16 @@ export type PocketPayResult<T> = SuccessResult<T> | FailureResult;
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
+/** Metadata for validation errors to identify the field and reason */
+export interface ValidationMetadata {
+  /** The input field that failed validation (e.g., 'publicKey', 'amount') */
+  field: string;
+  /** The reason validation failed (e.g., 'invalid_format', 'too_long') */
+  reason: string;
+  /** Optional: The value that was provided (never include secrets!) */
+  value?: string | number;
+}
+
 /** Custom SDK error with additional context */
 export class PocketPayError extends Error {
   /** Machine-readable error code */
@@ -386,18 +396,44 @@ export class PocketPayError extends Error {
   public readonly statusCode?: number;
   /** Original error that caused this error */
   public readonly cause?: Error;
+  /** Validation metadata (if this is a validation error) */
+  public readonly validation?: ValidationMetadata;
 
   constructor(
     message: string,
     code: string,
-    statusCode?: number,
-    cause?: Error
+    arg3?: number | {
+      statusCode?: number;
+      cause?: Error;
+      validation?: ValidationMetadata;
+    },
+    arg4?: Error
   ) {
     super(message);
     this.name = 'PocketPayError';
     this.code = code;
-    this.statusCode = statusCode;
-    this.cause = cause;
+
+    if (typeof arg3 === 'object' && arg3 !== null) {
+      // New signature: (message, code, options)
+      this.statusCode = arg3.statusCode;
+      this.cause = arg3.cause;
+      this.validation = arg3.validation;
+    } else {
+      // Old signature: (message, code, statusCode?, cause?)
+      this.statusCode = arg3 as number | undefined;
+      this.cause = arg4;
+    }
+
     Object.setPrototypeOf(this, PocketPayError.prototype);
   }
+}
+
+/** Options for cursor-based pagination on list queries. */
+export interface PaginationOptions {
+  /** Max records to return (default: 10) */
+  limit?: number;
+  /** Sort order by ledger time (default: "desc") */
+  order?: 'asc' | 'desc';
+  /** Horizon paging token to start after (for fetching the next page) */
+  cursor?: string;
 }

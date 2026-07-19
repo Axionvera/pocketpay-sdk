@@ -27,10 +27,12 @@ describe('Config Module', () => {
   describe('resolveConfig', () => {
     it('should default to testnet', () => {
       delete process.env.STELLAR_NETWORK;
+      delete process.env.STELLAR_TIMEOUT;
       const config = resolveConfig();
       expect(config.network).toBe('testnet');
       expect(config.horizonUrl).toContain('testnet');
       expect(config.sorobanRpcUrl).toContain('testnet');
+      expect(config.timeout).toBe(30000);
     });
 
     it('should respect environment variables', () => {
@@ -245,9 +247,9 @@ describe('Config Module', () => {
       expect(() => resolveConfig()).toThrow(PocketPayError);
     });
 
-    it('should allow undefined timeout', () => {
+    it('should use the default timeout when omitted', () => {
       const config = resolveConfig({ network: 'testnet' });
-      expect(config.timeout).toBeUndefined();
+      expect(config.timeout).toBe(30000);
     });
   });
 
