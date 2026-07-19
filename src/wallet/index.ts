@@ -1,5 +1,5 @@
 /**
- * Stellar PocketPay SDK — Wallet Module
+ * Stellar PocketPay SDK â€” Wallet Module
  *
  * Create, import, and manage Stellar keypairs. Query balances. Fund testnet accounts.
  */
