@@ -21,6 +21,7 @@ const NETWORK_PASSPHRASES: Record<StellarNetwork, string> = {
   mainnet: StellarSDK.Networks.PUBLIC,
 };
 const FRIENDBOT_URL = 'https://friendbot.stellar.org';
+const DEFAULT_TIMEOUT_MS = 30_000;
 // ─── Validation ─────────────────────────────────────────────────────────────
 /**
  * Validates that a network name is supported.
@@ -32,7 +33,14 @@ export function validateNetwork(network: unknown): asserts network is StellarNet
   if (network !== 'testnet' && network !== 'mainnet') {
     throw new PocketPayError(
       `Unsupported network: "${network}". Supported networks: testnet, mainnet`,
-      'INVALID_NETWORK'
+      'INVALID_NETWORK',
+      {
+        validation: {
+          field: 'network',
+          reason: 'unsupported',
+          value: network as string
+        }
+      }
     );
   }
 }
@@ -44,7 +52,7 @@ export function validateNetwork(network: unknown): asserts network is StellarNet
  * @param errorCode - Machine-readable error code to attach on failure
  * @throws PocketPayError if URL is invalid
  */
-export function validateUrl(url: string, fieldName: string, errorCode: string): void {
+export function validateUrl(url: string, fieldName: string, errorCode: string, field: string): void {
   try {
     const parsed = new URL(url);
     if (!parsed.protocol.startsWith('http')) {
@@ -53,7 +61,14 @@ export function validateUrl(url: string, fieldName: string, errorCode: string): 
   } catch (error) {
     throw new PocketPayError(
       `Invalid ${fieldName}: "${url}". Must be a valid HTTP(S) URL.`,
-      errorCode
+      errorCode,
+      {
+        validation: {
+          field,
+          reason: 'invalid_url',
+          value: url
+        }
+      }
     );
   }
 }
@@ -64,7 +79,7 @@ export function validateUrl(url: string, fieldName: string, errorCode: string): 
  * @throws PocketPayError if URL is invalid
  */
 export function validateHorizonUrl(url: string): void {
-  validateUrl(url, 'Horizon URL', 'INVALID_HORIZON_URL');
+  validateUrl(url, 'Horizon URL', 'INVALID_HORIZON_URL', 'horizonUrl');
 }
 /**
  * Validates Soroban RPC URL format.
@@ -73,7 +88,7 @@ export function validateHorizonUrl(url: string): void {
  * @throws PocketPayError if URL is invalid
  */
 export function validateSorobanRpcUrl(url: string): void {
-  validateUrl(url, 'Soroban RPC URL', 'INVALID_SOROBAN_RPC_URL');
+  validateUrl(url, 'Soroban RPC URL', 'INVALID_SOROBAN_RPC_URL', 'sorobanRpcUrl');
 }
 /**
  * Validates timeout value.
@@ -85,19 +100,40 @@ export function validateTimeout(timeout: unknown): asserts timeout is number {
   if (typeof timeout !== 'number') {
     throw new PocketPayError(
       `Invalid timeout: "${timeout}". Timeout must be a number (milliseconds).`,
-      'INVALID_TIMEOUT'
+      'INVALID_TIMEOUT',
+      {
+        validation: {
+          field: 'timeout',
+          reason: 'invalid_type',
+          value: timeout as string
+        }
+      }
     );
   }
   if (timeout <= 0) {
     throw new PocketPayError(
       `Invalid timeout: ${timeout}. Timeout must be greater than 0.`,
-      'INVALID_TIMEOUT'
+      'INVALID_TIMEOUT',
+      {
+        validation: {
+          field: 'timeout',
+          reason: 'not_positive',
+          value: timeout
+        }
+      }
     );
   }
   if (!Number.isFinite(timeout)) {
     throw new PocketPayError(
       `Invalid timeout: ${timeout}. Timeout must be a finite number.`,
-      'INVALID_TIMEOUT'
+      'INVALID_TIMEOUT',
+      {
+        validation: {
+          field: 'timeout',
+          reason: 'not_finite',
+          value: timeout
+        }
+      }
     );
   }
 }
@@ -112,20 +148,41 @@ export function validateContractId(contractId: string): void {
   if (typeof contractId !== 'string' || contractId.length === 0) {
     throw new PocketPayError(
       `Invalid contract ID: "${contractId}". Contract ID must be a non-empty string.`,
-      'INVALID_CONTRACT_ID'
+      'INVALID_CONTRACT_ID',
+      {
+        validation: {
+          field: 'contractId',
+          reason: 'empty',
+          value: contractId
+        }
+      }
     );
   }
   if (!contractId.startsWith('C') || contractId.length !== 56) {
     throw new PocketPayError(
       `Invalid contract ID: "${contractId}". Contract ID must be a 56-character base32 string starting with 'C'.`,
-      'INVALID_CONTRACT_ID'
+      'INVALID_CONTRACT_ID',
+      {
+        validation: {
+          field: 'contractId',
+          reason: 'invalid_format',
+          value: contractId
+        }
+      }
     );
   }
   // Validate base32 characters (base32 uses A-Z and 2-7)
   if (!/^C[A-Z2-7]{55}$/.test(contractId)) {
     throw new PocketPayError(
       `Invalid contract ID format: "${contractId}". Contract ID must contain only base32 characters (A-Z, 2-7).`,
-      'INVALID_CONTRACT_ID'
+      'INVALID_CONTRACT_ID',
+      {
+        validation: {
+          field: 'contractId',
+          reason: 'invalid_characters',
+          value: contractId
+        }
+      }
     );
   }
 }
@@ -167,15 +224,13 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
       : process.env.STELLAR_SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[network];
   validateSorobanRpcUrl(sorobanRpcUrl);
 
-  // Timeout: validate only when provided.
+  // Timeout: explicit override > env var > SDK default.
   const timeout =
     overrides?.timeout ??
     (process.env.STELLAR_TIMEOUT
       ? parseInt(process.env.STELLAR_TIMEOUT, 10)
-      : undefined);
-  if (timeout !== undefined) {
-    validateTimeout(timeout);
-  }
+      : DEFAULT_TIMEOUT_MS);
+  validateTimeout(timeout);
 
   // Contract ID: preserve an explicitly-provided value (including '').
   // An empty string is a valid "no contract configured" sentinel and is
@@ -276,4 +331,5 @@ export {
   HORIZON_URLS,
   SOROBAN_RPC_URLS,
   NETWORK_PASSPHRASES,
+  DEFAULT_TIMEOUT_MS,
 };

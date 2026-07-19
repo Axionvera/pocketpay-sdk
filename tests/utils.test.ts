@@ -8,6 +8,7 @@ import {
   validateSecretKey,
   validateAmount,
   validateMemo,
+  validateTransactionHash,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
@@ -326,6 +327,27 @@ describe('validateAmount', () => {
         const truncated2 = truncateAddress(truncated1);
         expect(truncated1).toBe(truncated2);
       });
+    });
+  });
+
+  describe('validateTransactionHash', () => {
+    it('should accept a valid 64-character hexadecimal hash', () => {
+      const valid = 'a'.repeat(64);
+      expect(validateTransactionHash(valid)).toBe(true);
+    });
+
+    it('should reject hashes with invalid length', () => {
+      expect(() => validateTransactionHash('a'.repeat(63))).toThrow(PocketPayError);
+      expect(() => validateTransactionHash('a'.repeat(65))).toThrow(PocketPayError);
+      expect(() => validateTransactionHash('')).toThrow(PocketPayError);
+    });
+
+    it('should reject non-hexadecimal values', () => {
+      const invalidHex = 'g'.repeat(64); // 'g' is not a hex character
+      expect(() => validateTransactionHash(invalidHex)).toThrow(PocketPayError);
+
+      const mixed = 'z'.repeat(64);
+      expect(() => validateTransactionHash(mixed)).toThrow(PocketPayError);
     });
   });
 

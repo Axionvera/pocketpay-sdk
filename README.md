@@ -46,13 +46,16 @@ npm install @axionvera/pocketpay-sdk
 
 ## Documentation
 
+- [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
+- [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Changelog](./CHANGELOG.md) - Track changes across SDK versions
 
 ## Package Root Imports
 
@@ -67,6 +70,14 @@ Deep imports (e.g. `stellar-pocketpay-sdk/wallet`) are **not supported** and
 are not guaranteed to work across versions. Internal helpers that aren't
 listed in the Features table above are implementation details and are not
 part of the public API.
+
+> [!CAUTION]
+> `createWallet` generates a keypair but does not back it up — the SDK never
+> persists a secret key anywhere. Losing it means losing access to the
+> wallet permanently. Your application (or the user) must save it to secure
+> storage right after creation. See
+> [Wallet Creation](./docs/getting-started.md#2-wallet-creation) and
+> [Security Best Practices](./docs/security.md#wallet-backup-responsibility).
 
 ## Response models
 

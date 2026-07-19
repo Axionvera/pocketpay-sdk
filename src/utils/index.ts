@@ -6,6 +6,7 @@
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
+  AssetBalance,
   PocketPayError,
   SuccessResult,
   FailureResult,
@@ -21,7 +22,14 @@ export function validatePublicKey(publicKey: string): boolean {
   } catch {
     throw new PocketPayError(
       `Invalid Stellar public key: ${publicKey}`,
-      'INVALID_PUBLIC_KEY'
+      'INVALID_PUBLIC_KEY',
+      {
+        validation: {
+          field: 'publicKey',
+          reason: 'invalid_format',
+          value: publicKey
+        }
+      }
     );
   }
 }
@@ -33,7 +41,14 @@ export function validateSecretKey(secretKey: string): boolean {
   } catch {
     throw new PocketPayError(
       'Invalid Stellar secret key',
-      'INVALID_SECRET_KEY'
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_format'
+          // Do NOT include value (secret!)
+        }
+      }
     );
   }
 }
@@ -46,21 +61,42 @@ export function validateAmount(amount: string): boolean {
   if (typeof amount !== 'string' || !/^\d+(\.\d+)?$/.test(amount)) {
     throw new PocketPayError(
       `Invalid amount: "${amount}". Must be a positive decimal string.`,
-      'INVALID_AMOUNT'
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'invalid_format',
+          value: amount
+        }
+      }
     );
   }
   const num = parseFloat(amount);
   if (num <= 0) {
     throw new PocketPayError(
       `Invalid amount: "${amount}". Must be greater than zero.`,
-      'INVALID_AMOUNT'
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'not_positive',
+          value: amount
+        }
+      }
     );
   }
   const parts = amount.split('.');
   if (parts[1] && parts[1].length > 7) {
     throw new PocketPayError(
       `Amount "${amount}" exceeds maximum precision of 7 decimal places.`,
-      'INVALID_AMOUNT_PRECISION'
+      'INVALID_AMOUNT_PRECISION',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'too_precise',
+          value: amount
+        }
+      }
     );
   }
   return true;
@@ -85,10 +121,35 @@ export function validateMemo(memo?: string): boolean {
   if (byteLength > 28) {
     throw new PocketPayError(
       `Memo text exceeds 28-byte limit (got ${byteLength} bytes): "${memo}"`,
-      'INVALID_MEMO'
+      'INVALID_MEMO',
+      {
+        validation: {
+          field: 'memo',
+          reason: 'too_long',
+          value: memo
+        }
+      }
     );
   }
 
+  return true;
+}
+
+
+/**
+ * Validates a Stellar transaction hash.
+ *
+ * Stellar transaction hashes are 64-character hexadecimal strings (32 bytes
+ * represented in hex). This utility throws a `PocketPayError` on invalid
+ * input and returns `true` when the hash is valid.
+ */
+export function validateTransactionHash(hash: string): boolean {
+  if (typeof hash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hash)) {
+    throw new PocketPayError(
+      `Invalid transaction hash: ${hash}`,
+      'INVALID_TRANSACTION_HASH'
+    );
+  }
   return true;
 }
 
@@ -111,6 +172,48 @@ export function truncateAddress(
 ): string {
   if (address.length <= startChars + endChars) return address;
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+}
+
+// ─── Asset Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Finds a specific asset balance from an array of asset balances.
+ *
+ * For native XLM, pass `"XLM"` as the asset code. For issued assets, pass the
+ * asset code and optionally the issuer to disambiguate.
+ *
+ * @param balances - Array of asset balances to search
+ * @param assetCode - Asset code to find (e.g. `"XLM"`, `"USDC"`)
+ * @param assetIssuer - Issuer public key (required for issued assets with
+ *   multiple issuers; ignored for native XLM)
+ * @returns The matching `AssetBalance` or `undefined` if not found
+ *
+ * @example
+ * ```ts
+ * // Native XLM
+ * const xlm = findAssetBalance(balances, 'XLM');
+ *
+ * // USDC from a specific issuer
+ * const usdc = findAssetBalance(balances, 'USDC', 'GA5ZSE...KZVN');
+ *
+ * // First USDC balance (any issuer)
+ * const anyUsdc = findAssetBalance(balances, 'USDC');
+ * ```
+ */
+export function findAssetBalance(
+  balances: AssetBalance[],
+  assetCode: string,
+  assetIssuer?: string,
+): AssetBalance | undefined {
+  return balances.find((b) => {
+    if (assetCode === 'XLM') {
+      return b.asset === 'XLM';
+    }
+    if (assetIssuer) {
+      return b.asset === assetCode && b.issuer === assetIssuer;
+    }
+    return b.asset === assetCode;
+  });
 }
 
 // ─── Error Wrapping ─────────────────────────────────────────────────────────
@@ -190,9 +293,10 @@ export async function safeGetBalance(
 }
 
 export async function safeFundTestnetAccount(
-  publicKey: string
+  publicKey: string,
+  config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<FundResult>> {
-  return toResult(() => fundTestnetAccount(publicKey), 'Failed to fund testnet account', 'FUND_ERROR');
+  return toResult(() => fundTestnetAccount(publicKey, config), 'Failed to fund testnet account', 'FUND_ERROR');
 }
 
 export async function safeSendXLM(
@@ -202,10 +306,19 @@ export async function safeSendXLM(
   return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
 }
 
+/**
+ * Non-throwing alternative to {@link getTransactions}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<TransactionList>` — never throws
+ */
 export async function safeGetTransactions(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
@@ -215,10 +328,19 @@ export async function safeGetTransactions(
   );
 }
 
+/**
+ * Non-throwing alternative to {@link getPayments}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentList>` — never throws
+ */
 export async function safeGetPayments(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
