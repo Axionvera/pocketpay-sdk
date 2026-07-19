@@ -46,6 +46,7 @@ const REQUIRED_PUBLIC_EXPORTS = {
     'filterByAsset',
     'filterByDateRange',
     'filterByCounterparty',
+    'sortTransactionsByDate',
   ],
   soroban: ['depositToVault', 'withdrawFromVault', 'getVaultBalance'],
   config: [

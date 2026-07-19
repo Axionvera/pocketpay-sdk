@@ -239,6 +239,20 @@ export interface FilterableTransaction {
   assetIssuer?: string;
 }
 
+/** Sort direction supported by {@link sortTransactionsByDate}. */
+export type TransactionSortOrder = 'newest' | 'oldest';
+
+/**
+ * Minimal transaction-like shape accepted by the date sorting helper.
+ *
+ * `createdAt` is optional because callers may be sorting partially populated
+ * API records. Missing and invalid dates are retained at the end of the result.
+ */
+export interface SortableTransaction {
+  /** Timestamp used for sorting, normally an ISO 8601 string. */
+  createdAt?: string | Date | null;
+}
+
 /** Options for the combined {@link filterTransactions} helper. */
 export interface FilterTransactionsOptions {
   /** Keep only records matching this direction relative to `account` */

@@ -25,6 +25,8 @@ export type {
   TransactionDirection,
   FilterableTransaction,
   FilterTransactionsOptions,
+  SortableTransaction,
+  TransactionSortOrder,
   PaymentSummary,
   PaymentRecord,
   PaymentList,
@@ -62,6 +64,7 @@ export {
   filterByAsset,
   filterByDateRange,
   filterByCounterparty,
+  sortTransactionsByDate,
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
