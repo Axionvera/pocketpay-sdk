@@ -12,6 +12,8 @@ import {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  redactSecretKey,
+  redactSensitiveValue,
   PocketPayError,
   createWallet,
 } from '../src';
@@ -167,6 +169,100 @@ describe('validateAmount', () => {
       expect(xlmToStroops('1')).toBe(10000000);
       expect(xlmToStroops(0.5)).toBe(5000000);
       expect(xlmToStroops('0.0000001')).toBe(1);
+    });
+  });
+
+  describe('redactSecretKey', () => {
+    it('should redact a valid Stellar secret key', () => {
+      const wallet = createWallet();
+      const redacted = redactSecretKey(wallet.secretKey);
+      expect(redacted).toMatch(/^S.../);
+      expect(redacted).toMatch(/\.\.\./);
+      // Should contain first 4 and last 4 characters
+      expect(redacted).toBe(
+        `${wallet.secretKey.slice(0, 4)}...${wallet.secretKey.slice(-4)}`
+      );
+    });
+
+    it('should never expose the full secret key', () => {
+      const wallet = createWallet();
+      const redacted = redactSecretKey(wallet.secretKey);
+      expect(redacted).not.toBe(wallet.secretKey);
+      expect(redacted).not.toContain(wallet.secretKey.slice(4, -4));
+    });
+
+    it('should return "(empty)" for an empty string', () => {
+      expect(redactSecretKey('')).toBe('(empty)');
+    });
+
+    it('should return "(empty)" for whitespace-only string', () => {
+      expect(redactSecretKey('   ')).toBe('(empty)');
+      expect(redactSecretKey('\t')).toBe('(empty)');
+      expect(redactSecretKey('\n')).toBe('(empty)');
+    });
+
+    it('should return string as-is if already redacted (idempotent)', () => {
+      expect(redactSecretKey('SC4M...CK4L')).toBe('SC4M...CK4L');
+      expect(redactSecretKey('S...Z')).toBe('S...Z');
+      expect(redactSecretKey('abc...xyz')).toBe('abc...xyz');
+    });
+
+    it('should return short strings (≤8 chars) as-is', () => {
+      expect(redactSecretKey('short')).toBe('short');
+      expect(redactSecretKey('12345678')).toBe('12345678');
+      expect(redactSecretKey('S')).toBe('S');
+    });
+
+    it('should redact non-secret-key strings consistently', () => {
+      // The utility does NOT validate — it just truncates
+      // 'SINVALID' is exactly 8 chars, so it's returned as-is (short string)
+      expect(redactSecretKey('SINVALID')).toBe('SINVALID');
+      expect(redactSecretKey('not_a_secret_key_at_all')).toBe('not_..._all');
+      expect(redactSecretKey('some_random_long_string')).toBe('some...ring');
+    });
+
+    it('should handle a secret key with the same prefix/suffix pattern as a real one', () => {
+      const fakeKey = 'SABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV';
+      const redacted = redactSecretKey(fakeKey);
+      expect(redacted).toBe('SABC...STUV');
+      expect(redacted).toContain('...');
+      expect(redacted).not.toBe(fakeKey);
+    });
+  });
+
+  describe('redactSensitiveValue', () => {
+    it('should redact with default 4…4', () => {
+      expect(redactSensitiveValue('abcdefghijklmnop')).toBe('abcd...mnop');
+    });
+
+    it('should redact with custom showFirst/showLast', () => {
+      expect(redactSensitiveValue('abcdefghijklmnop', 2, 6)).toBe('ab...klmnop');
+    });
+
+    it('should return "(empty)" for empty string', () => {
+      expect(redactSensitiveValue('')).toBe('(empty)');
+    });
+
+    it('should return "(empty)" for whitespace-only', () => {
+      expect(redactSensitiveValue('   ')).toBe('(empty)');
+    });
+
+    it('should return as-is if already redacted (idempotent)', () => {
+      expect(redactSensitiveValue('abcd...wxyz')).toBe('abcd...wxyz');
+      expect(redactSensitiveValue('a...b')).toBe('a...b');
+    });
+
+    it('should return short values as-is', () => {
+      expect(redactSensitiveValue('abc')).toBe('abc');
+      expect(redactSensitiveValue('12345678')).toBe('12345678');
+    });
+
+    it('should not throw on any input', () => {
+      // @ts-expect-error - testing runtime behavior
+      expect(() => redactSensitiveValue(null)).not.toThrow();
+      // @ts-expect-error - testing runtime behavior
+      expect(() => redactSensitiveValue(undefined)).not.toThrow();
+      expect(() => redactSensitiveValue('any-value')).not.toThrow();
     });
   });
 
