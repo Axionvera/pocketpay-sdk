@@ -87,6 +87,43 @@ describe('Payments Module - Validation', () => {
     ).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND' });
   });
 
+  it('should not expose sensitive operation data in payment failure errors', async () => {
+    const sender = createWallet();
+    const receiver = createWallet();
+    
+    // Simulate a Horizon error with result codes that might contain sensitive data
+    const horizonError = new Error('Transaction failed') as any;
+    horizonError.response = {
+      status: 400,
+      data: {
+        extras: {
+          result_codes: {
+            transaction: 'tx_bad_seq',
+            operations: ['op_bad_auth', 'op_no_source'] // This could contain sensitive details
+          }
+        }
+      }
+    };
+    
+    mockLoadAccount.mockRejectedValue(horizonError);
+    
+    await expect(
+      sendXLM({ sourceSecret: sender.secretKey, destination: receiver.publicKey, amount: '10' })
+    ).rejects.toThrow(PocketPayError);
+    
+    try {
+      await sendXLM({ sourceSecret: sender.secretKey, destination: receiver.publicKey, amount: '10' });
+    } catch (error) {
+      expect(error).toBeInstanceOf(PocketPayError);
+      const err = error as PocketPayError;
+      // Error should only contain transaction code, not full operation details
+      expect(err.message).toContain('tx_bad_seq');
+      expect(err.message).not.toContain('op_bad_auth');
+      expect(err.message).not.toContain('op_no_source');
+      expect(err.message).not.toContain('JSON.stringify');
+    }
+  });
+
   describe('fixture validation', () => {
     it('fundedAccount fixture should have XLM balance', () => {
       const xlmBalance = fundedAccount.balances.find(b => b.asset_type === 'native');

@@ -12,6 +12,7 @@ import {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  redactSensitive,
   PocketPayError,
   createWallet,
 } from '../src';
@@ -41,6 +42,23 @@ describe('Utils Module', () => {
 
     it('should throw for an invalid secret key', () => {
       expect(() => validateSecretKey('SINVALID')).toThrow(PocketPayError);
+    });
+
+    it('should never include secret key value in error metadata', () => {
+      const secretKey = 'SABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+      expect(() => validateSecretKey('invalid')).toThrow(PocketPayError);
+      try {
+        validateSecretKey('invalid');
+      } catch (error) {
+        expect(error).toBeInstanceOf(PocketPayError);
+        const err = error as PocketPayError;
+        // Secret key should never appear in error message
+        expect(err.message).not.toContain(secretKey);
+        // Secret key should never appear in validation metadata
+        if (err.validation) {
+          expect(err.validation.value).not.toBe(secretKey);
+        }
+      }
     });
   });
 
@@ -348,6 +366,52 @@ describe('validateAmount', () => {
 
       const mixed = 'z'.repeat(64);
       expect(() => validateTransactionHash(mixed)).toThrow(PocketPayError);
+    });
+  });
+
+  describe('redactSensitive', () => {
+    it('should redact Stellar secret keys (S...)', () => {
+      const wallet = createWallet();
+      const result = redactSensitive(wallet.secretKey);
+      expect(result).toBe('S[REDACTED]');
+    });
+
+    it('should redact secret keys embedded in error messages', () => {
+      const wallet = createWallet();
+      const message = `Failed to sign transaction with secret key: ${wallet.secretKey}`;
+      const result = redactSensitive(message);
+      expect(result).toBe('Failed to sign transaction with secret key: S[REDACTED]');
+    });
+
+    it('should redact multiple secret keys in a single string', () => {
+      const wallet1 = createWallet();
+      const wallet2 = createWallet();
+      const message = `Keys: ${wallet1.secretKey} and ${wallet2.secretKey}`;
+      const result = redactSensitive(message);
+      expect(result).toBe('Keys: S[REDACTED] and S[REDACTED]');
+    });
+
+    it('should not redact public keys (G...)', () => {
+      const wallet = createWallet();
+      const result = redactSensitive(wallet.publicKey);
+      expect(result).toBe(wallet.publicKey);
+    });
+
+    it('should not redact non-secret strings', () => {
+      const message = 'This is a regular error message without secrets';
+      const result = redactSensitive(message);
+      expect(result).toBe(message);
+    });
+
+    it('should handle empty strings', () => {
+      const result = redactSensitive('');
+      expect(result).toBe('');
+    });
+
+    it('should handle strings without secret keys', () => {
+      const message = 'Error: Invalid public key GABC XYZ';
+      const result = redactSensitive(message);
+      expect(result).toBe(message);
     });
   });
 
