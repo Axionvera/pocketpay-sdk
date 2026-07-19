@@ -3,6 +3,12 @@
 This guide covers pagination for `getTransactions` and `getPayments` — the
 two SDK helpers that return account history from Horizon.
 
+> **Note on timestamps:** every `createdAt` field on records returned by
+> these helpers is an ISO 8601 UTC string (e.g. `2026-07-18T14:32:11Z`).
+> See [Transaction Date Formatting](./transaction-timestamps.md) for the
+> full format spec and guidance on locale/timezone handling in your
+> application.
+
 Both helpers support cursor-based pagination so you can walk through an
 account's full history instead of only ever seeing the most recent page.
 
@@ -80,3 +86,8 @@ const olderThanThatRecord = await getTransactions(publicKey, {
   available — it isn't a guarantee, since Horizon determines the actual data.
 - These helpers only wrap Horizon's REST pagination; there's no local
   caching or persistence of pages.
+
+## See also
+
+- [Transaction Date Formatting](./transaction-timestamps.md) — format of
+  every `createdAt` value these helpers return.

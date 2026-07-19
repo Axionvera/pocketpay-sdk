@@ -22,6 +22,11 @@ export type {
   TransactionSummary,
   TransactionRecord,
   TransactionList,
+  TransactionDirection,
+  FilterableTransaction,
+  FilterTransactionsOptions,
+  SortableTransaction,
+  TransactionSortOrder,
   PaymentSummary,
   PaymentRecord,
   PaymentList,
@@ -51,7 +56,16 @@ export {
 export { sendXLM } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
-export { getTransactions, getPayments } from './transactions';
+export {
+  getTransactions,
+  getPayments,
+  filterTransactions,
+  filterByDirection,
+  filterByAsset,
+  filterByDateRange,
+  filterByCounterparty,
+  sortTransactionsByDate,
+} from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
 export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
@@ -81,10 +95,15 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Redaction
+  redactSecretKey,
+  redactSensitiveValue,
   // Result helpers
   toSuccessResult,
   toFailureResult,
   toResult,
+  // Asset helpers
+  findAssetBalance,
   // Safe (non-throwing) wrappers
   safeGetBalance,
   safeFundTestnetAccount,

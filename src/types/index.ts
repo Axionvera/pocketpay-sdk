@@ -203,6 +203,77 @@ export interface PaymentList {
   nextCursor?: string;
 }
 
+// ─── Transaction Filtering ───────────────────────────────────────────────────
+
+/**
+ * The relative direction of a transaction or payment with respect to a
+ * reference Stellar account.
+ *
+ * - `"incoming"` — value or activity flowed *to* the reference account.
+ * - `"outgoing"` — value or activity originated *from* the reference account.
+ * - `"self"`     — the reference account is both sender and receiver (e.g. a
+ *   payment where `from === to`).
+ */
+export type TransactionDirection = 'incoming' | 'outgoing' | 'self';
+
+/**
+ * Structural shape shared by {@link TransactionSummary} and
+ * {@link PaymentSummary} that the pure filtering helpers operate on.
+ *
+ * Every field except `createdAt` is optional so the same helper functions
+ * work across both record types — including records that lack asset or
+ * counterparty data (e.g. a raw {@link TransactionSummary} has no `asset`).
+ */
+export interface FilterableTransaction {
+  /** ISO 8601 timestamp used for date-range filtering */
+  createdAt: string;
+  /** Present on transaction records; the tx source account */
+  sourceAccount?: string;
+  /** Present on payment records; the sending account */
+  from?: string;
+  /** Present on payment records; the receiving account */
+  to?: string;
+  /** Present on payment records; the asset code (e.g. "XLM", "USDC") */
+  asset?: string;
+  /** Present on payment records; the asset issuer (empty for native XLM) */
+  assetIssuer?: string;
+}
+
+/** Sort direction supported by {@link sortTransactionsByDate}. */
+export type TransactionSortOrder = 'newest' | 'oldest';
+
+/**
+ * Minimal transaction-like shape accepted by the date sorting helper.
+ *
+ * `createdAt` is optional because callers may be sorting partially populated
+ * API records. Missing and invalid dates are retained at the end of the result.
+ */
+export interface SortableTransaction {
+  /** Timestamp used for sorting, normally an ISO 8601 string. */
+  createdAt?: string | Date | null;
+}
+
+/** Options for the combined {@link filterTransactions} helper. */
+export interface FilterTransactionsOptions {
+  /** Keep only records matching this direction relative to `account` */
+  direction?: TransactionDirection;
+  /**
+   * Reference Stellar account (G...) used to resolve `direction` and
+   * `counterparty`. Required for those two filters; ignored otherwise.
+   */
+  account?: string;
+  /** Keep only records for this asset code (e.g. "XLM", "USDC"). */
+  asset?: string;
+  /** When filtering by asset, optionally scope to a specific issuer. */
+  assetIssuer?: string;
+  /** Keep only records created on or after this date (string or Date). */
+  startDate?: string | Date;
+  /** Keep only records created on or before this date (string or Date). */
+  endDate?: string | Date;
+  /** Keep only records whose counterparty equals this account (needs `account`). */
+  counterparty?: string;
+}
+
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
 
 /** Parameters for a vault deposit */

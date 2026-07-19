@@ -6,6 +6,7 @@
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
+  AssetBalance,
   PocketPayError,
   SuccessResult,
   FailureResult,
@@ -173,6 +174,139 @@ export function truncateAddress(
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
+// ─── Redaction ───────────────────────────────────────────────────────────────
+
+/**
+ * Redacts a Stellar secret key, keeping only the first 4 and last 4 characters.
+ *
+ * Stellar secret keys start with "S" and are 56 characters long. This utility
+ * masks the middle portion so the key can be safely included in logs, debug
+ * output, and error messages without exposing the full secret.
+ *
+ * This utility **never** validates or exposes the full secret key. Invalid or
+ * non-secret-key strings are handled gracefully by redacting the middle portion
+ * without any validation step that could leak key material.
+ *
+ * @param secretKey - The secret key string to redact
+ * @returns A redacted string like `"S...CK4L"` for valid keys, or `"(empty)"` for
+ *   empty/blank input, or a similarly truncated string for other values
+ *
+ * @example
+ * ```ts
+ * redactSecretKey('SC4M4...FULL...CK4L');
+ * // => 'SC4M...CK4L'
+ *
+ * redactSecretKey('');
+ * // => '(empty)'
+ *
+ * redactSecretKey('not-a-key');
+ * // => 'not-...-key'
+ * ```
+ */
+export function redactSecretKey(secretKey: string): string {
+  if (!secretKey || secretKey.trim().length === 0) {
+    return '(empty)';
+  }
+
+  // Already redacted — return as-is (idempotent)
+  if (secretKey.includes('...')) {
+    return secretKey;
+  }
+
+  if (secretKey.length <= 8) {
+    return secretKey;
+  }
+
+  return `${secretKey.slice(0, 4)}...${secretKey.slice(-4)}`;
+}
+
+/**
+ * Redacts any sensitive string value by truncating the middle portion.
+ *
+ * This is a general-purpose redaction helper for any sensitive value (API keys,
+ * tokens, private data, etc.). It keeps the first `showFirst` and last
+ * `showLast` characters, replacing the middle with `...`.
+ *
+ * For Stellar secret keys specifically, prefer {@link redactSecretKey}.
+ *
+ * @param value - The sensitive string to redact
+ * @param showFirst - Number of characters to keep at the start (default: 4)
+ * @param showLast - Number of characters to keep at the end (default: 4)
+ * @returns A redacted string, or `"(empty)"` for empty/blank input
+ *
+ * @example
+ * ```ts
+ * redactSensitiveValue('sk_live_abc123xyz789');
+ * // => 'sk_l...z789'
+ *
+ * redactSensitiveValue('my-api-token', 2, 2);
+ * // => 'my...en'
+ * ```
+ */
+export function redactSensitiveValue(
+  value: string,
+  showFirst: number = 4,
+  showLast: number = 4,
+): string {
+  // Gracefully handle null/undefined at runtime (even though TS types forbid it)
+  if (value == null || value.trim().length === 0) {
+    return '(empty)';
+  }
+
+  // Already redacted — return as-is (idempotent)
+  if (value.includes('...')) {
+    return value;
+  }
+
+  if (value.length <= showFirst + showLast) {
+    return value;
+  }
+
+  return `${value.slice(0, showFirst)}...${value.slice(-showLast)}`;
+}
+
+// ─── Asset Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Finds a specific asset balance from an array of asset balances.
+ *
+ * For native XLM, pass `"XLM"` as the asset code. For issued assets, pass the
+ * asset code and optionally the issuer to disambiguate.
+ *
+ * @param balances - Array of asset balances to search
+ * @param assetCode - Asset code to find (e.g. `"XLM"`, `"USDC"`)
+ * @param assetIssuer - Issuer public key (required for issued assets with
+ *   multiple issuers; ignored for native XLM)
+ * @returns The matching `AssetBalance` or `undefined` if not found
+ *
+ * @example
+ * ```ts
+ * // Native XLM
+ * const xlm = findAssetBalance(balances, 'XLM');
+ *
+ * // USDC from a specific issuer
+ * const usdc = findAssetBalance(balances, 'USDC', 'GA5ZSE...KZVN');
+ *
+ * // First USDC balance (any issuer)
+ * const anyUsdc = findAssetBalance(balances, 'USDC');
+ * ```
+ */
+export function findAssetBalance(
+  balances: AssetBalance[],
+  assetCode: string,
+  assetIssuer?: string,
+): AssetBalance | undefined {
+  return balances.find((b) => {
+    if (assetCode === 'XLM') {
+      return b.asset === 'XLM';
+    }
+    if (assetIssuer) {
+      return b.asset === assetCode && b.issuer === assetIssuer;
+    }
+    return b.asset === assetCode;
+  });
+}
+
 // ─── Error Wrapping ─────────────────────────────────────────────────────────
 
 export function wrapError(
@@ -263,10 +397,19 @@ export async function safeSendXLM(
   return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
 }
 
+/**
+ * Non-throwing alternative to {@link getTransactions}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<TransactionList>` — never throws
+ */
 export async function safeGetTransactions(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
@@ -276,10 +419,19 @@ export async function safeGetTransactions(
   );
 }
 
+/**
+ * Non-throwing alternative to {@link getPayments}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentList>` — never throws
+ */
 export async function safeGetPayments(
   publicKey: string,
-  limit: number = 10,
-  order: 'asc' | 'desc' = 'desc',
+  limit?: number,
+  order?: 'asc' | 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
