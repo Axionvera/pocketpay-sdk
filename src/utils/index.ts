@@ -2,10 +2,11 @@
  * Stellar PocketPay SDK — Utility Helpers
  *
  * Shared validation, formatting, and conversion utilities.
- */
+ */ 
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
+  AssetBalance,
   PocketPayError,
   SuccessResult,
   FailureResult,
@@ -14,13 +15,6 @@ import {
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
-/**
- * Validates that a string is a valid Stellar public key (G...).
- *
- * @param publicKey - The public key to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validatePublicKey(publicKey: string): boolean {
   try {
     StellarSDK.Keypair.fromPublicKey(publicKey);
@@ -28,18 +22,18 @@ export function validatePublicKey(publicKey: string): boolean {
   } catch {
     throw new PocketPayError(
       `Invalid Stellar public key: ${publicKey}`,
-      'INVALID_PUBLIC_KEY'
+      'INVALID_PUBLIC_KEY',
+      {
+        validation: {
+          field: 'publicKey',
+          reason: 'invalid_format',
+          value: publicKey
+        }
+      }
     );
   }
 }
 
-/**
- * Validates that a string is a valid Stellar secret key (S...).
- *
- * @param secretKey - The secret key to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validateSecretKey(secretKey: string): boolean {
   try {
     StellarSDK.Keypair.fromSecret(secretKey);
@@ -47,69 +41,130 @@ export function validateSecretKey(secretKey: string): boolean {
   } catch {
     throw new PocketPayError(
       'Invalid Stellar secret key',
-      'INVALID_SECRET_KEY'
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_format'
+          // Do NOT include value (secret!)
+        }
+      }
     );
   }
 }
 
-/**
- * Validates that an amount string is a positive number with valid precision.
- *
- * @param amount - The amount string to validate
- * @returns true if valid
- * @throws PocketPayError if invalid
- */
 export function validateAmount(amount: string): boolean {
-  const num = parseFloat(amount);
-  if (isNaN(num) || num <= 0) {
+  // Must be a plain positive decimal string: digits, optionally one decimal
+  // point followed by digits. This rejects '', whitespace, '10abc', '1e3',
+  // 'Infinity', 'NaN', signs, and any other non-decimal input up front —
+  // parseFloat alone would accept many of these (e.g. parseFloat('10abc') === 10).
+  if (typeof amount !== 'string' || !/^\d+(\.\d+)?$/.test(amount)) {
     throw new PocketPayError(
-      `Invalid amount: "${amount}". Must be a positive number.`,
-      'INVALID_AMOUNT'
+      `Invalid amount: "${amount}". Must be a positive decimal string.`,
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'invalid_format',
+          value: amount
+        }
+      }
     );
   }
-  // Stellar supports up to 7 decimal places
+  const num = parseFloat(amount);
+  if (num <= 0) {
+    throw new PocketPayError(
+      `Invalid amount: "${amount}". Must be greater than zero.`,
+      'INVALID_AMOUNT',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'not_positive',
+          value: amount
+        }
+      }
+    );
+  }
   const parts = amount.split('.');
   if (parts[1] && parts[1].length > 7) {
     throw new PocketPayError(
       `Amount "${amount}" exceeds maximum precision of 7 decimal places.`,
-      'INVALID_AMOUNT_PRECISION'
+      'INVALID_AMOUNT_PRECISION',
+      {
+        validation: {
+          field: 'amount',
+          reason: 'too_precise',
+          value: amount
+        }
+      }
     );
   }
   return true;
 }
 
-// ─── Formatting ─────────────────────────────────────────────────────────────
+/**
+ * Validates a memo string for use in a Stellar transaction.
+ *
+ * Stellar text memos are limited to 28 bytes (not characters — multi-byte
+ * Unicode characters count for more than one byte each). An empty string or
+ * `undefined` memo is treated as "no memo" and is always valid, since memos
+ * are optional on most PocketPay SDK operations.
+ *
+ * @param memo - The memo text to validate, or undefined for no memo
+ * @returns true if the memo is valid (including empty/undefined)
+ * @throws PocketPayError if the memo exceeds the 28-byte limit
+ */
+export function validateMemo(memo?: string): boolean {
+  if (!memo) return true;
+
+  const byteLength = Buffer.byteLength(memo, 'utf-8');
+  if (byteLength > 28) {
+    throw new PocketPayError(
+      `Memo text exceeds 28-byte limit (got ${byteLength} bytes): "${memo}"`,
+      'INVALID_MEMO',
+      {
+        validation: {
+          field: 'memo',
+          reason: 'too_long',
+          value: memo
+        }
+      }
+    );
+  }
+
+  return true;
+}
+
 
 /**
- * Converts stroops (1 XLM = 10,000,000 stroops) to XLM string.
+ * Validates a Stellar transaction hash.
  *
- * @param stroops - Amount in stroops
- * @returns Formatted XLM amount string
+ * Stellar transaction hashes are 64-character hexadecimal strings (32 bytes
+ * represented in hex). This utility throws a `PocketPayError` on invalid
+ * input and returns `true` when the hash is valid.
  */
+export function validateTransactionHash(hash: string): boolean {
+  if (typeof hash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hash)) {
+    throw new PocketPayError(
+      `Invalid transaction hash: ${hash}`,
+      'INVALID_TRANSACTION_HASH'
+    );
+  }
+  return true;
+}
+
+
+
 export function stroopsToXLM(stroops: string | number): string {
   const value = typeof stroops === 'string' ? parseInt(stroops, 10) : stroops;
   return (value / 10_000_000).toFixed(7);
 }
 
-/**
- * Converts XLM amount to stroops.
- *
- * @param xlm - Amount in XLM
- * @returns Amount in stroops
- */
 export function xlmToStroops(xlm: string | number): number {
   const value = typeof xlm === 'string' ? parseFloat(xlm) : xlm;
   return Math.round(value * 10_000_000);
 }
 
-/**
- * Truncates a Stellar address for display purposes.
- *
- * @param address - Full public key
- * @param startChars - Number of characters from the start (default: 4)
- * @param endChars - Number of characters from the end (default: 4)
- * @returns Truncated address like "GABCD...WXYZ"
- */
 export function truncateAddress(
   address: string,
   startChars: number = 4,
@@ -119,16 +174,50 @@ export function truncateAddress(
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
-// ─── Error Wrapping ─────────────────────────────────────────────────────────
+// ─── Asset Helpers ───────────────────────────────────────────────────────────
 
 /**
- * Wraps an unknown error into a PocketPayError with context.
+ * Finds a specific asset balance from an array of asset balances.
  *
- * @param error - The caught error
- * @param context - Description of what was being attempted
- * @param code - Machine-readable error code
- * @returns PocketPayError instance
+ * For native XLM, pass `"XLM"` as the asset code. For issued assets, pass the
+ * asset code and optionally the issuer to disambiguate.
+ *
+ * @param balances - Array of asset balances to search
+ * @param assetCode - Asset code to find (e.g. `"XLM"`, `"USDC"`)
+ * @param assetIssuer - Issuer public key (required for issued assets with
+ *   multiple issuers; ignored for native XLM)
+ * @returns The matching `AssetBalance` or `undefined` if not found
+ *
+ * @example
+ * ```ts
+ * // Native XLM
+ * const xlm = findAssetBalance(balances, 'XLM');
+ *
+ * // USDC from a specific issuer
+ * const usdc = findAssetBalance(balances, 'USDC', 'GA5ZSE...KZVN');
+ *
+ * // First USDC balance (any issuer)
+ * const anyUsdc = findAssetBalance(balances, 'USDC');
+ * ```
  */
+export function findAssetBalance(
+  balances: AssetBalance[],
+  assetCode: string,
+  assetIssuer?: string,
+): AssetBalance | undefined {
+  return balances.find((b) => {
+    if (assetCode === 'XLM') {
+      return b.asset === 'XLM';
+    }
+    if (assetIssuer) {
+      return b.asset === assetCode && b.issuer === assetIssuer;
+    }
+    return b.asset === assetCode;
+  });
+}
+
+// ─── Error Wrapping ─────────────────────────────────────────────────────────
+
 export function wrapError(
   error: unknown,
   context: string,
@@ -150,68 +239,20 @@ export function wrapError(
 
 // ─── Misc ───────────────────────────────────────────────────────────────────
 
-/**
- * Delays execution for the specified number of milliseconds.
- *
- * @param ms - Milliseconds to sleep
- */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ─── Result Helpers ─────────────────────────────────────────────────────────
 
-/**
- * Creates a `SuccessResult<T>` wrapping the given value.
- *
- * @param value - The successful result value
- * @returns A `SuccessResult<T>` with `ok: true`
- *
- * @example
- * ```ts
- * return toSuccessResult(balance);
- * // → { ok: true, value: balance }
- * ```
- */
 export function toSuccessResult<T>(value: T): SuccessResult<T> {
   return { ok: true, value };
 }
 
-/**
- * Converts a `PocketPayError` into a `FailureResult`.
- *
- * @param error - The `PocketPayError` to wrap
- * @returns A `FailureResult` with `ok: false`
- *
- * @example
- * ```ts
- * catch (err) {
- *   return toFailureResult(err instanceof PocketPayError ? err : wrapError(err, 'context', 'CODE'));
- * }
- * ```
- */
 export function toFailureResult(error: PocketPayError): FailureResult {
   return { ok: false, error };
 }
 
-/**
- * Wraps a `Promise`-returning thunk and returns a `PocketPayResult<T>`
- * instead of throwing. Any error that is not already a `PocketPayError`
- * is normalised via {@link wrapError}.
- *
- * This is the low-level building block used by the `safe*` helpers below.
- * You can use it to wrap any SDK call in one line:
- *
- * @example
- * ```ts
- * const result = await toResult(() => sendXLM(params, config));
- * if (result.ok) {
- *   console.log('tx hash:', result.value.hash);
- * } else {
- *   console.error(result.error.code);
- * }
- * ```
- */
 export async function toResult<T>(
   fn: () => Promise<T>,
   errorContext?: string,
@@ -230,14 +271,6 @@ export async function toResult<T>(
 }
 
 // ─── Safe Wrappers ──────────────────────────────────────────────────────────
-//
-// These functions mirror the core SDK APIs but return PocketPayResult<T>
-// instead of throwing. Existing throwing APIs are unchanged and still work
-// exactly as before — these are purely additive alternatives for consumers
-// that prefer explicit error handling over try/catch.
-//
-// Import the underlying functions directly rather than going through the
-// barrel to avoid circular-dependency issues at the utils layer.
 
 import { getBalance, fundTestnetAccount } from '../wallet';
 import { sendXLM } from '../payments';
@@ -252,13 +285,6 @@ import {
   SDKConfig,
 } from '../types';
 
-/**
- * Non-throwing alternative to {@link getBalance}.
- *
- * @param publicKey - Stellar public key (G...)
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<AccountBalance>` — never throws
- */
 export async function safeGetBalance(
   publicKey: string,
   config?: Partial<SDKConfig>
@@ -266,25 +292,13 @@ export async function safeGetBalance(
   return toResult(() => getBalance(publicKey, config), 'Failed to fetch balance', 'BALANCE_ERROR');
 }
 
-/**
- * Non-throwing alternative to {@link fundTestnetAccount}.
- *
- * @param publicKey - Stellar public key (G...) to fund
- * @returns `PocketPayResult<FundResult>` — never throws
- */
 export async function safeFundTestnetAccount(
-  publicKey: string
+  publicKey: string,
+  config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<FundResult>> {
-  return toResult(() => fundTestnetAccount(publicKey), 'Failed to fund testnet account', 'FUND_ERROR');
+  return toResult(() => fundTestnetAccount(publicKey, config), 'Failed to fund testnet account', 'FUND_ERROR');
 }
 
-/**
- * Non-throwing alternative to {@link sendXLM}.
- *
- * @param params - Payment parameters
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<PaymentResult>` — never throws
- */
 export async function safeSendXLM(
   params: SendXLMParams,
   config?: Partial<SDKConfig>
@@ -292,41 +306,27 @@ export async function safeSendXLM(
   return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
 }
 
-/**
- * Non-throwing alternative to {@link getTransactions}.
- *
- * @param publicKey - Stellar public key (G...)
- * @param limit - Maximum number of records to return
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<TransactionList>` — never throws
- */
 export async function safeGetTransactions(
   publicKey: string,
-  limit?: number,
+  limit: number = 10,
+  order: 'asc' | 'desc' = 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<TransactionList>> {
   return toResult(
-    () => getTransactions(publicKey, limit, config),
+    () => getTransactions(publicKey, limit, order, config),
     'Failed to fetch transactions',
     'TRANSACTION_ERROR'
   );
 }
 
-/**
- * Non-throwing alternative to {@link getPayments}.
- *
- * @param publicKey - Stellar public key (G...)
- * @param limit - Maximum number of records to return
- * @param config - Optional SDK config overrides
- * @returns `PocketPayResult<PaymentList>` — never throws
- */
 export async function safeGetPayments(
   publicKey: string,
-  limit?: number,
+  limit: number = 10,
+  order: 'asc' | 'desc' = 'desc',
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentList>> {
   return toResult(
-    () => getPayments(publicKey, limit, config),
+    () => getPayments(publicKey, limit, order, config),
     'Failed to fetch payments',
     'PAYMENT_ERROR'
   );

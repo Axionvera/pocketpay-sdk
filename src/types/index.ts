@@ -128,8 +128,8 @@ export interface PaymentResult {
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 
-/** A single transaction record */
-export interface TransactionRecord {
+/** A single transaction summary — the SDK's stable typed model for one transaction. */
+export interface TransactionSummary {
   /** Transaction hash */
   hash: string;
   /** Ledger number */
@@ -148,10 +148,16 @@ export interface TransactionRecord {
   memo?: string;
   /** Memo type */
   memoType: string;
+  /** Horizon paging token (cursor) for this record */
+  pagingToken: string;
 }
-
-/** A single payment operation record */
-export interface PaymentRecord {
+/**
+ * @deprecated Use {@link TransactionSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type TransactionRecord = TransactionSummary;
+/** A single payment summary — the SDK's stable typed model for one payment operation. */
+export interface PaymentSummary {
   /** Operation ID */
   id: string;
   /** Transaction hash this operation belongs to */
@@ -170,22 +176,31 @@ export interface PaymentRecord {
   asset: string;
   /** Asset issuer (empty for native) */
   assetIssuer: string;
+  /** Horizon paging token (cursor) for this record */
+  pagingToken: string;
 }
-
+/**
+ * @deprecated Use {@link PaymentSummary}. Retained as an alias for
+ * backward compatibility with existing consumers.
+ */
+export type PaymentRecord = PaymentSummary;
 /** Paginated transaction list */
 export interface TransactionList {
-  /** Array of transaction records */
-  records: TransactionRecord[];
+  /** Array of transaction summaries */
+  records: TransactionSummary[];
   /** Number of records returned */
   count: number;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
-
 /** Paginated payment list */
 export interface PaymentList {
-  /** Array of payment records */
-  records: PaymentRecord[];
+  /** Array of payment summaries */
+  records: PaymentSummary[];
   /** Number of records returned */
   count: number;
+  /** Paging token of the last record, for fetching the next page (undefined when empty) */
+  nextCursor?: string;
 }
 
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
@@ -363,6 +378,16 @@ export type PocketPayResult<T> = SuccessResult<T> | FailureResult;
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
+/** Metadata for validation errors to identify the field and reason */
+export interface ValidationMetadata {
+  /** The input field that failed validation (e.g., 'publicKey', 'amount') */
+  field: string;
+  /** The reason validation failed (e.g., 'invalid_format', 'too_long') */
+  reason: string;
+  /** Optional: The value that was provided (never include secrets!) */
+  value?: string | number;
+}
+
 /** Custom SDK error with additional context */
 export class PocketPayError extends Error {
   /** Machine-readable error code */
@@ -371,18 +396,44 @@ export class PocketPayError extends Error {
   public readonly statusCode?: number;
   /** Original error that caused this error */
   public readonly cause?: Error;
+  /** Validation metadata (if this is a validation error) */
+  public readonly validation?: ValidationMetadata;
 
   constructor(
     message: string,
     code: string,
-    statusCode?: number,
-    cause?: Error
+    arg3?: number | {
+      statusCode?: number;
+      cause?: Error;
+      validation?: ValidationMetadata;
+    },
+    arg4?: Error
   ) {
     super(message);
     this.name = 'PocketPayError';
     this.code = code;
-    this.statusCode = statusCode;
-    this.cause = cause;
+
+    if (typeof arg3 === 'object' && arg3 !== null) {
+      // New signature: (message, code, options)
+      this.statusCode = arg3.statusCode;
+      this.cause = arg3.cause;
+      this.validation = arg3.validation;
+    } else {
+      // Old signature: (message, code, statusCode?, cause?)
+      this.statusCode = arg3 as number | undefined;
+      this.cause = arg4;
+    }
+
     Object.setPrototypeOf(this, PocketPayError.prototype);
   }
+}
+
+/** Options for cursor-based pagination on list queries. */
+export interface PaginationOptions {
+  /** Max records to return (default: 10) */
+  limit?: number;
+  /** Sort order by ledger time (default: "desc") */
+  order?: 'asc' | 'desc';
+  /** Horizon paging token to start after (for fetching the next page) */
+  cursor?: string;
 }

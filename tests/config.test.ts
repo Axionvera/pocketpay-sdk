@@ -14,6 +14,7 @@ import {
   validateContractId,
   PocketPayError,
 } from '../src';
+import { getSorobanRpcUrl } from '../src/config';
 
 describe('Config Module', () => {
   const originalEnv = { ...process.env };
@@ -26,10 +27,12 @@ describe('Config Module', () => {
   describe('resolveConfig', () => {
     it('should default to testnet', () => {
       delete process.env.STELLAR_NETWORK;
+      delete process.env.STELLAR_TIMEOUT;
       const config = resolveConfig();
       expect(config.network).toBe('testnet');
       expect(config.horizonUrl).toContain('testnet');
       expect(config.sorobanRpcUrl).toContain('testnet');
+      expect(config.timeout).toBe(30000);
     });
 
     it('should respect environment variables', () => {
@@ -244,9 +247,9 @@ describe('Config Module', () => {
       expect(() => resolveConfig()).toThrow(PocketPayError);
     });
 
-    it('should allow undefined timeout', () => {
+    it('should use the default timeout when omitted', () => {
       const config = resolveConfig({ network: 'testnet' });
-      expect(config.timeout).toBeUndefined();
+      expect(config.timeout).toBe(30000);
     });
   });
 
@@ -420,7 +423,7 @@ describe('Config Module', () => {
     });
 
     it('should accept contract ID with base32 characters', () => {
-      const validId = 'CBZC2IJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV2RL5';
+      const validId = 'CBZC2IJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV2RL57';
       expect(() => validateContractId(validId)).not.toThrow();
     });
 
@@ -472,4 +475,29 @@ describe('Config Module', () => {
       expect(url).toBe('https://friendbot.stellar.org');
     });
   });
+
+  describe('getSorobanRpcUrl', () => {
+    it('should return the testnet Soroban RPC URL by default', () => {
+      delete process.env.STELLAR_NETWORK;
+      delete process.env.STELLAR_SOROBAN_RPC_URL;
+      expect(getSorobanRpcUrl()).toBe('https://soroban-testnet.stellar.org');
+    });
+
+    it('should return the mainnet Soroban RPC URL for mainnet', () => {
+      delete process.env.STELLAR_SOROBAN_RPC_URL;
+      expect(getSorobanRpcUrl({ network: 'mainnet' })).toBe('https://soroban.stellar.org');
+    });
+
+    it('should respect an explicit sorobanRpcUrl override', () => {
+      expect(
+        getSorobanRpcUrl({ sorobanRpcUrl: 'https://custom-soroban.example.org' })
+      ).toBe('https://custom-soroban.example.org');
+    });
+
+    it('should respect the STELLAR_SOROBAN_RPC_URL env var', () => {
+      process.env.STELLAR_SOROBAN_RPC_URL = 'https://env-soroban.example.org';
+      expect(getSorobanRpcUrl()).toBe('https://env-soroban.example.org');
+    });
+  });
 });
+
