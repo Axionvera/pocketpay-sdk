@@ -229,3 +229,6 @@ export {
   filterByDateRange,
   filterByCounterparty,
 } from './filter';
+
+// ─── Transaction sorting helpers ─────────────────────────────────────────────
+export { sortTransactionsByDate } from './sort';
