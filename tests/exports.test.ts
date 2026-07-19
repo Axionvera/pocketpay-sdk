@@ -27,59 +27,61 @@ import type {
   WalletKeypair,
 } from '../src';
 
-const EXPECTED_PUBLIC_EXPORTS = [
-  // errors
-  'PocketPayError',
-  // wallet
-  'createWallet',
-  'importWallet',
-  'getPublicKey',
-  'getBalance',
-  'fundTestnetAccount',
-  // payments
-  'sendXLM',
-  // transactions
-  'getTransactions',
-  'getPayments',
-  // soroban vault
-  'depositToVault',
-  'withdrawFromVault',
-  'getVaultBalance',
-// config
-  'resolveConfig',
-  'getHorizonServer',
-  'setHorizonServerFactory',
-  'resetHorizonServerFactory',
-  'getNetworkPassphrase',
-  'getFriendbotUrl',
-  // utils
-  'validatePublicKey',
-  'validateSecretKey',
-  'validateAmount',
-  'stroopsToXLM',
-  'xlmToStroops',
-  'truncateAddress',
-  // wallet (result-aware + safe)
-  'getBalanceOrUnfunded',
-  // config validators
-  'validateNetwork',
-  'validateHorizonUrl',
-  'validateSorobanRpcUrl',
-  'validateTimeout',
-  'validateContractId',
-  // memo validation
-  'validateMemo',
-  // result helpers
-  'toSuccessResult',
-  'toFailureResult',
-  'toResult',
-  // safe (non-throwing) wrappers
-  'safeGetBalance',
-  'safeFundTestnetAccount',
-  'safeSendXLM',
-  'safeGetTransactions',
-  'safeGetPayments',
-];
+const REQUIRED_PUBLIC_EXPORTS = {
+  errors: ['PocketPayError'],
+  wallet: [
+    'createWallet',
+    'importWallet',
+    'getPublicKey',
+    'getBalance',
+    'fundTestnetAccount',
+    'getBalanceOrUnfunded',
+  ],
+  payments: ['sendXLM'],
+  transactions: ['getTransactions', 'getPayments'],
+  soroban: ['depositToVault', 'withdrawFromVault', 'getVaultBalance'],
+  config: [
+    'resolveConfig',
+    'getHorizonServer',
+    'setHorizonServerFactory',
+    'resetHorizonServerFactory',
+    'getNetworkPassphrase',
+    'getFriendbotUrl',
+    'validateNetwork',
+    'validateHorizonUrl',
+    'validateSorobanRpcUrl',
+    'validateTimeout',
+    'validateContractId',
+  ],
+  utilities: [
+    'validatePublicKey',
+    'validateSecretKey',
+    'validateAmount',
+    'stroopsToXLM',
+    'xlmToStroops',
+    'truncateAddress',
+    'validateMemo',
+    'toSuccessResult',
+    'toFailureResult',
+    'toResult',
+    'safeGetBalance',
+    'safeFundTestnetAccount',
+    'safeSendXLM',
+    'safeGetTransactions',
+    'safeGetPayments',
+  ],
+} as const;
+
+// Helpers that exist internally (e.g. in src/utils) but should never be
+// exposed on the package root, since they're implementation details.
+
+/** Asserts a named helper is exported from the package root. */
+function expectExported(name: string): void {
+  expect(
+    (PocketPay as Record<string, unknown>)[name],
+    `"${name}" should be exported from the package root`
+  ).toBeDefined();
+}
 
 // Helpers that exist internally (e.g. in src/utils) but should never be
 // exposed on the package root, since they're implementation details.

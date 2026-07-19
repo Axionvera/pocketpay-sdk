@@ -77,6 +77,7 @@ export {
   validateSecretKey,
   validateAmount,
   validateMemo,
+  validateTransactionHash,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
@@ -84,6 +85,8 @@ export {
   toSuccessResult,
   toFailureResult,
   toResult,
+  // Asset helpers
+  findAssetBalance,
   // Safe (non-throwing) wrappers
   safeGetBalance,
   safeFundTestnetAccount,
