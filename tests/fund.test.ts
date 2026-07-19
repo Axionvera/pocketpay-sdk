@@ -39,6 +39,17 @@ function mockFetchNetworkError(message = 'Network request failed'): void {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error(message)));
 }
 
+function mockDelayedFetch(): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('The operation was aborted.', 'AbortError'));
+      });
+    })),
+  );
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('fundTestnetAccount', () => {
@@ -228,6 +239,15 @@ describe('fundTestnetAccount', () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue('some string error'));
       await expect(fundTestnetAccount(wallet.publicKey)).rejects.toMatchObject({
         code: 'FUND_ERROR',
+      });
+    });
+
+    it('should throw REQUEST_TIMEOUT when Friendbot does not respond in time', async () => {
+      mockDelayedFetch();
+
+      await expect(fundTestnetAccount(wallet.publicKey, { timeout: 5 })).rejects.toMatchObject({
+        code: 'REQUEST_TIMEOUT',
+        message: 'Friendbot funding request timed out after 5ms',
       });
     });
   });

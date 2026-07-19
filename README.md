@@ -45,12 +45,14 @@ npm install @axionvera/pocketpay-sdk
 
 ## Documentation
 
+- [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Changelog](./CHANGELOG.md) - Track changes across SDK versions
 
 ## Package Root Imports
 
@@ -65,6 +67,46 @@ Deep imports (e.g. `stellar-pocketpay-sdk/wallet`) are **not supported** and
 are not guaranteed to work across versions. Internal helpers that aren't
 listed in the Features table above are implementation details and are not
 part of the public API.
+
+> [!CAUTION]
+> `createWallet` generates a keypair but does not back it up — the SDK never
+> persists a secret key anywhere. Losing it means losing access to the
+> wallet permanently. Your application (or the user) must save it to secure
+> storage right after creation. See
+> [Wallet Creation](./docs/getting-started.md#2-wallet-creation) and
+> [Security Best Practices](./docs/security.md#wallet-backup-responsibility).
+
+## Response models
+
+`getTransactions` and `getPayments` return SDK-owned typed models rather than
+raw Horizon shapes, so consumers depend on a stable contract that will not
+shift if Horizon's response format changes.
+
+`TransactionSummary` fields: `hash`, `ledger`, `createdAt`, `sourceAccount`,
+`fee`, `operationCount`, `successful`, `memo?`, `memoType`, `pagingToken`.
+
+`PaymentSummary` fields: `id`, `transactionHash`, `type`, `createdAt`, `from`,
+`to`, `amount`, `asset`, `assetIssuer`, `pagingToken`.
+
+Both functions return a paginated list of the form
+`{ records, count, nextCursor? }`. `nextCursor` is the paging token of the last
+record and is `undefined` when the page is empty; pass it back to fetch the
+following page.
+
+```typescript
+import { getTransactions } from 'stellar-pocketpay-sdk';
+
+const page = await getTransactions(publicKey, 10, 'desc');
+console.log(page.count, 'transactions');
+for (const tx of page.records) {
+  console.log(tx.hash, tx.createdAt, tx.successful);
+}
+// page.nextCursor → cursor for the following page
+```
+
+The former `TransactionRecord` and `PaymentRecord` names remain exported as
+aliases of `TransactionSummary` and `PaymentSummary` for backward
+compatibility.
 
 ---
 

@@ -11,14 +11,48 @@ import {
   BalanceResult, FundResult, PocketPayError, SDKConfig,
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
+import { fetchWithTimeout, withTimeout } from '../network';
 
-/** Creates a new random Stellar keypair. Does NOT activate it on-chain. */
+/**
+ * Creates a new random Stellar keypair.
+ *
+ * @remarks **This does not activate the account on-chain** (see
+ * {@link fundTestnetAccount} for testnet) and **the SDK does not persist or
+ * back up the returned keys in any way** — `secretKey` exists only in the
+ * value returned here. If it's lost, access to the account is lost
+ * permanently; there is no recovery mechanism. The consuming app or user is
+ * responsible for backing it up (e.g. encrypted storage, a secure vault, or
+ * a user-facing recovery phrase flow) immediately after calling this
+ * function. See the [Security Best Practices guide](../../docs/security.md)
+ * for guidance, and avoid logging `secretKey` — see the
+ * [Logging Guidance](../../docs/logging.md).
+ *
+ * @returns A {@link WalletKeypair} with a freshly generated `publicKey` and
+ *   `secretKey`.
+ *
+ * @example
+ * ```ts
+ * const wallet = createWallet();
+ * console.log('Public Key:', wallet.publicKey); // safe to log
+ * // Persist wallet.secretKey to secure storage now — it cannot be recovered later.
+ * ```
+ */
 export function createWallet(): WalletKeypair {
   const kp = StellarSDK.Keypair.random();
   return { publicKey: kp.publicKey(), secretKey: kp.secret() };
 }
 
-/** Imports an existing wallet from a secret key. */
+/**
+ * Imports an existing wallet from a secret key.
+ *
+ * @remarks Use this to restore a wallet from a secret key the consuming app
+ * or user backed up after a prior {@link createWallet} call — the SDK itself
+ * does not store or retrieve keys on your behalf.
+ *
+ * @param secretKey - Stellar secret key (S...) to import
+ * @returns A {@link WalletKeypair} derived from the given secret key
+ * @throws {PocketPayError} `INVALID_SECRET_KEY` if the secret key is malformed
+ */
 export function importWallet(secretKey: string): WalletKeypair {
   validateSecretKey(secretKey);
   const kp = StellarSDK.Keypair.fromSecret(secretKey);
@@ -91,8 +125,13 @@ async function _loadAccountBalance(
   config?: Partial<SDKConfig>,
 ): Promise<AccountBalance> {
   const server = getHorizonServer(config);
+  const cfg = resolveConfig(config);
   try {
-    const account = await server.loadAccount(publicKey);
+    const account = await withTimeout(
+      'Horizon account lookup',
+      cfg.timeout,
+      server.loadAccount(publicKey),
+    );
     const balances: AssetBalance[] = account.balances.map((bal: any) => {
       if (bal.asset_type === 'native') {
         return { asset: 'XLM', balance: bal.balance, issuer: '' };
@@ -113,6 +152,63 @@ async function _loadAccountBalance(
       );
     }
     throw wrapError(error, 'Failed to fetch balance', 'BALANCE_ERROR');
+  }
+}
+
+// ─── Balance queries ────────────────────────────────────────────────────────
+
+/**
+ * Fetches the on-chain balances for a Stellar account.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param config - Optional SDK config overrides
+ * @returns The account's {@link AccountBalance}
+ * @throws {PocketPayError} `INVALID_PUBLIC_KEY` for an invalid key,
+ *   `ACCOUNT_NOT_FOUND` (404) if the account is not funded, or
+ *   `BALANCE_ERROR` for any other failure.
+ *
+ * @example
+ * ```ts
+ * const balance = await getBalance(wallet.publicKey);
+ * console.log('XLM:', balance.nativeBalance);
+ * ```
+ */
+
+
+/**
+ * Fetches the account balance for a funded Stellar account.
+ *
+ * Throws a PocketPayError if the account is unfunded or if Horizon returns
+ * another failure.
+ */
+export async function getBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<AccountBalance> {
+  validatePublicKey(publicKey);
+  return _loadAccountBalance(publicKey, config);
+}
+
+/**
+ * Fetches the account balance or reports when the account is unfunded.
+ *
+ * Unlike getBalance, this helper returns a discriminated union so callers can
+ * explicitly handle the normal "unfunded" case without throwing.
+ */
+export async function getBalanceOrUnfunded(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<BalanceResult> {
+  validatePublicKey(publicKey);
+
+  try {
+    const balance = await _loadAccountBalance(publicKey, config);
+    return { status: 'funded', publicKey, balance };
+  } catch (error) {
+    if (error instanceof PocketPayError && error.code === 'ACCOUNT_NOT_FOUND') {
+      return { status: 'unfunded', publicKey };
+    }
+    throw error;
   }
 }
 
@@ -139,18 +235,33 @@ async function _loadAccountBalance(
  * }
  * ```
  */
-export async function fundTestnetAccount(publicKey: string): Promise<FundResult> {
+export async function fundTestnetAccount(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<FundResult> {
   validatePublicKey(publicKey);
-  const cfg = resolveConfig();
+  const cfg = resolveConfig(config);
   if (cfg.network !== 'testnet') {
     throw new PocketPayError(
       'fundTestnetAccount is only available on testnet. ' +
       'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
       'TESTNET_ONLY',
+      {
+        validation: {
+          field: 'network',
+          reason: 'not_testnet',
+          value: cfg.network
+        }
+      }
     );
   }
   try {
-    const resp = await fetch(`${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`);
+    const resp = await fetchWithTimeout(
+      `${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`,
+      undefined,
+      'Friendbot funding request',
+      cfg.timeout,
+    );
     if (!resp.ok) {
       const body = await resp.text().catch(() => '(no body)');
       throw new PocketPayError(
