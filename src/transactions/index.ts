@@ -13,6 +13,13 @@ import {
 import { validatePublicKey, wrapError } from '../utils';
 import { resolveConfig } from '../config';
 import { withTimeout } from '../network';
+import {
+  filterTransactions,
+  filterByDirection,
+  filterByAsset,
+  filterByDateRange,
+  filterByCounterparty,
+} from './filter';
 
 /**
  * Resolves the legacy positional-args overload and the new options-object
@@ -213,3 +220,12 @@ export async function getPayments(
     throw wrapError(error, 'Failed to fetch payments', 'PAYMENTS_FETCH_ERROR');
   }
 }
+
+// ─── Transaction filtering helpers ───────────────────────────────────────────
+export {
+  filterTransactions,
+  filterByDirection,
+  filterByAsset,
+  filterByDateRange,
+  filterByCounterparty,
+} from './filter';

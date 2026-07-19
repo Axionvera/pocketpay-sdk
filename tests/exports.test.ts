@@ -38,7 +38,15 @@ const REQUIRED_PUBLIC_EXPORTS = {
     'getBalanceOrUnfunded',
   ],
   payments: ['sendXLM'],
-  transactions: ['getTransactions', 'getPayments'],
+  transactions: [
+    'getTransactions',
+    'getPayments',
+    'filterTransactions',
+    'filterByDirection',
+    'filterByAsset',
+    'filterByDateRange',
+    'filterByCounterparty',
+  ],
   soroban: ['depositToVault', 'withdrawFromVault', 'getVaultBalance'],
   config: [
     'resolveConfig',
