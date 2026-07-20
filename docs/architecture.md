@@ -158,3 +158,32 @@ order and land in the module that owns its concern.
 
 Keep the public surface behind the package root, and reuse the validate →
 resolve → execute → wrap flow rather than reaching around it.
+
+## Module Hierarchy & Import Direction Rules
+
+To maintain a clean, maintainable architecture and prevent circular dependency cycles as the SDK expands, internal module imports MUST adhere to a strict Directed Acyclic Graph (DAG) hierarchy:
+
+```
+Layer 0:  types
+           │
+Layer 1:  network ─── config ─── utils
+           │            │          │
+Layer 2:  wallet ─── payments ─── transactions ─── soroban
+           │            │          │               │
+Layer 3:               src/index.ts (Package Root)
+```
+
+1. **Layer 0 (`types`)**: Shared data structures, interfaces, and error classes. Has zero internal module dependencies.
+2. **Layer 1 (`network`, `config`, `utils`)**: Infrastructure, config resolution, conversion, and result envelope formatting. May import Layer 0 types. Lower-level layers MUST NEVER import higher-level feature modules (`wallet`, `payments`, `transactions`, `soroban`).
+3. **Layer 2 (`wallet`, `payments`, `transactions`, `soroban`)**: High-level domain logic. Feature modules may import from Layer 0 (`types`) and Layer 1 (`network`, `config`, `utils`). Feature modules should avoid cross-importing each other.
+4. **Layer 3 (`src/index.ts`)**: Package root entry point. Re-exports public API surfaces from Layers 0-2.
+
+### Circular Dependency Check
+
+To ensure no circular imports are introduced:
+
+```bash
+npm run check:circular
+```
+
+This script (`scripts/check-circular-deps.ts`) performs a lightweight, static graph traversal over all module files in `src/` using DFS to detect cycle paths before build time. It is automatically executed during `npm run verify`.

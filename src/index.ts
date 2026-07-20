@@ -50,10 +50,15 @@ export {
   getBalance,
   getBalanceOrUnfunded,
   fundTestnetAccount,
+  safeGetBalance,
+  safeFundTestnetAccount,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
-export { sendXLM } from './payments';
+export {
+  sendXLM,
+  safeSendXLM,
+} from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 export {
@@ -65,6 +70,8 @@ export {
   filterByDateRange,
   filterByCounterparty,
   sortTransactionsByDate,
+  safeGetTransactions,
+  safeGetPayments,
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
@@ -104,10 +111,5 @@ export {
   toResult,
   // Asset helpers
   findAssetBalance,
-  // Safe (non-throwing) wrappers
-  safeGetBalance,
-  safeFundTestnetAccount,
-  safeSendXLM,
-  safeGetTransactions,
-  safeGetPayments,
 } from './utils';
+
