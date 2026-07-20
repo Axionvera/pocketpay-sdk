@@ -49,12 +49,14 @@ npm install @axionvera/pocketpay-sdk
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
+- [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
 
 ## Package Root Imports

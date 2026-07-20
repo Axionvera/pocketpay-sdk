@@ -174,6 +174,97 @@ export function truncateAddress(
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
+// ─── Redaction ───────────────────────────────────────────────────────────────
+
+/**
+ * Redacts a Stellar secret key, keeping only the first 4 and last 4 characters.
+ *
+ * Stellar secret keys start with "S" and are 56 characters long. This utility
+ * masks the middle portion so the key can be safely included in logs, debug
+ * output, and error messages without exposing the full secret.
+ *
+ * This utility **never** validates or exposes the full secret key. Invalid or
+ * non-secret-key strings are handled gracefully by redacting the middle portion
+ * without any validation step that could leak key material.
+ *
+ * @param secretKey - The secret key string to redact
+ * @returns A redacted string like `"S...CK4L"` for valid keys, or `"(empty)"` for
+ *   empty/blank input, or a similarly truncated string for other values
+ *
+ * @example
+ * ```ts
+ * redactSecretKey('SC4M4...FULL...CK4L');
+ * // => 'SC4M...CK4L'
+ *
+ * redactSecretKey('');
+ * // => '(empty)'
+ *
+ * redactSecretKey('not-a-key');
+ * // => 'not-...-key'
+ * ```
+ */
+export function redactSecretKey(secretKey: string): string {
+  if (!secretKey || secretKey.trim().length === 0) {
+    return '(empty)';
+  }
+
+  // Already redacted — return as-is (idempotent)
+  if (secretKey.includes('...')) {
+    return secretKey;
+  }
+
+  if (secretKey.length <= 8) {
+    return secretKey;
+  }
+
+  return `${secretKey.slice(0, 4)}...${secretKey.slice(-4)}`;
+}
+
+/**
+ * Redacts any sensitive string value by truncating the middle portion.
+ *
+ * This is a general-purpose redaction helper for any sensitive value (API keys,
+ * tokens, private data, etc.). It keeps the first `showFirst` and last
+ * `showLast` characters, replacing the middle with `...`.
+ *
+ * For Stellar secret keys specifically, prefer {@link redactSecretKey}.
+ *
+ * @param value - The sensitive string to redact
+ * @param showFirst - Number of characters to keep at the start (default: 4)
+ * @param showLast - Number of characters to keep at the end (default: 4)
+ * @returns A redacted string, or `"(empty)"` for empty/blank input
+ *
+ * @example
+ * ```ts
+ * redactSensitiveValue('sk_live_abc123xyz789');
+ * // => 'sk_l...z789'
+ *
+ * redactSensitiveValue('my-api-token', 2, 2);
+ * // => 'my...en'
+ * ```
+ */
+export function redactSensitiveValue(
+  value: string,
+  showFirst: number = 4,
+  showLast: number = 4,
+): string {
+  // Gracefully handle null/undefined at runtime (even though TS types forbid it)
+  if (value == null || value.trim().length === 0) {
+    return '(empty)';
+  }
+
+  // Already redacted — return as-is (idempotent)
+  if (value.includes('...')) {
+    return value;
+  }
+
+  if (value.length <= showFirst + showLast) {
+    return value;
+  }
+
+  return `${value.slice(0, showFirst)}...${value.slice(-showLast)}`;
+}
+
 // ─── Asset Helpers ───────────────────────────────────────────────────────────
 
 /**

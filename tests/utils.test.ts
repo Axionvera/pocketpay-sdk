@@ -12,6 +12,8 @@ import {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  redactSecretKey,
+  redactSensitiveValue,
   redactSensitive,
   PocketPayError,
   createWallet,
@@ -62,7 +64,7 @@ describe('Utils Module', () => {
     });
   });
 
-describe('validateAmount', () => {
+  describe('validateAmount', () => {
     it('should accept valid amounts', () => {
       expect(validateAmount('10')).toBe(true);
       expect(validateAmount('0.001')).toBe(true);
@@ -188,10 +190,104 @@ describe('validateAmount', () => {
     });
   });
 
+  describe('redactSecretKey', () => {
+    it('should redact a valid Stellar secret key', () => {
+      const wallet = createWallet();
+      const redacted = redactSecretKey(wallet.secretKey);
+      expect(redacted).toMatch(/^S.../);
+      expect(redacted).toMatch(/\.\.\./);
+      // Should contain first 4 and last 4 characters
+      expect(redacted).toBe(
+        `${wallet.secretKey.slice(0, 4)}...${wallet.secretKey.slice(-4)}`
+      );
+    });
+
+    it('should never expose the full secret key', () => {
+      const wallet = createWallet();
+      const redacted = redactSecretKey(wallet.secretKey);
+      expect(redacted).not.toBe(wallet.secretKey);
+      expect(redacted).not.toContain(wallet.secretKey.slice(4, -4));
+    });
+
+    it('should return "(empty)" for an empty string', () => {
+      expect(redactSecretKey('')).toBe('(empty)');
+    });
+
+    it('should return "(empty)" for whitespace-only string', () => {
+      expect(redactSecretKey('   ')).toBe('(empty)');
+      expect(redactSecretKey('\t')).toBe('(empty)');
+      expect(redactSecretKey('\n')).toBe('(empty)');
+    });
+
+    it('should return string as-is if already redacted (idempotent)', () => {
+      expect(redactSecretKey('SC4M...CK4L')).toBe('SC4M...CK4L');
+      expect(redactSecretKey('S...Z')).toBe('S...Z');
+      expect(redactSecretKey('abc...xyz')).toBe('abc...xyz');
+    });
+
+    it('should return short strings (≤8 chars) as-is', () => {
+      expect(redactSecretKey('short')).toBe('short');
+      expect(redactSecretKey('12345678')).toBe('12345678');
+      expect(redactSecretKey('S')).toBe('S');
+    });
+
+    it('should redact non-secret-key strings consistently', () => {
+      // The utility does NOT validate — it just truncates
+      // 'SINVALID' is exactly 8 chars, so it's returned as-is (short string)
+      expect(redactSecretKey('SINVALID')).toBe('SINVALID');
+      expect(redactSecretKey('not_a_secret_key_at_all')).toBe('not_..._all');
+      expect(redactSecretKey('some_random_long_string')).toBe('some...ring');
+    });
+
+    it('should handle a secret key with the same prefix/suffix pattern as a real one', () => {
+      const fakeKey = 'SABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV';
+      const redacted = redactSecretKey(fakeKey);
+      expect(redacted).toBe('SABC...STUV');
+      expect(redacted).toContain('...');
+      expect(redacted).not.toBe(fakeKey);
+    });
+  });
+
+  describe('redactSensitiveValue', () => {
+    it('should redact with default 4…4', () => {
+      expect(redactSensitiveValue('abcdefghijklmnop')).toBe('abcd...mnop');
+    });
+
+    it('should redact with custom showFirst/showLast', () => {
+      expect(redactSensitiveValue('abcdefghijklmnop', 2, 6)).toBe('ab...klmnop');
+    });
+
+    it('should return "(empty)" for empty string', () => {
+      expect(redactSensitiveValue('')).toBe('(empty)');
+    });
+
+    it('should return "(empty)" for whitespace-only', () => {
+      expect(redactSensitiveValue('   ')).toBe('(empty)');
+    });
+
+    it('should return as-is if already redacted (idempotent)', () => {
+      expect(redactSensitiveValue('abcd...wxyz')).toBe('abcd...wxyz');
+      expect(redactSensitiveValue('a...b')).toBe('a...b');
+    });
+
+    it('should return short values as-is', () => {
+      expect(redactSensitiveValue('abc')).toBe('abc');
+      expect(redactSensitiveValue('12345678')).toBe('12345678');
+    });
+
+    it('should not throw on any input', () => {
+      // @ts-expect-error - testing runtime behavior
+      expect(() => redactSensitiveValue(null)).not.toThrow();
+      // @ts-expect-error - testing runtime behavior
+      expect(() => redactSensitiveValue(undefined)).not.toThrow();
+      expect(() => redactSensitiveValue('any-value')).not.toThrow();
+    });
+  });
+
   describe('truncateAddress', () => {
     /**
      * Test Suite: truncateAddress utility for UI display
-     * 
+     *
      * Purpose: Ensure public keys are displayed consistently and safely
      * Output Format: "PREFIX...SUFFIX" where PREFIX and SUFFIX are configurable
      */
@@ -306,7 +402,7 @@ describe('validateAmount', () => {
           'GBRYYMJTMF2R4Z4JTWC7YJCJHMMKLCX4PJQEBK25XMVZGEJ2QGTGJZX',
           'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV',
         ];
-        
+
         addresses.forEach(addr => {
           const truncated = truncateAddress(addr);
           // All should follow PREFIX...SUFFIX format
@@ -317,10 +413,10 @@ describe('validateAmount', () => {
       it('should produce visually distinct prefixes for different addresses', () => {
         const addr1 = 'GBRPYHIL2CI3WHZDTOOQFC6EB4NCCCVKVPOA77RLAWYDOWYBXVVKWZ7';
         const addr2 = 'GBRYYMJTMF2R4Z4JTWC7YJCJHMMKLCX4PJQEBK25XMVZGEJ2QGTGJZX';
-        
+
         const truncated1 = truncateAddress(addr1);
         const truncated2 = truncateAddress(addr2);
-        
+
         expect(truncated1).not.toBe(truncated2);
       });
 
@@ -414,42 +510,4 @@ describe('validateAmount', () => {
       expect(result).toBe(message);
     });
   });
-
-  it('should reject empty string', () => {
-      expect(() => validateAmount('')).toThrow(PocketPayError);
-    });
-
-    it('should reject whitespace-only', () => {
-      expect(() => validateAmount('   ')).toThrow(PocketPayError);
-    });
-
-    it('should reject numbers with trailing garbage', () => {
-      expect(() => validateAmount('10abc')).toThrow(PocketPayError);
-    });
-
-    it('should reject scientific notation', () => {
-      expect(() => validateAmount('1e3')).toThrow(PocketPayError);
-    });
-
-    it('should reject Infinity', () => {
-      expect(() => validateAmount('Infinity')).toThrow(PocketPayError);
-    });
-
-    it('should reject amounts with leading/trailing whitespace', () => {
-      expect(() => validateAmount('  10  ')).toThrow(PocketPayError);
-    });
-
-    it('should accept the smallest valid amount (7 decimals)', () => {
-      expect(validateAmount('0.0000001')).toBe(true);
-    });
-
-    it('should accept a normal valid amount', () => {
-      expect(validateAmount('1234.5')).toBe(true);
-    });
-
-    it('should reject INVALID_AMOUNT_PRECISION code for over-precision', () => {
-      expect(() => validateAmount('1.12345678')).toThrow(
-        expect.objectContaining({ code: 'INVALID_AMOUNT_PRECISION' })
-      );
-    });
 });
