@@ -5,9 +5,10 @@
  */
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase, resolveConfig } from '../config';
-import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError } from '../utils';
+import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig, PocketPayResult } from '../types';
+import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError, toResult } from '../utils';
 import { withTimeout } from '../network';
+
 /**
  * Sends XLM from one account to another.
  *
@@ -109,3 +110,13 @@ export async function sendXLM(
     throw wrapError(error, 'Failed to send XLM', 'SEND_ERROR');
   }
 }
+
+// ─── Safe Wrappers ──────────────────────────────────────────────────────────
+
+export async function safeSendXLM(
+  params: SendXLMParams,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<PaymentResult>> {
+  return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
+}
+

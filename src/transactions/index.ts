@@ -8,9 +8,9 @@ import { getHorizonServer } from '../config';
 import {
   TransactionSummary, TransactionList,
   PaymentSummary, PaymentList,
-  PocketPayError, SDKConfig, PaginationOptions,
+  PocketPayError, SDKConfig, PaginationOptions, PocketPayResult,
 } from '../types';
-import { validatePublicKey, wrapError } from '../utils';
+import { validatePublicKey, wrapError, toResult } from '../utils';
 import { resolveConfig } from '../config';
 import { withTimeout } from '../network';
 import {
@@ -232,3 +232,50 @@ export {
 
 // ─── Transaction sorting helpers ─────────────────────────────────────────────
 export { sortTransactionsByDate } from './sort';
+
+// ─── Safe Wrappers ──────────────────────────────────────────────────────────
+
+/**
+ * Non-throwing alternative to {@link getTransactions}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<TransactionList>` — never throws
+ */
+export async function safeGetTransactions(
+  publicKey: string,
+  limit?: number,
+  order?: 'asc' | 'desc',
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<TransactionList>> {
+  return toResult(
+    () => getTransactions(publicKey, limit, order, config),
+    'Failed to fetch transactions',
+    'TRANSACTION_ERROR'
+  );
+}
+
+/**
+ * Non-throwing alternative to {@link getPayments}.
+ *
+ * @param publicKey - Stellar public key (G...)
+ * @param limit - Maximum number of records to return (default: 10, max: 200)
+ * @param order - Sort order (default: "desc" = newest first)
+ * @param config - Optional SDK config overrides
+ * @returns `PocketPayResult<PaymentList>` — never throws
+ */
+export async function safeGetPayments(
+  publicKey: string,
+  limit?: number,
+  order?: 'asc' | 'desc',
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<PaymentList>> {
+  return toResult(
+    () => getPayments(publicKey, limit, order, config),
+    'Failed to fetch payments',
+    'PAYMENT_ERROR'
+  );
+}
+

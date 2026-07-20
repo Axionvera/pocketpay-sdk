@@ -8,9 +8,9 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
 import {
   WalletKeypair, AccountBalance, AssetBalance,
-  BalanceResult, FundResult, PocketPayError, SDKConfig,
+  BalanceResult, FundResult, PocketPayError, SDKConfig, PocketPayResult,
 } from '../types';
-import { validatePublicKey, validateSecretKey, wrapError } from '../utils';
+import { validatePublicKey, validateSecretKey, wrapError, toResult } from '../utils';
 import { fetchWithTimeout, withTimeout } from '../network';
 
 /**
@@ -245,3 +245,20 @@ export async function fundTestnetAccount(
     throw wrapError(error, 'Failed to fund testnet account', 'FUND_ERROR');
   }
 }
+
+// ─── Safe Wrappers ──────────────────────────────────────────────────────────
+
+export async function safeGetBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<AccountBalance>> {
+  return toResult(() => getBalance(publicKey, config), 'Failed to fetch balance', 'BALANCE_ERROR');
+}
+
+export async function safeFundTestnetAccount(
+  publicKey: string,
+  config?: Partial<SDKConfig>
+): Promise<PocketPayResult<FundResult>> {
+  return toResult(() => fundTestnetAccount(publicKey, config), 'Failed to fund testnet account', 'FUND_ERROR');
+}
+
