@@ -46,7 +46,7 @@ npm install @axionvera/pocketpay-sdk
 
 ## Documentation
 
-- [Architecture](./docs/architecture.md) - Module responsibility, layer hierarchy, and import direction rules to prevent circular dependencies
+- [SDK Roadmap](./docs/roadmap.md) - Directional plans and contributor opportunities across the SDK
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
