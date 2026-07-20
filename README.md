@@ -56,6 +56,7 @@ npm install @axionvera/pocketpay-sdk
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
 
 ## Package Root Imports
