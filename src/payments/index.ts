@@ -100,8 +100,9 @@ export async function sendXLM(
     // Horizon transaction-failure result codes
     if (horizonError?.response?.data?.extras?.result_codes) {
       const codes = horizonError.response.data.extras.result_codes;
+      // Only include transaction result code, not operation details (may contain sensitive data)
       throw new PocketPayError(
-        `Payment failed: tx=${codes.transaction}, ops=${JSON.stringify(codes.operations)}`,
+        `Payment failed with transaction result code: ${codes.transaction}`,
         'PAYMENT_FAILED',
         400
       );

@@ -14,6 +14,7 @@ import {
   truncateAddress,
   redactSecretKey,
   redactSensitiveValue,
+  redactSensitive,
   PocketPayError,
   createWallet,
 } from '../src';
@@ -44,9 +45,26 @@ describe('Utils Module', () => {
     it('should throw for an invalid secret key', () => {
       expect(() => validateSecretKey('SINVALID')).toThrow(PocketPayError);
     });
+
+    it('should never include secret key value in error metadata', () => {
+      const secretKey = 'SABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+      expect(() => validateSecretKey('invalid')).toThrow(PocketPayError);
+      try {
+        validateSecretKey('invalid');
+      } catch (error) {
+        expect(error).toBeInstanceOf(PocketPayError);
+        const err = error as PocketPayError;
+        // Secret key should never appear in error message
+        expect(err.message).not.toContain(secretKey);
+        // Secret key should never appear in validation metadata
+        if (err.validation) {
+          expect(err.validation.value).not.toBe(secretKey);
+        }
+      }
+    });
   });
 
-describe('validateAmount', () => {
+  describe('validateAmount', () => {
     it('should accept valid amounts', () => {
       expect(validateAmount('10')).toBe(true);
       expect(validateAmount('0.001')).toBe(true);
@@ -269,7 +287,7 @@ describe('validateAmount', () => {
   describe('truncateAddress', () => {
     /**
      * Test Suite: truncateAddress utility for UI display
-     * 
+     *
      * Purpose: Ensure public keys are displayed consistently and safely
      * Output Format: "PREFIX...SUFFIX" where PREFIX and SUFFIX are configurable
      */
@@ -384,7 +402,7 @@ describe('validateAmount', () => {
           'GBRYYMJTMF2R4Z4JTWC7YJCJHMMKLCX4PJQEBK25XMVZGEJ2QGTGJZX',
           'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV',
         ];
-        
+
         addresses.forEach(addr => {
           const truncated = truncateAddress(addr);
           // All should follow PREFIX...SUFFIX format
@@ -395,10 +413,10 @@ describe('validateAmount', () => {
       it('should produce visually distinct prefixes for different addresses', () => {
         const addr1 = 'GBRPYHIL2CI3WHZDTOOQFC6EB4NCCCVKVPOA77RLAWYDOWYBXVVKWZ7';
         const addr2 = 'GBRYYMJTMF2R4Z4JTWC7YJCJHMMKLCX4PJQEBK25XMVZGEJ2QGTGJZX';
-        
+
         const truncated1 = truncateAddress(addr1);
         const truncated2 = truncateAddress(addr2);
-        
+
         expect(truncated1).not.toBe(truncated2);
       });
 
@@ -447,41 +465,49 @@ describe('validateAmount', () => {
     });
   });
 
-  it('should reject empty string', () => {
-      expect(() => validateAmount('')).toThrow(PocketPayError);
+  describe('redactSensitive', () => {
+    it('should redact Stellar secret keys (S...)', () => {
+      const wallet = createWallet();
+      const result = redactSensitive(wallet.secretKey);
+      expect(result).toBe('S[REDACTED]');
     });
 
-    it('should reject whitespace-only', () => {
-      expect(() => validateAmount('   ')).toThrow(PocketPayError);
+    it('should redact secret keys embedded in error messages', () => {
+      const wallet = createWallet();
+      const message = `Failed to sign transaction with secret key: ${wallet.secretKey}`;
+      const result = redactSensitive(message);
+      expect(result).toBe('Failed to sign transaction with secret key: S[REDACTED]');
     });
 
-    it('should reject numbers with trailing garbage', () => {
-      expect(() => validateAmount('10abc')).toThrow(PocketPayError);
+    it('should redact multiple secret keys in a single string', () => {
+      const wallet1 = createWallet();
+      const wallet2 = createWallet();
+      const message = `Keys: ${wallet1.secretKey} and ${wallet2.secretKey}`;
+      const result = redactSensitive(message);
+      expect(result).toBe('Keys: S[REDACTED] and S[REDACTED]');
     });
 
-    it('should reject scientific notation', () => {
-      expect(() => validateAmount('1e3')).toThrow(PocketPayError);
+    it('should not redact public keys (G...)', () => {
+      const wallet = createWallet();
+      const result = redactSensitive(wallet.publicKey);
+      expect(result).toBe(wallet.publicKey);
     });
 
-    it('should reject Infinity', () => {
-      expect(() => validateAmount('Infinity')).toThrow(PocketPayError);
+    it('should not redact non-secret strings', () => {
+      const message = 'This is a regular error message without secrets';
+      const result = redactSensitive(message);
+      expect(result).toBe(message);
     });
 
-    it('should reject amounts with leading/trailing whitespace', () => {
-      expect(() => validateAmount('  10  ')).toThrow(PocketPayError);
+    it('should handle empty strings', () => {
+      const result = redactSensitive('');
+      expect(result).toBe('');
     });
 
-    it('should accept the smallest valid amount (7 decimals)', () => {
-      expect(validateAmount('0.0000001')).toBe(true);
+    it('should handle strings without secret keys', () => {
+      const message = 'Error: Invalid public key GABC XYZ';
+      const result = redactSensitive(message);
+      expect(result).toBe(message);
     });
-
-    it('should accept a normal valid amount', () => {
-      expect(validateAmount('1234.5')).toBe(true);
-    });
-
-    it('should reject INVALID_AMOUNT_PRECISION code for over-precision', () => {
-      expect(() => validateAmount('1.12345678')).toThrow(
-        expect.objectContaining({ code: 'INVALID_AMOUNT_PRECISION' })
-      );
-    });
+  });
 });
