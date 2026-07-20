@@ -309,6 +309,20 @@ export function findAssetBalance(
 
 // ─── Error Wrapping ─────────────────────────────────────────────────────────
 
+/**
+ * Redacts sensitive data from a string, particularly for error messages.
+ * Detects and masks Stellar secret keys (S...) and other sensitive patterns.
+ *
+ * @param str - The string to sanitize
+ * @returns The sanitized string with sensitive data redacted
+ */
+export function redactSensitive(str: string): string {
+  // Redact Stellar secret keys (S followed by 50+ alphanumeric characters)
+  // Match S only at start of string or after non-alphanumeric character
+  const redacted = str.replace(/(^|[^A-Za-z0-9])S[A-Z0-9]{50,}/g, '$1S[REDACTED]');
+  return redacted;
+}
+
 export function wrapError(
   error: unknown,
   context: string,
