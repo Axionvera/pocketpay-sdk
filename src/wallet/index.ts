@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { validatePublicKey, validateSecretKey, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
-import { fetchWithTimeout, withTimeout } from '../network';
+import { NetworkClient, withTimeout } from '../network';
 
 /**
  * Creates a new random Stellar keypair.
@@ -216,21 +216,16 @@ export async function fundTestnetAccount(
     );
   }
   try {
-    const resp = await fetchWithTimeout(
-      `${getFriendbotUrl()}?addr=${encodeURIComponent(publicKey)}`,
-      undefined,
-      'Friendbot funding request',
-      cfg.timeout,
+    const client = new NetworkClient({
+      baseUrl: getFriendbotUrl(),
+      defaultTimeoutMs: cfg.timeout,
+    });
+    const data = await client.get<Record<string, unknown>>(
+      `?addr=${encodeURIComponent(publicKey)}`,
+      {
+        operation: 'Friendbot funding request',
+      },
     );
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => '(no body)');
-      throw new PocketPayError(
-        `Friendbot HTTP ${resp.status}: ${body}`,
-        'FRIENDBOT_ERROR',
-        resp.status,
-      );
-    }
-    const data = (await resp.json()) as Record<string, unknown>;
     return {
       success: true,
       publicKey,
@@ -242,7 +237,18 @@ export async function fundTestnetAccount(
       friendbotAccount: typeof data['source_account'] === 'string' ? data['source_account'] : undefined,
     };
   } catch (error) {
-    if (error instanceof PocketPayError) throw error;
+    if (error instanceof PocketPayError) {
+      // Map general HTTP errors to Friendbot-specific error code
+      if (error.code.startsWith('HTTP_ERROR_')) {
+        throw new PocketPayError(
+          error.message,
+          'FRIENDBOT_ERROR',
+          error.httpStatus,
+          error.cause,
+        );
+      }
+      throw error;
+    }
     throw wrapError(error, 'Failed to fund testnet account', 'FUND_ERROR');
   }
 }
