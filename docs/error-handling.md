@@ -18,6 +18,8 @@ All errors thrown by the SDK's modules (Wallet, Payments, Transactions, and Soro
 | `code` | `string` | A machine-readable string identifier representing the specific error type. |
 | `statusCode` | `number \| undefined` | The HTTP status code returned by the remote service (Horizon, Friendbot, etc.), if applicable. |
 | `cause` | `Error \| undefined` | The original underlying error (e.g., Axios/Fetch error or Stellar SDK error) that triggered this error. |
+| `transactionHash` | `string \| undefined` | The unique Stellar transaction hash related to the failure, if available. |
+| `retryable` | `boolean \| undefined` | Set to `true` if the submission failed in a way that is safe to retry immediately. |
 
 ---
 
@@ -40,6 +42,8 @@ These errors occur during interactions with the Stellar Horizon network.
 
 *   `ACCOUNT_NOT_FOUND` (HTTP 404): The requested public key has not been funded or created on the ledger yet.
 *   `PAYMENT_FAILED` (HTTP 400): Stellar Core rejected the transaction. The error message will contain Horizon-specific transaction and operation result codes (e.g., `tx_insufficient_balance`, `op_no_destination`).
+*   `TX_STATUS_UNKNOWN`: A submission timeout or network failure occurred. The transaction may or may not be confirmed in the ledger. Status polling is required before retrying.
+*   `TX_EXPIRED`: The transaction was not found in the ledger and its `maxTime` bound has expired, indicating it is safe to rebuild and retry.
 *   `SEND_ERROR`: A general failure occurred while building or submitting the payment transaction.
 *   `TX_FETCH_ERROR`: Failed to query transaction history.
 *   `PAYMENTS_FETCH_ERROR`: Failed to query payment operation history.

@@ -8,6 +8,8 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase } from '../config';
 import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig } from '../types';
 import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
+import { submitTransactionIdempotently } from '../network/idempotency';
+import { classifySubmitError } from '../errors';
 
 /**
  * Sends XLM from one account to another.
@@ -39,6 +41,7 @@ export async function sendXLM(
     throw new PocketPayError('Cannot send XLM to yourself', 'SELF_PAYMENT');
   }
 
+  let transaction: StellarSDK.Transaction | undefined;
   try {
     const server = getHorizonServer(config);
     const networkPassphrase = getNetworkPassphrase();
@@ -63,36 +66,30 @@ export async function sendXLM(
     }
 
     builder.setTimeout(30);
-    const transaction = builder.build();
+    transaction = builder.build();
     transaction.sign(sourceKeypair);
 
-    const result = await server.submitTransaction(transaction);
-    const resultObj = result as any;
+    const txHash = transaction.hash().toString('hex');
 
-    return {
-      success: true,
-      hash: resultObj.hash,
-      ledger: resultObj.ledger,
-      fee: resultObj.fee_charged || String(StellarSDK.BASE_FEE),
-      sourceAccount: sourcePublic,
-      destinationAccount: destination,
-      amount,
-      createdAt: resultObj.created_at || new Date().toISOString(),
-    };
+    try {
+      const result = await submitTransactionIdempotently(transaction, {}, config);
+      const resultObj = result as any;
+
+      return {
+        success: true,
+        hash: resultObj.hash,
+        ledger: resultObj.ledger,
+        fee: resultObj.fee_charged || String(StellarSDK.BASE_FEE),
+        sourceAccount: sourcePublic,
+        destinationAccount: destination,
+        amount,
+        createdAt: resultObj.created_at || new Date().toISOString(),
+      };
+    } catch (submitError) {
+      throw classifySubmitError(submitError, txHash);
+    }
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
-
-    // Extract Horizon error details
-    const horizonError = error as any;
-    if (horizonError?.response?.data?.extras?.result_codes) {
-      const codes = horizonError.response.data.extras.result_codes;
-      throw new PocketPayError(
-        `Payment failed: tx=${codes.transaction}, ops=${JSON.stringify(codes.operations)}`,
-        'PAYMENT_FAILED',
-        400
-      );
-    }
-
     throw wrapError(error, 'Failed to send XLM', 'SEND_ERROR');
   }
 }

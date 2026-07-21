@@ -265,18 +265,26 @@ export class PocketPayError extends Error {
   public readonly statusCode?: number;
   /** Original error that caused this error */
   public readonly cause?: Error;
+  /** Transaction hash associated with the error (if submitted) */
+  public readonly transactionHash?: string;
+  /** Whether the operation/submission is safe to retry */
+  public readonly retryable?: boolean;
 
   constructor(
     message: string,
     code: string,
     statusCode?: number,
-    cause?: Error
+    cause?: Error,
+    transactionHash?: string,
+    retryable?: boolean
   ) {
     super(message);
     this.name = 'PocketPayError';
     this.code = code;
     this.statusCode = statusCode;
     this.cause = cause;
+    this.transactionHash = transactionHash;
+    this.retryable = retryable;
     Object.setPrototypeOf(this, PocketPayError.prototype);
   }
 }
