@@ -25,8 +25,8 @@
     "lint": "tsc --noEmit",
     "check:circular": "tsx scripts/check-circular-deps.ts",
     "verify": "npm run lint && npm run check:circular && npm run test && npm run build",
-    "prepublishOnly": "npm run build"
-    
+    "prepublishOnly": "npm run build",
+    "test:smoke": "npm run build && tsx scripts/smoke-test.ts"
   },
   "repository": {
     "type": "git",
