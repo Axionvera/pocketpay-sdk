@@ -375,8 +375,8 @@ export async function toResult<T>(
   }
 }
 export {
-  isNode,
-  isBrowser,
-  isReactNative,
-} from './env';
+  getAccountExplorerLink,
+  getTransactionExplorerLink,
+  getOperationExplorerLink,
+} from './explorer';
 

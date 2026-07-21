@@ -102,6 +102,10 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Explorer Links
+  getAccountExplorerLink,
+  getTransactionExplorerLink,
+  getOperationExplorerLink,
   // Redaction
   redactSecretKey,
   redactSensitiveValue,
@@ -113,15 +117,5 @@ export {
   findAssetBalance,
   // Security helpers
   redactSensitive,
-  // Safe (non-throwing) wrappers
-  safeGetBalance,
-  safeFundTestnetAccount,
-  safeSendXLM,
-  safeGetTransactions,
-  safeGetPayments,
-  // Environment Detection
-  isNode,
-  isBrowser,
-  isReactNative,
 } from './utils';
 
