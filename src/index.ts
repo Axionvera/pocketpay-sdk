@@ -119,5 +119,9 @@ export {
   safeSendXLM,
   safeGetTransactions,
   safeGetPayments,
+  // Environment Detection
+  isNode,
+  isBrowser,
+  isReactNative,
 } from './utils';
 

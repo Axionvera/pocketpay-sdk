@@ -374,5 +374,9 @@ export async function toResult<T>(
     return toFailureResult(pocketErr);
   }
 }
-
+export {
+  isNode,
+  isBrowser,
+  isReactNative,
+} from './env';
 
