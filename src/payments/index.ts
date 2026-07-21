@@ -5,8 +5,9 @@
  */
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase, resolveConfig } from '../config';
-import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig, PocketPayResult } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError, toResult } from '../utils';
+import { SendXLMParams, PaymentResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult } from '../types';
+import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import type { ResultWarning, RecoveryHint } from '../errors';
 import { withTimeout } from '../network';
 
 /**
@@ -118,5 +119,100 @@ export async function safeSendXLM(
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<PaymentResult>> {
   return toResult(() => sendXLM(params, config), 'Failed to send XLM', 'SEND_ERROR');
+}
+
+/**
+ * Sends XLM with an enriched result containing warnings and recovery hints.
+ *
+ * This is a pilot of the enhanced result pattern. It wraps {@link sendXLM}
+ * and returns an {@link EnhancedPocketPayResult} that may include:
+ * - **Warnings** when the operation succeeds but with caveats (e.g. high fee
+ *   relative to amount).
+ * - **Recovery hints** on failure to guide the consumer toward a fix (e.g.
+ *   "fund_account" when the source account doesn't exist).
+ *
+ * @param params - Payment parameters (sourceSecret, destination, amount, memo?)
+ * @param config - Optional SDK config overrides
+ * @returns An enriched result with optional warnings and recovery hints
+ */
+export async function enhancedSendXLM(
+  params: SendXLMParams,
+  config?: Partial<SDKConfig>,
+): Promise<EnhancedPocketPayResult<PaymentResult>> {
+  const { amount } = params;
+  const warnings: ResultWarning[] = [];
+  const recoveryHints: RecoveryHint[] = [];
+
+  try {
+    const result = await sendXLM(params, config);
+
+    const feeNum = parseFloat(result.fee);
+    const amountNum = parseFloat(amount);
+    if (amountNum > 0 && feeNum / amountNum > 0.1) {
+      warnings.push({
+        code: 'HIGH_FEE_RATIO',
+        message: `Transaction fee (${result.fee} stroops) is more than 10% of the payment amount.`,
+      });
+    }
+
+    return toEnhancedSuccessResult(result, warnings, recoveryHints);
+  } catch (error) {
+    const pocketErr =
+      error instanceof PocketPayError
+        ? error
+        : wrapError(error, 'Failed to send XLM', 'SEND_ERROR');
+
+    if (pocketErr.code === 'ACCOUNT_NOT_FOUND') {
+      recoveryHints.push({
+        action: 'fund_account',
+        message: 'Fund the source account with XLM before sending a payment.',
+        retryable: false,
+      });
+    }
+
+    if (pocketErr.code === 'PAYMENT_FAILED') {
+      recoveryHints.push({
+        action: 'check_input',
+        message: 'Verify that the destination account exists and the amount is within your available balance.',
+        retryable: false,
+      });
+    }
+
+    if (pocketErr.code === 'REQUEST_TIMEOUT' || pocketErr.code === 'SEND_ERROR') {
+      recoveryHints.push({
+        action: 'retry',
+        message: 'The network may be temporarily unavailable. Try again in a few seconds.',
+        retryable: true,
+        suggestedDelayMs: 3000,
+      });
+    }
+
+    if (pocketErr.validation) {
+      recoveryHints.push({
+        action: 'check_input',
+        message: `Fix the ${pocketErr.validation.field} field: ${pocketErr.validation.reason}.`,
+        retryable: false,
+      });
+    }
+
+    return toEnhancedFailureResult(pocketErr, warnings, recoveryHints);
+  }
+}
+
+/**
+ * Non-throwing wrapper for {@link enhancedSendXLM}.
+ *
+ * @param params - Payment parameters
+ * @param config - Optional SDK config overrides
+ * @returns An enriched result that never throws
+ */
+export async function safeEnhancedSendXLM(
+  params: SendXLMParams,
+  config?: Partial<SDKConfig>,
+): Promise<EnhancedPocketPayResult<PaymentResult>> {
+  return toEnhancedResult(() => sendXLM(params, config), {
+    errorContext: 'Failed to send XLM',
+    errorCode: 'SEND_ERROR',
+  });
 }
 

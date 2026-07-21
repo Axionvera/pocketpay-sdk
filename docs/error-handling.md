@@ -179,3 +179,117 @@ SDK errors may be caught in contexts where secrets are present in the local scop
     });
     ```
 *   Be cautious with `error.cause`. If the underlying HTTP library logs full request URLs containing query parameters or headers, sanitize them before writing to your logs.
+
+---
+
+## Enhanced Result Wrapper — Warnings & Recovery Hints
+
+For operations where structured feedback is useful beyond a simple success/failure, the SDK provides an **enhanced result pattern** that adds optional `warnings` and `recoveryHints` arrays.
+
+### Core Types
+
+| Type | Description |
+|:---|:---|
+| `EnhancedSuccessResult<T>` | Success result with optional `warnings` and `recoveryHints`. |
+| `EnhancedFailureResult` | Failure result with optional `warnings` and `recoveryHints`. |
+| `EnhancedPocketPayResult<T>` | Discriminated union of the above two. |
+| `ResultWarning` | A non-fatal diagnostic: `{ code, message, metadata? }`. |
+| `RecoveryHint` | An actionable suggestion: `{ action, message, retryable?, suggestedDelayMs?, metadata? }`. |
+
+### How It Works
+
+The enhanced result is **structurally compatible** with the base `PocketPayResult<T>`. Code that checks `result.ok` continues to work unchanged — the extra fields are purely additive.
+
+```typescript
+import {
+  enhancedSendXLM,
+  enhancedGetBalance,
+  type EnhancedPocketPayResult,
+  type PaymentResult,
+} from '@axionvera/pocketpay-sdk';
+
+// enhancedSendXLM returns EnhancedPocketPayResult<PaymentResult>
+const paymentResult = await enhancedSendXLM({
+  sourceSecret: 'S...',
+  destination: 'G...',
+  amount: '10',
+});
+
+if (paymentResult.ok) {
+  console.log('Payment hash:', paymentResult.value.hash);
+
+  // Inspect non-fatal warnings
+  if (paymentResult.warnings?.length) {
+    paymentResult.warnings.forEach(w => console.warn(`[${w.code}] ${w.message}`));
+  }
+} else {
+  console.error(paymentResult.error.code);
+
+  // Act on recovery hints
+  paymentResult.recoveryHints?.forEach(hint => {
+    switch (hint.action) {
+      case 'fund_account':
+        showFundPrompt();
+        break;
+      case 'check_input':
+        highlightInvalidFields();
+        break;
+      case 'retry':
+        if (hint.retryable) scheduleRetry(hint.suggestedDelayMs ?? 3000);
+        break;
+    }
+  });
+}
+```
+
+### Pilot Operations
+
+The enhanced pattern is currently applied to two pilot operations:
+
+| Operation | Enhanced Wrapper | Warnings | Recovery Hints |
+|:---|:---|:---|:---|
+| `sendXLM` | `enhancedSendXLM` | `HIGH_FEE_RATIO` (fee > 10% of amount) | `fund_account`, `check_input`, `retry` |
+| `getBalance` | `enhancedGetBalance` | `ZERO_NATIVE_BALANCE`, `MANY_ASSETS` (> 20) | `fund_account`, `check_network`, `check_input` |
+
+Each pilot also has a non-throwing variant: `safeEnhancedSendXLM` and `safeEnhancedGetBalance`.
+
+### Building Your Own Enhanced Results
+
+Use the helper functions to construct enriched results in custom code:
+
+```typescript
+import {
+  toEnhancedSuccessResult,
+  toEnhancedFailureResult,
+  toEnhancedResult,
+  PocketPayError,
+} from '@axionvera/pocketpay-sdk';
+
+// Manually construct
+const success = toEnhancedSuccessResult(data, [
+  { code: 'DEPRECATED', message: 'Field X is deprecated.' },
+], [
+  { action: 'retry', message: 'Try again.', retryable: true, suggestedDelayMs: 2000 },
+]);
+
+// Wrap an async function
+const result = await toEnhancedResult(
+  async () => doSomething(),
+  {
+    errorContext: 'Something failed',
+    errorCode: 'MY_ERROR',
+    warnings: [{ code: 'PARTIAL', message: 'Partial data returned.' }],
+  },
+);
+```
+
+### Recovery Hint Actions
+
+| Action | Meaning |
+|:---|:---|
+| `retry` | The operation may succeed if retried (check `retryable` and `suggestedDelayMs`). |
+| `fund_account` | The account needs to be funded with XLM before this operation can succeed. |
+| `check_input` | One or more inputs need correction (check the `message` for details). |
+| `check_network` | A network issue occurred; verify connectivity and retry. |
+| `reduce_amount` | The requested amount exceeds available balance. |
+| `contact_support` | The error is unexpected; escalate to support. |

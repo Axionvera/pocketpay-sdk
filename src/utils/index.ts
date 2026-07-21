@@ -11,7 +11,11 @@ import {
   SuccessResult,
   FailureResult,
   PocketPayResult,
+  EnhancedSuccessResult,
+  EnhancedFailureResult,
+  EnhancedPocketPayResult,
 } from '../types';
+import type { ResultWarning, RecoveryHint } from '../errors';
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
