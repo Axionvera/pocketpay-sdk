@@ -38,9 +38,15 @@ export type {
   SuccessResult,
   FailureResult,
   PocketPayResult,
+  EnhancedSuccessResult,
+  EnhancedFailureResult,
+  EnhancedPocketPayResult,
 } from './types';
 
 export { PocketPayError } from './types';
+
+// ─── Error Enrichment Types ────────────────────────────────────────────────
+export type { ResultWarning, RecoveryHint } from './errors';
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
 export {
@@ -52,12 +58,16 @@ export {
   fundTestnetAccount,
   safeGetBalance,
   safeFundTestnetAccount,
+  enhancedGetBalance,
+  safeEnhancedGetBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
 export {
   sendXLM,
   safeSendXLM,
+  enhancedSendXLM,
+  safeEnhancedSendXLM,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -109,6 +119,9 @@ export {
   toSuccessResult,
   toFailureResult,
   toResult,
+  toEnhancedSuccessResult,
+  toEnhancedFailureResult,
+  toEnhancedResult,
   // Asset helpers
   findAssetBalance,
   // Security helpers

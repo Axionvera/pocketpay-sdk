@@ -447,6 +447,97 @@ export interface FailureResult {
  */
 export type PocketPayResult<T> = SuccessResult<T> | FailureResult;
 
+// ─── Enhanced Result Wrappers ───────────────────────────────────────────────
+
+import type { ResultWarning, RecoveryHint } from '../errors';
+
+/**
+ * A typed success result enriched with optional warnings and recovery hints.
+ *
+ * Extends the base {@link SuccessResult} pattern with non-fatal diagnostic
+ * information. Use this when an operation succeeds but the consumer should
+ * be aware of deprecations, near-limit conditions, or partial degradation.
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result = await safeGetBalance(publicKey);
+ * if (result.ok) {
+ *   console.log(result.value.nativeBalance);
+ *   if (result.warnings?.length) {
+ *     result.warnings.forEach(w => console.warn(w.code, w.message));
+ *   }
+ * }
+ * ```
+ */
+export interface EnhancedSuccessResult<T> {
+  /** Always `true` — use this to narrow to `EnhancedSuccessResult<T>` */
+  ok: true;
+  /** The successful return value */
+  value: T;
+  /** Optional non-fatal warnings produced during the operation */
+  warnings?: ResultWarning[];
+  /** Optional actionable recovery suggestions */
+  recoveryHints?: RecoveryHint[];
+}
+
+/**
+ * A typed failure result enriched with optional warnings and recovery hints.
+ *
+ * Extends the base {@link FailureResult} with additional diagnostic context.
+ * Recovery hints are particularly useful on failure — they tell the consumer
+ * *what to do next* (retry, fund the account, reduce the amount, etc.).
+ *
+ * @example
+ * ```ts
+ * const result = await safeSendXLM(params);
+ * if (!result.ok) {
+ *   console.error(result.error.code);
+ *   result.recoveryHints?.forEach(h => {
+ *     if (h.action === 'fund_account') showFundPrompt();
+ *   });
+ * }
+ * ```
+ */
+export interface EnhancedFailureResult {
+  /** Always `false` — use this to narrow to `EnhancedFailureResult` */
+  ok: false;
+  /** The `PocketPayError` that caused the failure */
+  error: PocketPayError;
+  /** Optional non-fatal warnings produced before the failure */
+  warnings?: ResultWarning[];
+  /** Optional actionable recovery suggestions for the consumer */
+  recoveryHints?: RecoveryHint[];
+}
+
+/**
+ * A discriminated union of {@link EnhancedSuccessResult} and
+ * {@link EnhancedFailureResult}.
+ *
+ * This is the enriched version of {@link PocketPayResult} that adds optional
+ * `warnings` and `recoveryHints` arrays. It is structurally compatible with
+ * the base `PocketPayResult` — the `ok` discriminant works the same way, and
+ * existing code that checks `result.ok` will continue to work unchanged.
+ *
+ * @typeParam T - The value type on success
+ *
+ * @example
+ * ```ts
+ * const result: EnhancedPocketPayResult<PaymentResult> = await enhancedSafeSendXLM(params);
+ * if (result.ok) {
+ *   console.log('Payment hash:', result.value.hash);
+ * } else {
+ *   console.error(result.error.code);
+ * }
+ * // Both branches can optionally inspect warnings and recovery hints
+ * result.recoveryHints?.forEach(h => console.log(h.action, h.message));
+ * ```
+ */
+export type EnhancedPocketPayResult<T> =
+  | EnhancedSuccessResult<T>
+  | EnhancedFailureResult;
+
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
 /** Metadata for validation errors to identify the field and reason */

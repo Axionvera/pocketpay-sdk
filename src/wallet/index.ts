@@ -8,9 +8,10 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
 import {
   WalletKeypair, AccountBalance, AssetBalance,
-  BalanceResult, FundResult, PocketPayError, SDKConfig, PocketPayResult,
+  BalanceResult, FundResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult,
 } from '../types';
-import { validatePublicKey, validateSecretKey, wrapError, toResult } from '../utils';
+import { validatePublicKey, validateSecretKey, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import type { ResultWarning, RecoveryHint } from '../errors';
 import { fetchWithTimeout, withTimeout } from '../network';
 
 /**
@@ -260,5 +261,98 @@ export async function safeFundTestnetAccount(
   config?: Partial<SDKConfig>
 ): Promise<PocketPayResult<FundResult>> {
   return toResult(() => fundTestnetAccount(publicKey, config), 'Failed to fund testnet account', 'FUND_ERROR');
+}
+
+/**
+ * Fetches balance with an enriched result containing warnings and recovery hints.
+ *
+ * This is a pilot of the enhanced result pattern for balance queries. It wraps
+ * {@link getBalance} and returns an {@link EnhancedPocketPayResult} that may
+ * include:
+ * - **Warnings** when the account has zero native XLM or has many assets
+ *   (potential spam).
+ * - **Recovery hints** on failure to guide the consumer toward a fix (e.g.
+ *   "fund_account" for unfunded accounts, "check_network" for network errors).
+ *
+ * @param publicKey - Stellar public key (G...) to query
+ * @param config - Optional SDK config overrides
+ * @returns An enriched result with optional warnings and recovery hints
+ */
+export async function enhancedGetBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>,
+): Promise<EnhancedPocketPayResult<AccountBalance>> {
+  const warnings: ResultWarning[] = [];
+  const recoveryHints: RecoveryHint[] = [];
+
+  try {
+    const balance = await getBalance(publicKey, config);
+
+    if (balance.nativeBalance === '0.0000000' || balance.nativeBalance === '0') {
+      warnings.push({
+        code: 'ZERO_NATIVE_BALANCE',
+        message: 'The account has no native XLM balance. Operations requiring XLM fees will fail.',
+      });
+    }
+
+    if (balance.balances.length > 20) {
+      warnings.push({
+        code: 'MANY_ASSETS',
+        message: `The account holds ${balance.balances.length} assets. Some wallets may have trouble displaying them all.`,
+        metadata: { assetCount: balance.balances.length },
+      });
+    }
+
+    return toEnhancedSuccessResult(balance, warnings, recoveryHints);
+  } catch (error) {
+    const pocketErr =
+      error instanceof PocketPayError
+        ? error
+        : wrapError(error, 'Failed to fetch balance', 'BALANCE_ERROR');
+
+    if (pocketErr.code === 'ACCOUNT_NOT_FOUND') {
+      recoveryHints.push({
+        action: 'fund_account',
+        message: 'This account has not been funded yet. Use fundTestnetAccount() on testnet to activate it.',
+        retryable: false,
+      });
+    }
+
+    if (pocketErr.code === 'BALANCE_ERROR') {
+      recoveryHints.push({
+        action: 'check_network',
+        message: 'Could not reach the Stellar Horizon server. Check your network connection and try again.',
+        retryable: true,
+        suggestedDelayMs: 2000,
+      });
+    }
+
+    if (pocketErr.validation) {
+      recoveryHints.push({
+        action: 'check_input',
+        message: `Fix the ${pocketErr.validation.field} field: ${pocketErr.validation.reason}.`,
+        retryable: false,
+      });
+    }
+
+    return toEnhancedFailureResult(pocketErr, warnings, recoveryHints);
+  }
+}
+
+/**
+ * Non-throwing wrapper for {@link enhancedGetBalance}.
+ *
+ * @param publicKey - Stellar public key (G...) to query
+ * @param config - Optional SDK config overrides
+ * @returns An enriched result that never throws
+ */
+export async function safeEnhancedGetBalance(
+  publicKey: string,
+  config?: Partial<SDKConfig>,
+): Promise<EnhancedPocketPayResult<AccountBalance>> {
+  return toEnhancedResult(() => getBalance(publicKey, config), {
+    errorContext: 'Failed to fetch balance',
+    errorCode: 'BALANCE_ERROR',
+  });
 }
 
