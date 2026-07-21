@@ -113,11 +113,5 @@ export {
   findAssetBalance,
   // Security helpers
   redactSensitive,
-  // Safe (non-throwing) wrappers
-  safeGetBalance,
-  safeFundTestnetAccount,
-  safeSendXLM,
-  safeGetTransactions,
-  safeGetPayments,
 } from './utils';
 
