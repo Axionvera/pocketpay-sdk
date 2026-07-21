@@ -1,290 +1,62 @@
-/**
- * Stellar PocketPay SDK — Type Definitions
- *
- * All shared types, interfaces, and enums used across the SDK.
- */
-
-// ─── Network ────────────────────────────────────────────────────────────────
-
-/** Supported Stellar networks */
-export type StellarNetwork = 'testnet' | 'mainnet';
-
-/** SDK configuration options */
-export interface SDKConfig {
-  /** Network to connect to (default: "testnet") */
-  network: StellarNetwork;
-  /** Horizon server URL (auto-resolved if omitted) */
-  horizonUrl: string;
-  /** Soroban RPC URL (auto-resolved if omitted) */
-  sorobanRpcUrl: string;
-}
-
-// ─── Wallet ─────────────────────────────────────────────────────────────────
-
-/** A newly created or imported Stellar keypair */
-export interface WalletKeypair {
-  /** Stellar public key (G...) */
-  publicKey: string;
-  /** Stellar secret key (S...) — handle with extreme care */
-  secretKey: string;
-}
-
-/** Balance entry for a single asset */
-export interface AssetBalance {
-  /** Asset code (e.g. "XLM", "USDC") */
-  asset: string;
-  /** Balance amount as a string (to preserve precision) */
-  balance: string;
-  /** Asset issuer public key (empty for native XLM) */
-  issuer: string;
-}
-
-/** Full account balance response */
-export interface AccountBalance {
-  /** The queried public key */
-  publicKey: string;
-  /** Array of asset balances */
-  balances: AssetBalance[];
-  /** Native XLM balance (convenience shortcut) */
-  nativeBalance: string;
-}
-
-// ─── Payments ───────────────────────────────────────────────────────────────
-
-/** Parameters for sending an XLM payment */
-export interface SendXLMParams {
-  /** Secret key of the source account (S...) */
-  sourceSecret: string;
-  /** Public key of the destination account (G...) */
-  destination: string;
-  /** Amount of XLM to send (as string for precision, e.g. "10.5") */
-  amount: string;
-  /** Optional memo text (max 28 bytes) */
-  memo?: string;
-}
-
-/** Result of a successful payment */
-export interface PaymentResult {
-  /** Whether the transaction was successful */
-  success: boolean;
-  /** Transaction hash */
-  hash: string;
-  /** Ledger number the transaction was included in */
-  ledger: number;
-  /** Fee charged in stroops */
-  fee: string;
-  /** Source account public key */
-  sourceAccount: string;
-  /** Destination account public key */
-  destinationAccount: string;
-  /** Amount sent */
-  amount: string;
-  /** Timestamp of the transaction */
-  createdAt: string;
-}
-
-// ─── Transactions ───────────────────────────────────────────────────────────
-
-/** A single transaction record */
-export interface TransactionRecord {
-  /** Transaction hash */
-  hash: string;
-  /** Ledger number */
-  ledger: number;
-  /** ISO 8601 timestamp */
-  createdAt: string;
-  /** Source account public key */
-  sourceAccount: string;
-  /** Fee paid in stroops */
-  fee: string;
-  /** Number of operations in the transaction */
-  operationCount: number;
-  /** Whether the transaction was successful */
-  successful: boolean;
-  /** Optional memo */
-  memo?: string;
-  /** Memo type */
-  memoType: string;
-}
-
-/** A single payment operation record */
-export interface PaymentRecord {
-  /** Operation ID */
-  id: string;
-  /** Transaction hash this operation belongs to */
-  transactionHash: string;
-  /** Operation type */
-  type: string;
-  /** ISO 8601 timestamp */
-  createdAt: string;
-  /** Source account */
-  from: string;
-  /** Destination account */
-  to: string;
-  /** Amount transferred */
-  amount: string;
-  /** Asset code */
-  asset: string;
-  /** Asset issuer (empty for native) */
-  assetIssuer: string;
-}
-
-/** Paginated transaction list */
-export interface TransactionList {
-  /** Array of transaction records */
-  records: TransactionRecord[];
-  /** Number of records returned */
-  count: number;
-}
-
-/** Paginated payment list */
-export interface PaymentList {
-  /** Array of payment records */
-  records: PaymentRecord[];
-  /** Number of records returned */
-  count: number;
-}
-
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
 
-/** Parameters for a vault deposit */
-export interface VaultDepositParams {
-  /** Secret key of the depositor */
-  sourceSecret: string;
-  /** Amount to deposit (as string) */
-  amount: string;
-  /** Vault contract ID */
-  contractId: string;
+/**
+ * Base parameters shared across all Soroban vault operations.
+ */
+export interface BaseVaultParams {
+  /**
+   * The Soroban vault contract ID (C...).
+   * If omitted, the SDK automatically falls back to the `VAULT_CONTRACT_ID` environment variable.
+   */
+  contractId?: string;
 }
 
-/** Parameters for a vault withdrawal */
-export interface VaultWithdrawParams {
-  /** Secret key of the withdrawer */
+/**
+ * Parameters shared across state-changing vault transaction helpers (deposit, withdraw).
+ */
+export interface VaultTransactionParams extends BaseVaultParams {
+  /**
+   * The Stellar secret key (S...) of the account executing and signing the transaction.
+   * This account must match the target vault user and fund transaction fees.
+   */
   sourceSecret: string;
-  /** Amount to withdraw (as string) */
+  /**
+   * The amount of XLM for the operation as a string (e.g. `"100"`).
+   * Converted internally to stroops (i128) by the SDK.
+   */
   amount: string;
-  /** Vault contract ID */
-  contractId: string;
 }
 
-/** Vault operation result */
+/**
+ * Parameters for depositing XLM into the savings vault.
+ */
+export interface VaultDepositParams extends VaultTransactionParams {}
+
+/**
+ * Parameters for withdrawing XLM from the savings vault.
+ */
+export interface VaultWithdrawParams extends VaultTransactionParams {}
+
+/**
+ * Parameters for querying a user's available vault balance (read-only simulation).
+ */
+export interface VaultBalanceParams extends BaseVaultParams {
+  /**
+   * The Stellar public key (G...) of the user whose available vault balance is being queried.
+   */
+  publicKey: string;
+}
+
+/**
+ * Result of a Soroban vault operation (deposit, withdraw, or balance query).
+ */
 export interface VaultResult {
   /** Whether the operation succeeded */
   success: boolean;
-  /** Transaction hash (if submitted on-chain) */
+  /** Transaction hash (present on successful deposit/withdraw submissions) */
   hash?: string;
-  /** Resulting balance after operation */
+  /** Resulting balance in XLM (present on successful balance queries) */
   balance?: string;
-  /** Error message if failed */
+  /** Human-readable error message if the operation failed */
   error?: string;
-}
-
-/** Vault balance query params */
-export interface VaultBalanceParams {
-  /** Public key of the user */
-  publicKey: string;
-  /** Vault contract ID */
-  contractId: string;
-}
-
-// ─── Friendbot / Funding ────────────────────────────────────────────────────
-
-/**
- * Result of funding a testnet account via Friendbot.
- *
- * @remarks **Testnet only.** Friendbot is not available on Stellar mainnet.
- *
- * @example
- * ```ts
- * const result = await fundTestnetAccount(wallet.publicKey);
- * if (result.success) {
- *   console.log('Funded!', result.hash, 'ledger:', result.ledger);
- * }
- * ```
- */
-export interface FundResult {
-  /** Whether the funding request was successful */
-  success: boolean;
-
-  /**
-   * The Stellar public key (G...) that was funded.
-   * Always present, mirrors the input public key for easy destructuring.
-   */
-  publicKey: string;
-
-  /**
-   * Transaction hash of the Friendbot funding transaction.
-   * Present on success; used to look up the transaction on a block explorer.
-   */
-  hash?: string;
-
-  /**
-   * Friendbot's internal operation/record ID.
-   * Useful as a fallback identifier when `hash` is not available.
-   */
-  friendbotId?: string;
-
-  /**
-   * Ledger sequence number the funding transaction was included in.
-   * Present on success.
-   */
-  ledger?: number;
-
-  /**
-   * ISO 8601 timestamp of when the funding transaction was created.
-   * Present on success.
-   */
-  createdAt?: string;
-
-  /**
-   * Fee charged by the Friendbot transaction (in stroops).
-   * Present on success.
-   */
-  feeCharged?: string;
-
-  /**
-   * The Friendbot's own source account public key.
-   * Present on success; useful for audit purposes.
-   */
-  friendbotAccount?: string;
-
-  /**
-   * Human-readable error message when `success` is `false`.
-   * Contains the Friendbot HTTP status and response body on HTTP errors.
-   */
-  error?: string;
-}
-
-// ─── Errors ─────────────────────────────────────────────────────────────────
-
-/** Custom SDK error with additional context */
-export class PocketPayError extends Error {
-  /** Machine-readable error code */
-  public readonly code: string;
-  /** HTTP status code (if applicable) */
-  public readonly statusCode?: number;
-  /** Original error that caused this error */
-  public readonly cause?: Error;
-  /** Transaction hash associated with the error (if submitted) */
-  public readonly transactionHash?: string;
-  /** Whether the operation/submission is safe to retry */
-  public readonly retryable?: boolean;
-
-  constructor(
-    message: string,
-    code: string,
-    statusCode?: number,
-    cause?: Error,
-    transactionHash?: string,
-    retryable?: boolean
-  ) {
-    super(message);
-    this.name = 'PocketPayError';
-    this.code = code;
-    this.statusCode = statusCode;
-    this.cause = cause;
-    this.transactionHash = transactionHash;
-    this.retryable = retryable;
-    Object.setPrototypeOf(this, PocketPayError.prototype);
-  }
 }

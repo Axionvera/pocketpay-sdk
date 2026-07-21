@@ -16,10 +16,18 @@ export type {
   WalletKeypair,
   AssetBalance,
   AccountBalance,
+  BalanceResult,
   SendXLMParams,
   PaymentResult,
+  TransactionSummary,
   TransactionRecord,
   TransactionList,
+  TransactionDirection,
+  FilterableTransaction,
+  FilterTransactionsOptions,
+  SortableTransaction,
+  TransactionSortOrder,
+  PaymentSummary,
   PaymentRecord,
   PaymentList,
   VaultDepositParams,
@@ -27,9 +35,18 @@ export type {
   VaultBalanceParams,
   VaultResult,
   FundResult,
+  SuccessResult,
+  FailureResult,
+  PocketPayResult,
+  EnhancedSuccessResult,
+  EnhancedFailureResult,
+  EnhancedPocketPayResult,
 } from './types';
 
 export { PocketPayError } from './types';
+
+// ─── Error Enrichment Types ────────────────────────────────────────────────
+export type { ResultWarning, RecoveryHint } from './errors';
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
 export {
@@ -37,14 +54,35 @@ export {
   importWallet,
   getPublicKey,
   getBalance,
+  getBalanceOrUnfunded,
   fundTestnetAccount,
+  safeGetBalance,
+  safeFundTestnetAccount,
+  enhancedGetBalance,
+  safeEnhancedGetBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
-export { sendXLM } from './payments';
+export {
+  sendXLM,
+  safeSendXLM,
+  enhancedSendXLM,
+  safeEnhancedSendXLM,
+} from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
-export { getTransactions, getPayments } from './transactions';
+export {
+  getTransactions,
+  getPayments,
+  filterTransactions,
+  filterByDirection,
+  filterByAsset,
+  filterByDateRange,
+  filterByCounterparty,
+  sortTransactionsByDate,
+  safeGetTransactions,
+  safeGetPayments,
+} from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
 export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
@@ -66,8 +104,15 @@ export {
 export {
   resolveConfig,
   getHorizonServer,
+  setHorizonServerFactory,
+  resetHorizonServerFactory,
   getNetworkPassphrase,
   getFriendbotUrl,
+  validateNetwork,
+  validateHorizonUrl,
+  validateSorobanRpcUrl,
+  validateTimeout,
+  validateContractId,
 } from './config';
 
 // ─── Utils ──────────────────────────────────────────────────────────────────
@@ -75,7 +120,28 @@ export {
   validatePublicKey,
   validateSecretKey,
   validateAmount,
+  validateMemo,
+  validateTransactionHash,
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Explorer Links
+  getAccountExplorerLink,
+  getTransactionExplorerLink,
+  getOperationExplorerLink,
+  // Redaction
+  redactSecretKey,
+  redactSensitiveValue,
+  // Result helpers
+  toSuccessResult,
+  toFailureResult,
+  toResult,
+  toEnhancedSuccessResult,
+  toEnhancedFailureResult,
+  toEnhancedResult,
+  // Asset helpers
+  findAssetBalance,
+  // Security helpers
+  redactSensitive,
 } from './utils';
+
