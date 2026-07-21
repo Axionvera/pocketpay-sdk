@@ -69,7 +69,7 @@ export async function sendXLM(
       builder.addMemo(StellarSDK.Memo.text(memo));
     }
     builder.setTimeout(30);
-    const transaction = builder.build();
+    transaction = builder.build();
     transaction.sign(sourceKeypair);
     const result = await withTimeout(
       'Horizon transaction submission',

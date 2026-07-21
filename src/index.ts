@@ -87,6 +87,19 @@ export {
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
 export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
 
+// ─── Network & Idempotency ──────────────────────────────────────────────────
+export {
+  submitTransactionIdempotently,
+  pollTransactionStatus,
+} from './network';
+
+// ─── Errors ─────────────────────────────────────────────────────────────────
+export {
+  classifySubmitError,
+  isRetryableError,
+  isUnknownStatusError,
+} from './errors';
+
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,
