@@ -112,6 +112,10 @@ export {
   stroopsToXLM,
   xlmToStroops,
   truncateAddress,
+  // Explorer Links
+  getAccountExplorerLink,
+  getTransactionExplorerLink,
+  getOperationExplorerLink,
   // Redaction
   redactSecretKey,
   redactSensitiveValue,
