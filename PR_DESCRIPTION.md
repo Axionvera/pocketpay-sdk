@@ -1,108 +1,98 @@
-# Add transaction filtering helper utilities
+# Typed Result Wrapper with Warnings & Recovery Hints
 
 ## Summary
 
-This PR adds lightweight, **pure** helper functions for filtering transaction and
-payment summaries by direction, asset, date range, and counterparty. They are
-intended to remove the need for every consumer (especially the mobile app) to
-re-implement the same filtering logic against data already fetched from
-`getTransactions` / `getPayments`.
+This PR adds a **reusable typed result model** that extends the existing `PocketPayResult<T>` pattern with optional `warnings` and `recoveryHints` arrays, giving consumers richer, actionable feedback beyond simple success/failure.
 
-Resolves: issue #111
+As a pilot, the enhanced result is applied to two SDK operations: `sendXLM` and `getBalance`.
 
 ## Motivation
 
-Apps frequently need to search and filter transaction history (incoming vs
-outgoing, by asset, by date, by counterparty). Until now each consumer had to
-write its own filtering. The SDK now ships small, composable, network-free
-helpers so this behaviour is consistent and tested in one place.
+Consumers currently need to handle thrown errors differently across SDK modules, and successful results carry no diagnostic context. This PR addresses issue **#137** by:
 
-## What changed
+1. Defining a reusable `ResultWarning` and `RecoveryHint` type pair
+2. Adding `EnhancedSuccessResult<T>`, `EnhancedFailureResult`, and `EnhancedPocketPayResult<T>` discriminated unions
+3. Providing helper functions (`toEnhancedSuccessResult`, `toEnhancedFailureResult`, `toEnhancedResult`) for constructing enriched results
+4. Piloting the pattern on two high-value operations
 
-### New file: `src/transactions/filter.ts`
+## What's New
 
-Five pure functions, none of which perform network calls:
+### New Types (`src/errors/index.ts`)
 
-- `filterByDirection(records, direction, account)` — keeps records matching a
-  `TransactionDirection` (`'incoming' | 'outgoing' | 'self'`) relative to a
-  reference account. Works for both `TransactionSummary` and `PaymentSummary`.
-- `filterByAsset(records, assetCode, assetIssuer?)` — keeps records for a given
-  asset. Only records that actually carry asset data are considered (e.g. a raw
-  `TransactionSummary` has no `asset` and is excluded), satisfying the
-  "where data exists" requirement.
-- `filterByDateRange(records, startDate?, endDate?)` — inclusive `createdAt`
-  range filter; either bound may be omitted. Records with unparseable dates are
-  dropped.
-- `filterByCounterparty(records, counterparty, account)` — keeps records whose
-  "other" party (destination for outgoing, source for incoming, or the source
-  account of a transaction) equals `counterparty`.
-- `filterTransactions(records, options)` — combined entrypoint that applies any
-  combination of the above in a single pass. `direction` and `counterparty`
-  require `account`; if it is omitted those filters are skipped rather than
-  throwing.
+| Type | Purpose |
+|:---|:---|
+| `ResultWarning` | Non-fatal diagnostic with `code`, `message`, and optional `metadata` |
+| `RecoveryHint` | Actionable suggestion with `action`, `message`, optional `retryable`, `suggestedDelayMs`, and `metadata` |
 
-All helpers return **new arrays** and never mutate the input.
+### Enhanced Result Types (`src/types/index.ts`)
 
-### Types: `src/types/index.ts`
+| Type | Description |
+|:---|:---|
+| `EnhancedSuccessResult<T>` | Success result with optional `warnings` and `recoveryHints` |
+| `EnhancedFailureResult` | Failure result with optional `warnings` and `recoveryHints` |
+| `EnhancedPocketPayResult<T>` | Discriminated union of the above two |
 
-- `TransactionDirection` — `'incoming' | 'outgoing' | 'self'`.
-- `FilterableTransaction` — structural shape shared by `TransactionSummary` and
-  `PaymentSummary` that the helpers operate on (all fields except `createdAt`
-  optional, so the same helpers work across both record types).
-- `FilterTransactionsOptions` — options object for `filterTransactions`.
+These are **structurally compatible** with the existing `PocketPayResult<T>` — code that checks `result.ok` works unchanged.
 
-### Exports
+### Helper Functions (`src/utils/index.ts`)
 
-- Re-exported from `src/transactions/index.ts` and the package root
-  `src/index.ts` (both functions and the new types).
-- `tests/exports.test.ts` updated to assert the new public exports.
+- `toEnhancedSuccessResult(value, warnings?, recoveryHints?)` — construct an enriched success
+- `toEnhancedFailureResult(error, warnings?, recoveryHints?)` — construct an enriched failure
+- `toEnhancedResult(fn, options?)` — wrap an async function into an enhanced result
 
-## Usage
+### Pilot: `enhancedSendXLM` / `safeEnhancedSendXLM` (`src/payments/index.ts`)
 
-```ts
-import { getPayments, filterTransactions } from 'stellar-pocketpay-sdk';
+| Signal | Condition |
+|:---|:---|
+| **Warning:** `HIGH_FEE_RATIO` | Transaction fee > 10% of payment amount |
+| **Hint:** `fund_account` | Source account not found (404) |
+| **Hint:** `check_input` | Payment failed (validation) |
+| **Hint:** `retry` | Network timeout or general send error |
+| **Hint:** `check_input` | Any validation error (invalid key, amount, etc.) |
 
-const { records } = await getPayments(myPublicKey);
+### Pilot: `enhancedGetBalance` / `safeEnhancedGetBalance` (`src/wallet/index.ts`)
 
-// Combined filter: incoming USDC received in January 2024
-const incomingUsdc = filterTransactions(records, {
-  account: myPublicKey,
-  direction: 'incoming',
-  asset: 'USDC',
-  startDate: '2024-01-01T00:00:00Z',
-  endDate: '2024-01-31T23:59:59Z',
-});
+| Signal | Condition |
+|:---|:---|
+| **Warning:** `ZERO_NATIVE_BALANCE` | Account has 0 XLM |
+| **Warning:** `MANY_ASSETS` | Account holds > 20 assets |
+| **Hint:** `fund_account` | Account not found (404) |
+| **Hint:** `check_network` | Horizon server unreachable |
+| **Hint:** `check_input` | Any validation error |
 
-// Or use the smaller helpers individually
-import { filterByDirection, filterByAsset, filterByDateRange } from 'stellar-pocketpay-sdk';
-const outgoing = filterByDirection(records, 'outgoing', myPublicKey);
+## Files Changed
+
+| File | Change |
+|:---|:---|
+| `src/errors/index.ts` | **New** — `ResultWarning` and `RecoveryHint` types |
+| `src/types/index.ts` | Added `EnhancedSuccessResult`, `EnhancedFailureResult`, `EnhancedPocketPayResult` |
+| `src/utils/index.ts` | Added `toEnhancedSuccessResult`, `toEnhancedFailureResult`, `toEnhancedResult` |
+| `src/payments/index.ts` | Added `enhancedSendXLM` and `safeEnhancedSendXLM` |
+| `src/wallet/index.ts` | Added `enhancedGetBalance` and `safeEnhancedGetBalance` |
+| `src/index.ts` | Re-exports all new types and functions |
+| `tests/enhanced-result.test.ts` | **New** — 38 tests covering all enhanced result shapes and pilots |
+| `docs/error-handling.md` | Added "Enhanced Result Wrapper" section with usage examples |
+
+## Backward Compatibility
+
+- **No existing APIs are changed.** All existing types, functions, and `safe*` wrappers remain exactly as before.
+- `EnhancedPocketPayResult<T>` is a structural superset of `PocketPayResult<T>` — existing `result.ok` narrowing works unchanged.
+- The new types and functions are purely additive.
+
+## Acceptance Criteria
+
+- [x] A reusable typed result model is added (`EnhancedSuccessResult<T>`, `EnhancedFailureResult`, `EnhancedPocketPayResult<T>`)
+- [x] The model supports success and failure states
+- [x] The model includes optional warnings (`ResultWarning`) and recovery hints (`RecoveryHint`)
+- [x] At least one SDK operation uses the model (`enhancedSendXLM`, `enhancedGetBalance`)
+- [x] Tests cover both success and failure result shapes (38 new tests, all passing)
+
+## Verification
+
+```bash
+npm run lint          # TypeScript type check — passes
+npm run check:circular # Circular dependency check — passes
+npm run test          # Full test suite — 354/354 passing (1 integration skipped)
 ```
 
-## Acceptance criteria
-
-- [x] Transaction filtering helper exists (`filterTransactions` + smaller helpers).
-- [x] Filter by direction is supported (`filterByDirection`).
-- [x] Filter by asset is supported where data exists (`filterByAsset`).
-- [x] Filter by date range is supported (`filterByDateRange`).
-- [x] Helper is pure and does not perform network calls.
-- [x] Tests cover common filter cases (see `tests/filterTransactions.test.ts`).
-
-## Files affected
-
-- `src/transactions/filter.ts` (new)
-- `src/transactions/index.ts`
-- `src/types/index.ts`
-- `src/index.ts`
-- `tests/filterTransactions.test.ts` (new)
-- `tests/exports.test.ts`
-
-## Testing
-
-- `npm run lint` — passes (no type errors).
-- `npm run test` — all suites pass, including the new
-  `tests/filterTransactions.test.ts` covering direction, asset, date range,
-  counterparty, combined filtering, no-mutation, and no-input-mutation cases.
-
-This can support mobile search and filter features later.
-
-closes #111
+Closes #137
