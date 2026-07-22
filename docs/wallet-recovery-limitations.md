@@ -1,205 +1,112 @@
 # Wallet Recovery Limitations
 
-This document explains what happens when a Stellar secret key is lost, what the PocketPay SDK can and cannot do about it, and how your application should protect its users from permanent loss of funds.
+Understanding what happens when wallet secrets are lost, what the PocketPay SDK can and cannot do, and who is responsible for keeping funds accessible.
 
-> [!CAUTION]
-> **There is no recovery mechanism for a lost Stellar secret key.** Unlike a bank account or a custodial crypto wallet, there is no customer support line, no password reset, no master key, and no undo. If the secret key is gone, the funds it controls are gone — permanently.
+## The Hard Truth
 
----
+**A Stellar secret key that is lost cannot be recovered.** There is no password reset, no customer support override, no central authority, and no backdoor. This is not a limitation of the PocketPay SDK — it is a fundamental property of Stellar and every other self-custody blockchain protocol.
 
-## Table of Contents
-
-- [How Stellar Keys Work](#how-stellar-keys-work)
-- [What the SDK Does NOT Provide](#what-the-sdk-does-not-provide)
-- [Common Loss Scenarios](#common-loss-scenarios)
-- [Who Is Responsible](#who-is-responsible)
-  - [Your Responsibility (the App Developer)](#your-responsibility-the-app-developer)
-  - [Your Users' Responsibility](#your-users-responsibility)
-- [Platform-Specific Guidance](#platform-specific-guidance)
-  - [Mobile (iOS / Android)](#mobile-ios--android)
-  - [Web (Browser)](#web-browser)
-  - [Backend / Server-Side](#backend--server-side)
-- [What to Tell Your Users](#what-to-tell-your-users)
-- [FAQ](#faq)
-- [Related Docs](#related-docs)
-
----
-
-## How Stellar Keys Work
-
-Stellar uses public-key cryptography (Ed25519):
-
-- **Public key** (`G...`): The account address. Safe to share. Used to receive funds and query balances.
-- **Secret key** (`S...`): The private signing key. Whoever holds it has full control over the account — to send payments, merge accounts, manage trustlines, etc.
-
-The `createWallet` function generates a random keypair in memory and returns both keys. The SDK does **not** store, persist, or back up either key. Your application must handle storage.
-
-```
-Secret key lost → No way to sign transactions → Funds are permanently locked
-```
-
-There is no on-chain recovery path. The Stellar network has no concept of account recovery, key rotation (for basic accounts), or social recovery. The cryptographic guarantee is absolute: without the secret key, the funds cannot move.
-
----
+When `createWallet()` generates a keypair, the `secretKey` exists only in the value returned to your application. The SDK does not send it anywhere, store it anywhere, or keep a copy. If that value is lost, the wallet and all funds it holds become permanently inaccessible.
 
 ## What the SDK Does NOT Provide
 
-The PocketPay SDK is a stateless library. The following features are **deliberately out of scope**:
+The PocketPay SDK is a stateless library. It intentionally does not include any of the following:
 
-| Feature | Status | Why |
+| Capability | Why the SDK doesn't provide it |
+|---|---|
+| **Key escrow / backup** | Storing keys on behalf of users would make the SDK a high-value attack target and create a custodial relationship with legal and security implications. |
+| **Password-based recovery** | There is no server-side mapping between a password and a secret key. A password only helps if the key is stored somewhere — the SDK never stores it. |
+| **Social / multi-party recovery** | Splitting a key across guardians (e.g. Shamir's Secret Sharing) is a complex protocol that belongs in the consuming application, not a payment SDK. |
+| **Cloud sync or backup** | Syncing keys to iCloud, Google Drive, or any cloud service introduces attack surface. The consuming app decides whether this trade-off is acceptable for its users. |
+| **Seed phrase generation** | The SDK works with raw Stellar secret keys (`S...`). BIP-39 mnemonic flows, if desired, are the consuming application's responsibility. |
+| **Multi-signature recovery** | Setting up a signer that can recover access (e.g. a server-side recovery key) is a Stellar protocol-level operation. The SDK's `account` module can help build this, but the design and security model are the app's responsibility. |
+
+If your application needs any of these features, you must build them on top of the SDK. The SDK provides the primitives (`createWallet`, `importWallet`, signer management); your application provides the recovery architecture.
+
+## When Secrets Are Lost
+
+### Common Loss Scenarios
+
+| Scenario | What happens | Prevention |
 |---|---|---|
-| Key persistence / storage | ❌ Not provided | SDK is stateless; storage is the app's responsibility |
-| Password / PIN protection | ❌ Not provided | SDK does not manage user authentication |
-| Key escrow or backup service | ❌ Not provided | No server-side key custody |
-| Multi-signature recovery | ❌ Not provided | SDK targets basic single-signer Stellar accounts |
-| Social recovery / guardians | ❌ Not provided | Requires smart contract infrastructure beyond SDK scope |
-| Cloud sync of keys | ❌ Not provided | Would introduce a single point of compromise |
-| Key rotation | ❌ Not provided | Stellar basic accounts do not support signer rotation without pre-configuration |
-| "Forgot password" flow | ❌ Not possible | No master key or recovery secret exists in the protocol |
+| **App uninstalled** | If the secret key was only in memory or app-local storage, it is gone. | Persist to OS secure storage (Keychain / Keystore) before the user navigates away from the creation screen. |
+| **Device lost or stolen** | If the key was in secure storage protected by biometrics, it remains on the lost device. If the user had no backup, the key is inaccessible on the new device. | Prompt users to back up their secret key or recovery phrase during wallet creation. |
+| **Factory reset / wipe** | OS keychain data is typically wiped. | Encourage users to export or back up their key before resetting. |
+| **Browser data cleared** | Web apps using IndexedDB or localStorage lose the key. | Use the Web Crypto API with non-extractable keys where possible, or prompt for a backup. |
+| **User forgets password to encrypted backup** | The encrypted backup is useless without the password. | There is no perfect solution — this is the fundamental trade-off of self-custody. |
+| **Developer deletes the key from code / config** | For server-side wallets, the key is gone unless it was backed up elsewhere. | Use a secrets manager. Never store keys only in code or env files. |
 
-> [!NOTE]
-> If your product requires any of these features, you must implement them on top of the SDK. For example, you could build a Shamir's Secret Sharing scheme to split the key across multiple custodians, or use a Soroban smart contract with pre-configured alternative signers — but none of this is built into the SDK.
+### What You Cannot Do After Key Loss
 
----
+- **Reverse transactions** made by whoever obtained the key.
+- **Freeze the account** (Stellar accounts have no freeze mechanism for native XLM).
+- **Contact Stellar Development Foundation** to restore access (they cannot).
+- **Contact PocketPay support** to restore access (the SDK never had the key).
+- **Brute-force the key** (256-bit keyspace is computationally infeasible).
 
-## Common Loss Scenarios
+### What You Can Do
 
-Understanding how keys get lost helps you design your app to prevent it.
+- **Prevent the loss** by implementing proper backup flows in your application.
+- **Use multi-sig** — set up a secondary signer on the Stellar account that can be used for recovery. The SDK's `account` module supports signer operations.
+- **Set up a recovery key** — generate a second keypair stored separately (e.g. in a hardware security module or with a trusted third party) and add it as a signer on the account.
 
-### 1. App data cleared or uninstalled
+## Responsibilities
 
-**What happens:** User uninstalls the app or clears app data. If the secret key was stored only in local storage (e.g., `AsyncStorage`, `localStorage`) without a backup, it is permanently gone.
+### Your Application Is Responsible For
 
-**Prevention:** Prompt users to back up their secret key on first wallet creation. Use platform-secure storage (Keychain / Keystore) that survives app updates. Consider a recovery phrase export flow.
+1. **Persisting the secret key** to platform-appropriate secure storage immediately after `createWallet()` or `importWallet()` returns.
+2. **Prompting the user** to back up their key or recovery phrase during the wallet creation flow.
+3. **Protecting the key** at rest (encryption, secure enclaves) and in transit (never over the network).
+4. **Handling device migration** — ensuring the key transfers securely or that the user has an out-of-band backup.
+5. **Cleaning up** — removing the key from storage when the user removes a wallet or signs out.
+6. **Communicating clearly** to users that losing their key means losing their funds permanently.
+7. **Designing the recovery model** — whether that's a backup phrase, a recovery key, social recovery, or simply "you are responsible for your own key."
 
-### 2. Device lost, stolen, or factory reset
+### The User Is Responsible For
 
-**What happens:** The device is gone and with it any locally stored keys. If no backup exists elsewhere, the funds are unrecoverable.
+1. **Keeping their backup safe** — writing down a recovery phrase and storing it offline, or securely exporting their secret key.
+2. **Not sharing their secret key** with anyone, including support staff, friends, or family.
+3. **Understanding that self-custody means self-responsibility** — there is no bank or company that can reverse a mistake.
 
-**Prevention:** Encourage users to write down their secret key or store it in a password manager. For high-value accounts, suggest hardware wallet integration or a cloud-encrypted backup.
+### The SDK Is Responsible For
 
-### 3. Secret key leaked / compromised
-
-**What happens:** An attacker gains access to the secret key (via phishing, malware, insecure logging, or a data breach). They can drain the account immediately. Changing a password does not help — the key itself is compromised.
-
-**Prevention:** Never log secret keys (see [Logging Guidance](./logging.md)). Use `redactSecretKey()` from the security utilities when displaying keys in debug contexts. Educate users about phishing.
-
-### 4. Server-side key loss
-
-**What happens:** A server storing user keys (e.g., a custodial wallet backend) loses its database — disk failure, accidental deletion, ransomware.
-
-**Prevention:** Encrypt keys at rest. Use automated, tested backups. Consider HSM or vault solutions (e.g., AWS KMS, HashiCorp Vault). Never store keys in plaintext in a database.
-
-### 5. Developer error — key never saved
-
-**What happens:** A developer calls `createWallet()` and forgets to persist the secret key before the process exits or the variable goes out of scope.
-
-**Prevention:** Follow the integration checklist in [Wallet Import Safety](./wallet-import-safety.md). Add a CI check or assertion that verifies wallet creation is always followed by a persistence step.
-
----
-
-## Who Is Responsible
-
-### Your Responsibility (the App Developer)
-
-As the app developer integrating the PocketPay SDK, you are responsible for:
-
-1. **Key persistence** — Ensuring the secret key is stored securely before the user navigates away from the wallet creation flow.
-2. **Backup prompting** — Providing a clear, user-friendly backup flow (e.g., "Write down your secret key" screen, export-to-clipboard with a warning, or encrypted cloud backup).
-3. **Secure storage** — Using platform-appropriate secure storage (see [Platform-Specific Guidance](#platform-specific-guidance)).
-4. **Education** — Making it clear to users that losing their secret key means losing their funds. Do not overpromise recovery options that do not exist.
-5. **Redaction** — Never logging, displaying, or transmitting secret keys in plaintext outside of secure contexts. Use `redactSecretKey()` and `redactSensitiveValue()` from the SDK's security utilities.
-6. **Testing** — Verifying that your backup and recovery flows actually work (e.g., simulate a device wipe and confirm the user can restore).
-
-### Your Users' Responsibility
-
-End users are responsible for:
-
-1. **Following backup instructions** — Writing down or securely storing their secret key when prompted.
-2. **Not sharing their secret key** — With anyone, including support staff, friends, or "helpers" on social media.
-3. **Keeping backups safe** — A recovery phrase written on paper is only useful if the user knows where it is and it hasn't been destroyed.
-
----
+1. **Generating cryptographically secure keypairs.**
+2. **Never persisting, logging, or transmitting secret keys.**
+3. **Providing clear documentation** about what it does and does not do (this document).
+4. **Validating inputs** to prevent accidental misuse (e.g. rejecting malformed keys).
 
 ## Platform-Specific Guidance
 
 ### Mobile (iOS / Android)
 
-| Concern | Recommendation |
-|---|---|
-| Storage at rest | Use the OS keychain: iOS Keychain Services or Android Keystore. Libraries like `expo-secure-store` or `react-native-keychain` wrap these APIs. |
-| Backup | iOS: Keychain items can sync via iCloud Keychain if configured. Android: Keystore items do **not** survive factory reset — the user must have a separate backup (written key, cloud vault). |
-| Biometrics | Gate key access behind biometric auth (Face ID / fingerprint) to reduce risk of device theft. |
-| App uninstall | iOS Keychain items may persist across reinstall (depending on keychain access group settings). Android Keystore items are deleted on uninstall. **Do not rely on this** — always prompt a backup. |
+- **iOS:** Use the Keychain Services API with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` for secret key storage. Data in the Keychain is not included in unencrypted iTunes backups by default — verify backup behavior.
+- **Android:** Use the Android Keystore with `setUnlockedDeviceRequired(true)` where supported. On older devices without hardware-backed Keystore, consider encrypting the key with a user-derived passphrase before storing.
+- **React Native:** See the [React Native Compatibility](./react-native.md) guide for secure storage options (Expo SecureStore, react-native-keychain).
+- **Cross-platform:** If your app supports both platforms, abstract the secure storage layer behind a consistent interface so the wallet creation and backup flows are identical from the user's perspective.
 
-See [React Native Compatibility Guide](./react-native.md) for polyfill and storage implementation details.
+### Web
 
-### Web (Browser)
+- **Web Crypto API:** Generate keys with `extractable: false` when possible. Non-extractable keys cannot be exported by JavaScript, reducing the impact of XSS — but they are lost when the browser storage is cleared.
+- **IndexedDB:** The only persistent storage available to Web Crypto keys. Data survives page reloads but not browser "clear site data" or Incognito sessions.
+- **localStorage / sessionStorage:** **Not suitable** for secret keys. These are accessible to any script on the same origin and are trivially exfiltrated by XSS.
+- **User prompting:** Web apps should strongly encourage users to download or copy their secret key during creation, since browser storage is fragile.
 
-| Concern | Recommendation |
-|---|---|
-| Storage at rest | `IndexedDB` or `localStorage` are **not** secure for secret keys. Use the Web Crypto API to generate non-exportable keys where possible, or encrypt the key with a user-supplied passphrase before storing. |
-| XSS risk | Any key in JavaScript memory is vulnerable to XSS. Minimize the time the secret key is in memory. Clear it after use. |
-| Browser data clearing | Users can clear all site data at any time. Prompt a backup before this happens. |
-| Multiple devices | Browser storage does not sync across devices. If the user switches browsers or devices without a backup, the key is lost. |
+## Frequently Asked Questions
 
-### Backend / Server-Side
+**Q: Can PocketPay recover my wallet if I lost my secret key?**
+A: No. The SDK never had your key. It was generated on your device and never left it (if the integration was done correctly).
 
-| Concern | Recommendation |
-|---|---|
-| Storage at rest | Encrypt keys at rest using a managed KMS (AWS KMS, GCP KMS, Azure Key Vault) or a self-hosted vault (HashiCorp Vault). Never store plaintext keys in a database. |
-| Access control | Limit which services and personnel can access decrypted keys. Use audit logging. |
-| Backups | Automate encrypted backups. Test restores regularly. |
-| Rotation | If building a custodial system, consider pre-configuring Stellar multisig so you can rotate signing keys without migrating accounts. |
+**Q: Can I reset my secret key like a password?**
+A: No. A Stellar secret key is not a password — it is a cryptographic key that controls the account. There is no reset mechanism.
 
----
+**Q: What if someone stole my device?**
+A: If your key was in secure storage protected by biometrics or a device PIN, it is likely safe from casual theft. However, if you had no backup, you cannot access the wallet from a new device. Consider setting up a recovery signer on your Stellar account for this scenario.
 
-## What to Tell Your Users
+**Q: Can I use a recovery phrase (seed phrase) with PocketPay?**
+A: The SDK works with raw Stellar secret keys (`S...`). If you want to offer mnemonic-based recovery (BIP-39), you must implement the mnemonic-to-key derivation in your application.
 
-If you are building a non-custodial wallet or app, your users need to understand the stakes. Here is suggested language you can adapt:
+**Q: Should I store the key on my server for backup?**
+A: This depends on your threat model. Storing keys server-side makes your server a high-value target. If you do this, encrypt the keys at rest, use a hardware security module (HSM) if possible, and understand that you are taking on custodial responsibility. Most applications should let the user hold their own key.
 
-> **Your secret key is the only way to access your funds.** PocketPay does not store your key and cannot recover it if lost. If you lose your secret key, your funds are permanently inaccessible. Please write it down and store it in a safe place.
-
-Avoid language that implies:
-
-- "We can help you recover your account" (unless you have built a recovery mechanism)
-- "Your key is backed up to the cloud" (unless you have implemented and verified this)
-- "Contact support if you lose your key" (unless support can actually help)
-
----
-
-## FAQ
-
-### Q: Can PocketPay recover my secret key?
-
-**A:** No. The PocketPay SDK does not store, transmit, or have access to your secret key. It exists only in your application's memory and whatever storage your app writes it to.
-
-### Q: Can the Stellar network reverse a transaction or freeze an account?
-
-**A:** No. Stellar transactions are final. There is no central authority that can reverse them or recover an account.
-
-### Q: What if I still have my public key but lost the secret key?
-
-**A:** The public key lets you observe the account (balances, transaction history) but you cannot sign any transactions. The funds are permanently locked.
-
-### Q: Is there a way to set up recovery in advance?
-
-**A:** Not through the SDK. Advanced users can pre-configure a Stellar account with multiple signers (multisig) using the raw Stellar SDK, but PocketPay does not expose this functionality. If you need multisig recovery, build it on top of the SDK.
-
-### Q: What about Stellar's "claimable balances" or "account merge"?
-
-**A:** Account merge sends the remaining balance to another account — but it still requires the original secret key to sign. Claimable balances let you lock funds for a specific recipient — but creating one also requires signing with the secret key. Neither helps if the key is already lost.
-
-### Q: Should I store the secret key in `localStorage` / `AsyncStorage`?
-
-**A:** Only for development and testing. For production, use platform-secure storage (Keychain, Keystore, Web Crypto) and prompt the user to back up their key independently. See the platform-specific guidance above.
-
----
-
-## Related Docs
-
-- [Security Best Practices](./security.md) — Backup responsibility, redaction utilities
-- [Wallet Import Safety](./wallet-import-safety.md) — Handling imported keys, integration checklist
-- [Getting Started](./getting-started.md) — Wallet creation and import flows
-- [React Native Compatibility](./react-native.md) — Mobile secure storage (Keychain / Keystore)
-- [Logging Guidance](./logging.md) — What to redact and how
+**Q: What about multi-signature accounts?**
+A: Stellar supports multi-sig natively. You can set up a secondary signer (e.g. a recovery key held by the user or a trusted party) that can add a new primary signer if the original is lost. The SDK's `account` module provides the primitives to manage signers. Designing the multi-sig recovery flow is your application's responsibility.
