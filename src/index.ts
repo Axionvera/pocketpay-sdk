@@ -115,6 +115,22 @@ export {
   validateContractId,
 } from './config';
 
+// ─── Account Abstraction ─────────────────────────────────────────────────────
+export type {
+  AccountIdentity,
+  Signer,
+  LocalSignerConfig,
+  AccountAbstraction,
+} from './account';
+
+export {
+  LocalSigner,
+  createLocalSigner,
+  createReadOnlyAccount,
+  createLocalAccount,
+  createAccountWithSigner,
+} from './account';
+
 // ─── Utils ──────────────────────────────────────────────────────────────────
 export {
   validatePublicKey,
