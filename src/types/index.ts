@@ -106,6 +106,60 @@ export interface SendXLMParams {
   memo?: string;
 }
 
+/**
+ * Parameters for sending an issued asset (or native XLM) payment.
+ *
+ * This is the generalized form of {@link SendXLMParams} that adds an `asset`
+ * field. Passing `{ code: 'XLM' }` (or `{ code: 'native' }`) is equivalent
+ * to calling {@link sendXLM} — native XLM behaviour is fully preserved.
+ *
+ * For issued assets (e.g. USDC, EURT) the `asset.issuer` must be provided
+ * and the destination account must hold an authorized trustline for the
+ * asset before the payment can succeed.
+ *
+ * @example Native XLM (backwards-compatible path)
+ * ```ts
+ * await sendAsset({
+ *   sourceSecret: wallet.secretKey,
+ *   destination: receiverPublicKey,
+ *   amount: '10',
+ *   asset: { code: 'XLM' },
+ * });
+ * ```
+ *
+ * @example Issued asset (USDC)
+ * ```ts
+ * await sendAsset({
+ *   sourceSecret: wallet.secretKey,
+ *   destination: receiverPublicKey,
+ *   amount: '50',
+ *   asset: { code: 'USDC', issuer: usdcIssuerPublicKey },
+ *   memo: 'invoice #42',
+ * });
+ * ```
+ */
+export interface SendAssetParams {
+  /** Secret key of the source account (S...) */
+  sourceSecret: string;
+  /** Public key of the destination account (G...) */
+  destination: string;
+  /** Amount to send (as string for precision, e.g. "10.5") */
+  amount: string;
+  /**
+   * Asset to send. Pass `{ code: 'XLM' }` for native XLM.
+   * For issued assets supply both `code` and `issuer`.
+   */
+  asset: StellarAssetSpec;
+  /** Optional memo text (max 28 bytes) */
+  memo?: string;
+  /**
+   * When `true`, a preflight trustline check is run against Horizon before
+   * building the transaction. Defaults to `true` for issued assets;
+   * has no effect for native XLM (no trustline required).
+   */
+  skipTrustlineCheck?: boolean;
+}
+
 /** Result of a successful payment */
 export interface PaymentResult {
   /** Whether the transaction was successful */
@@ -124,6 +178,13 @@ export interface PaymentResult {
   amount: string;
   /** Timestamp of the transaction */
   createdAt: string;
+  /**
+   * Asset that was sent. Present for issued-asset payments; absent (undefined)
+   * for native XLM payments produced by {@link sendXLM} for backward
+   * compatibility. Payments produced by {@link sendAsset} always include this
+   * field.
+   */
+  asset?: StellarAssetSpec;
 }
 
 // ─── Transactions ───────────────────────────────────────────────────────────

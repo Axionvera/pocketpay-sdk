@@ -154,3 +154,58 @@ import {
   TrustlineCheckOptions,
 } from 'stellar-pocketpay-sdk';
 ```
+
+---
+
+## 7. Using Trustlines with `sendAsset`
+
+The `sendAsset` helper combines trustline validation and payment submission in
+one call. For issued assets it automatically runs a pre-flight
+`checkDestinationTrustline` before building or signing any transaction, so you
+do not need to call the check helpers manually unless you want the status detail
+in your UI:
+
+```ts
+import { sendAsset, safeSendAsset, PocketPayError } from 'stellar-pocketpay-sdk';
+
+// Sending an issued asset — trustline check runs automatically
+const result = await sendAsset({
+  sourceSecret: senderSecretKey,
+  destination: receiverPublicKey,
+  amount: '50',
+  asset: { code: 'USDC', issuer: usdcIssuerPublicKey },
+  memo: 'invoice #42',
+});
+
+// Non-throwing variant
+const safe = await safeSendAsset({
+  sourceSecret: senderSecretKey,
+  destination: receiverPublicKey,
+  amount: '50',
+  asset: { code: 'USDC', issuer: usdcIssuerPublicKey },
+});
+
+if (!safe.ok) {
+  const err = safe.error;
+  // Common codes: MISSING_TRUSTLINE, TRUSTLINE_NOT_AUTHORIZED,
+  // TRUSTLINE_LIMIT_EXCEEDED, ACCOUNT_NOT_FOUND, INVALID_ASSET
+  console.error(err.code, err.message);
+}
+```
+
+To skip the pre-flight check (for example when you know the trustline is valid
+and want to avoid the extra Horizon round-trip):
+
+```ts
+await sendAsset({
+  sourceSecret: senderSecretKey,
+  destination: receiverPublicKey,
+  amount: '50',
+  asset: { code: 'USDC', issuer: usdcIssuerPublicKey },
+  skipTrustlineCheck: true, // skips checkDestinationTrustline
+});
+```
+
+> **See also:** [Issued Asset Payments Guide](./issued-asset-payments.md) for
+> the full lifecycle including `ChangeTrust` setup, the complete payment flow,
+> error reference, and native XLM compatibility.
