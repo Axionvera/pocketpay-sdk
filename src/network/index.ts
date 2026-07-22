@@ -238,4 +238,5 @@ export async function executeSorobanOperation<T>(
 }
 
 export { submitTransactionIdempotently, pollTransactionStatus } from './idempotency';
+export { withRetryPolicy } from './retry-policy';
 

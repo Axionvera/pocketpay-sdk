@@ -45,6 +45,10 @@ export type {
   TrustlineStatus,
   TrustlineCheckResult,
   TrustlineCheckOptions,
+  // ─── Retry Policy ──────────────────────────────────────────────────────────
+  SubmissionOutcome,
+  RetryPolicy,
+  RetryPolicyExhaustedResult,
 } from './types';
 
 export { PocketPayError } from './types';
@@ -99,6 +103,7 @@ export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
 export {
   submitTransactionIdempotently,
   pollTransactionStatus,
+  withRetryPolicy,
 } from './network';
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
@@ -106,6 +111,9 @@ export {
   classifySubmitError,
   isRetryableError,
   isUnknownStatusError,
+  classifySubmissionOutcome,
+  isSafeToRetry,
+  requiresStatusCheck,
 } from './errors';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
