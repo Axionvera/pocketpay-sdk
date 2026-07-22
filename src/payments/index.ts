@@ -69,7 +69,7 @@ export async function sendXLM(
       builder.addMemo(StellarSDK.Memo.text(memo));
     }
     builder.setTimeout(30);
-    transaction = builder.build();
+    const transaction = builder.build();
     transaction.sign(sourceKeypair);
     const result = await withTimeout(
       'Horizon transaction submission',
@@ -215,4 +215,13 @@ export async function safeEnhancedSendXLM(
     errorCode: 'SEND_ERROR',
   });
 }
+
+// ─── Trustline Validation ───────────────────────────────────────────────────
+export {
+  validateAssetSpec,
+  checkDestinationTrustline,
+  safeCheckDestinationTrustline,
+  verifyPaymentTrustlineOrThrow,
+} from './trustline';
+
 

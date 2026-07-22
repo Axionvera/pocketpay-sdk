@@ -41,6 +41,10 @@ export type {
   EnhancedSuccessResult,
   EnhancedFailureResult,
   EnhancedPocketPayResult,
+  StellarAssetSpec,
+  TrustlineStatus,
+  TrustlineCheckResult,
+  TrustlineCheckOptions,
 } from './types';
 
 export { PocketPayError } from './types';
@@ -68,6 +72,10 @@ export {
   safeSendXLM,
   enhancedSendXLM,
   safeEnhancedSendXLM,
+  validateAssetSpec,
+  checkDestinationTrustline,
+  safeCheckDestinationTrustline,
+  verifyPaymentTrustlineOrThrow,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
