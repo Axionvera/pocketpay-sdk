@@ -13,3 +13,5 @@ new ADR that supersedes the old one rather than editing history.
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](./0001-api-design-principles.md) | SDK API Design Principles | Accepted |
+| [0002](./0002-account-abstraction.md) | Account Abstraction Layer | Accepted |
+| [0003](./0003-transaction-lifecycle.md) | Transaction Lifecycle Architecture | Accepted |
