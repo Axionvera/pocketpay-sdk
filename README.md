@@ -56,6 +56,7 @@ npm install @axionvera/pocketpay-sdk
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
+- [Wallet Recovery Limitations](./docs/wallet-recovery-limitations.md) - What happens when keys are lost, what the SDK does not provide, and your application's responsibilities
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
 - [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
@@ -81,8 +82,9 @@ part of the public API.
 > persists a secret key anywhere. Losing it means losing access to the
 > wallet permanently. Your application (or the user) must save it to secure
 > storage right after creation. See
-> [Wallet Creation](./docs/getting-started.md#2-wallet-creation) and
-> [Security Best Practices](./docs/security.md#wallet-backup-responsibility).
+> [Wallet Creation](./docs/getting-started.md#2-wallet-creation),
+> [Security Best Practices](./docs/security.md#wallet-backup-responsibility), and
+> [Wallet Recovery Limitations](./docs/wallet-recovery-limitations.md).
 
 ## Response models
 
