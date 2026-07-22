@@ -631,3 +631,181 @@ export interface TrustlineCheckOptions {
   /** Optional SDK config overrides */
   config?: Partial<SDKConfig>;
 }
+
+// ─── Retry Policy ────────────────────────────────────────────────────────────
+
+/**
+ * The classified outcome of a single transaction submission attempt.
+ *
+ * Use the `kind` discriminant to branch:
+ *
+ * - `"success"` — the transaction was accepted and confirmed on-chain.
+ * - `"retryable_failure"` — the failure is transient (e.g. rate-limit, transient
+ *   network glitch). It is safe to submit the **same signed transaction** again.
+ * - `"non_retryable_failure"` — the transaction was definitively rejected
+ *   (e.g. bad sequence number, insufficient balance). Retrying the same envelope
+ *   will always fail. A new transaction must be built.
+ * - `"unknown_status"` — a timeout or network error means we cannot tell whether
+ *   the transaction reached validators. The transaction **must not** be blindly
+ *   resubmitted; call {@link pollTransactionStatus} first or wait for
+ *   {@link withRetryPolicy} to poll automatically.
+ *
+ * @example
+ * ```ts
+ * const outcome = classifySubmissionOutcome(error);
+ * switch (outcome.kind) {
+ *   case 'success':            // handle success
+ *   case 'retryable_failure':  // safe to resubmit same envelope
+ *   case 'non_retryable_failure': // rebuild transaction
+ *   case 'unknown_status':     // poll before deciding
+ * }
+ * ```
+ */
+export type SubmissionOutcome =
+  | {
+      /** Transaction accepted and confirmed by Stellar validators. */
+      kind: 'success';
+      /** Transaction hash returned by Horizon. */
+      transactionHash: string;
+    }
+  | {
+      /**
+       * Transient failure — the same signed envelope may be resubmitted.
+       *
+       * Causes include: HTTP 429 (rate limit), HTTP 503 (service unavailable),
+       * and other recoverable network errors that do not touch on-chain state.
+       */
+      kind: 'retryable_failure';
+      /** The underlying SDK error. */
+      error: PocketPayError;
+      /**
+       * Minimum suggested delay in milliseconds before the next attempt.
+       * Derived from the error type; callers may apply additional jitter.
+       */
+      suggestedDelayMs: number;
+    }
+  | {
+      /**
+       * Definitive on-chain rejection — the same envelope will always fail.
+       *
+       * Causes include: `tx_bad_seq`, `tx_insufficient_balance`, `tx_bad_auth`,
+       * and other Horizon result codes that indicate permanent failure.
+       * A new transaction (new sequence number, re-signed) must be built.
+       */
+      kind: 'non_retryable_failure';
+      /** The underlying SDK error containing Horizon result codes. */
+      error: PocketPayError;
+    }
+  | {
+      /**
+       * Unknown outcome — the submission timed out or the network was
+       * interrupted before a definitive response arrived.
+       *
+       * **Do not blindly resubmit.** The transaction may have been accepted
+       * by validators already. Use {@link pollTransactionStatus} (or
+       * {@link withRetryPolicy} which does this automatically) to determine
+       * the real state before taking further action.
+       */
+      kind: 'unknown_status';
+      /** The underlying SDK error (`code === 'TX_STATUS_UNKNOWN'`). */
+      error: PocketPayError;
+      /**
+       * The transaction hash to poll on Horizon.
+       * Defined whenever the hash was available at the time of submission.
+       */
+      transactionHash?: string;
+    };
+
+/**
+ * Configuration for {@link withRetryPolicy}.
+ *
+ * Controls how many times the SDK will retry a submission and how long it
+ * waits between attempts. Only {@link SubmissionOutcome | retryable_failure}
+ * outcomes trigger a retry. `unknown_status` outcomes are resolved via
+ * status polling rather than blind resubmission.
+ *
+ * @example
+ * ```ts
+ * const policy: RetryPolicy = {
+ *   maxAttempts: 4,
+ *   initialBackoffMs: 1_000,
+ *   maxBackoffMs: 16_000,
+ *   backoffMultiplier: 2,
+ *   jitter: true,
+ * };
+ * const result = await withRetryPolicy(transaction, policy);
+ * ```
+ */
+export interface RetryPolicy {
+  /**
+   * Total number of submission attempts, including the first.
+   *
+   * Must be ≥ 1. A value of 1 means "try once with no retries".
+   * @default 4
+   */
+  maxAttempts: number;
+
+  /**
+   * Delay before the second attempt in milliseconds.
+   *
+   * Each subsequent attempt doubles this value (capped at `maxBackoffMs`).
+   * @default 1000
+   */
+  initialBackoffMs: number;
+
+  /**
+   * Upper bound on the inter-attempt delay in milliseconds.
+   * @default 16000
+   */
+  maxBackoffMs: number;
+
+  /**
+   * Multiplier applied to the delay on each retry.
+   * @default 2
+   */
+  backoffMultiplier: number;
+
+  /**
+   * When `true`, adds a random fraction of the computed delay to reduce
+   * thundering-herd effects when many clients retry simultaneously.
+   * @default true
+   */
+  jitter: boolean;
+
+  /**
+   * Optional SDK config overrides forwarded to the underlying Horizon calls.
+   */
+  config?: Partial<SDKConfig>;
+
+  /**
+   * Optional callback invoked after each failed attempt.
+   *
+   * Useful for logging, metrics, or UI feedback.
+   *
+   * @param attempt - 1-based index of the attempt that just failed.
+   * @param outcome - The classified outcome of this attempt.
+   * @param delayMs - How long the policy will wait before the next attempt
+   *   (0 if this was the last allowed attempt).
+   */
+  onAttempt?: (attempt: number, outcome: SubmissionOutcome, delayMs: number) => void;
+}
+
+/**
+ * Result returned by {@link withRetryPolicy} when all attempts have been
+ * exhausted without an unambiguous success.
+ *
+ * The `finalOutcome` tells callers why the policy gave up:
+ * - `"non_retryable_failure"` — rejected on-chain; rebuild required.
+ * - `"unknown_status"` — polling could not confirm status; manual check needed.
+ * - `"retryable_failure"` — retries were exhausted; transient error persisted.
+ */
+export interface RetryPolicyExhaustedResult {
+  /** Always `false` — the submission was not confirmed. */
+  success: false;
+  /** The outcome kind that caused the policy to give up. */
+  finalOutcome: Exclude<SubmissionOutcome['kind'], 'success'>;
+  /** The last error received. */
+  error: PocketPayError;
+  /** Number of attempts made. */
+  attempts: number;
+}
