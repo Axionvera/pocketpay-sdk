@@ -53,6 +53,23 @@ POSIX syntax; in PowerShell, set the vault contract ID first with
   payment's transaction hash, ledger, and fee, then the final XLM balances.
 - **Network:** **Required — Testnet Friendbot and Horizon.**
 
+### Send an issued asset
+
+- **Path:** [`examples/send-asset.ts`](./send-asset.ts)
+- **Demonstrates:** Creating three wallets (sender, receiver, issuer), funding
+  the sender and receiver via Friendbot, running the SDK's pre-flight trustline
+  check against the `DEMO` asset, showing the `missing_trustline` status with
+  recovery guidance, attempting a payment via `safeSendAsset` (which fails
+  cleanly because no `ChangeTrust` has been submitted), and then sending native
+  XLM via the `sendAsset` helper to confirm the backwards-compatible path.
+- **Run:** `npx tsx examples/send-asset.ts`
+- **Expected output:** Wallet public keys, funding confirmations, a preflight
+  trustline check result with `missing_trustline`, a `safeSendAsset` failure
+  result (expected), and a successful native XLM payment via `sendAsset`.
+- **Network:** **Required — Testnet Friendbot and Horizon.**
+- **See also:** [`docs/issued-asset-payments.md`](../docs/issued-asset-payments.md)
+  for the complete guide to trustline setup and the full payment lifecycle.
+
 ### Query a vault balance
 
 - **Path:** [`examples/vault-balance.ts`](./vault-balance.ts)
