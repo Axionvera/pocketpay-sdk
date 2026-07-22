@@ -83,7 +83,7 @@ console.log(`   Public Key: ${wallet.publicKey}`);
 > - **Never** log secret keys (see [Logging Guidance](./logging.md)) — log `publicKey` instead.
 > - Anyone who has access to your secret key has full control over your funds.
 >
-> See [Security Best Practices](./security.md#wallet-backup-responsibility) for more on backup strategies.
+> See [Security Best Practices](./security.md#wallet-backup-responsibility) for more on backup strategies and [Wallet Recovery Limitations](./wallet-recovery-limitations.md) for what happens when keys are lost.
 
 ### Restoring a Backed-Up Wallet
 

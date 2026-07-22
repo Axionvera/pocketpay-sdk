@@ -31,6 +31,10 @@ The same applies to wallets restored later via `importWallet`: the SDK has
 no memory of previously created wallets, so the secret key must come from
 wherever your app backed it up.
 
+See [Wallet Recovery Limitations](./wallet-recovery-limitations.md) for a full
+breakdown of loss scenarios, what the SDK does not provide, and your
+application's responsibilities.
+
 ## Logging
 
 See [Logging Guidance](./logging.md) for safe logging practices.
