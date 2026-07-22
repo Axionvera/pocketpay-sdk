@@ -243,7 +243,15 @@ export async function fundTestnetAccount(
         throw new PocketPayError(
           error.message,
           'FRIENDBOT_ERROR',
-          error.httpStatus,
+          error.statusCode,
+          error.cause,
+        );
+      }
+      if (error.code === 'NETWORK_ERROR') {
+        throw new PocketPayError(
+          error.message,
+          'FUND_ERROR',
+          error.statusCode,
           error.cause,
         );
       }

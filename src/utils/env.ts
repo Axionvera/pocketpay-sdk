@@ -23,8 +23,9 @@ export function isNode(): boolean {
  */
 export function isBrowser(): boolean {
   return (
-    typeof window !== 'undefined' &&
-    typeof document !== 'undefined'
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).window !== 'undefined' &&
+    typeof (globalThis as any).document !== 'undefined'
   );
 }
 
@@ -38,7 +39,8 @@ export function isBrowser(): boolean {
  */
 export function isReactNative(): boolean {
   return (
-    typeof navigator !== 'undefined' &&
-    navigator.product === 'ReactNative'
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).navigator !== 'undefined' &&
+    (globalThis as any).navigator.product === 'ReactNative'
   );
 }

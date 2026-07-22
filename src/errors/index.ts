@@ -1,103 +1,110 @@
-/**
- * Stellar PocketPay SDK — Error & Result Enrichment Types
- *
- * Defines structured warning and recovery-hint types that can be attached to
- * any {@link PocketPayResult} to give consumers richer, actionable feedback
- * beyond a simple success/failure boolean.
- */
+export type { ResultWarning, RecoveryHint } from '../types';
 
-// ─── Result Warning ─────────────────────────────────────────────────────────
+// ─── Error Classification ───────────────────────────────────────────────────
+
+import { PocketPayError } from '../types';
 
 /**
- * A non-fatal warning attached to a successful or failed result.
+ * Classifies raw network or Horizon submission errors into a structured `PocketPayError`
+ * with attached status code, transaction hash, and retryability information.
  *
- * Warnings communicate issues that did not prevent the operation from
- * completing (or from producing a meaningful error) but that the consumer
- * should be aware of — for example, a deprecated field being used, a
- * rate-limit that was nearly exceeded, or a partial degradation in service.
- *
- * @example
- * ```ts
- * const warning: ResultWarning = {
- *   code: 'DEPRECATED_FIELD',
- *   message: 'The "memo" field is deprecated; use "memoText" instead.',
- * };
- * ```
+ * @param error - The raw error thrown by Horizon or fetch
+ * @param txHash - Optional transaction hash associated with the submission
+ * @returns A classified `PocketPayError`
  */
-export interface ResultWarning {
-  /**
-   * Machine-readable warning code (e.g. `"DEPRECATED_FIELD"`,
-   * `"RATE_LIMIT_NEAR"`, `"PARTIAL_DEGRADATION"`).
-   */
-  code: string;
+export function classifySubmitError(error: unknown, txHash?: string): PocketPayError {
+  if (error instanceof PocketPayError) {
+    if (txHash && !error.transactionHash) {
+      (error as any).transactionHash = txHash;
+    }
+    return error;
+  }
 
-  /**
-   * Human-readable description of the warning.
-   */
-  message: string;
+  const err = error as any;
+  const status = err?.response?.status ?? err?.statusCode ?? err?.status;
+  const resultCodes = err?.response?.data?.extras?.result_codes;
 
-  /**
-   * Optional structured metadata specific to the warning.
-   * Keys and values are operation-dependent.
-   */
-  metadata?: Record<string, unknown>;
+  if (resultCodes?.transaction) {
+    const txCode = resultCodes.transaction;
+    return new PocketPayError(
+      `Payment failed with transaction result code: ${txCode}`,
+      'PAYMENT_FAILED',
+      {
+        statusCode: 400,
+        cause: err instanceof Error ? err : undefined,
+      },
+      txHash,
+      false,
+    );
+  }
+
+  const isTimeout =
+    status === 504 ||
+    err?.code === 'ETIMEDOUT' ||
+    err?.code === 'ECONNRESET' ||
+    err?.code === 'ENOTFOUND' ||
+    (typeof err?.message === 'string' && err.message.toLowerCase().includes('timeout'));
+
+  if (isTimeout) {
+    return new PocketPayError(
+      `Transaction status unknown after submission attempt for hash ${txHash ?? 'unknown'}`,
+      'TX_STATUS_UNKNOWN',
+      {
+        statusCode: status || 504,
+        cause: err instanceof Error ? err : undefined,
+      },
+      txHash,
+      false,
+    );
+  }
+
+  if (status === 429) {
+    return new PocketPayError(
+      'Rate limit exceeded (429)',
+      'SEND_ERROR',
+      {
+        statusCode: 429,
+        cause: err instanceof Error ? err : undefined,
+      },
+      txHash,
+      true,
+    );
+  }
+
+  return new PocketPayError(
+    `Transaction submission failed: ${err?.message || String(error)}`,
+    'SEND_ERROR',
+    {
+      statusCode: status,
+      cause: err instanceof Error ? err : undefined,
+    },
+    txHash,
+    false,
+  );
 }
 
-// ─── Recovery Hint ──────────────────────────────────────────────────────────
+/**
+ * Checks whether an error is marked as retryable.
+ *
+ * @param error - The error to check
+ * @returns `true` if `error.retryable` is true
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof PocketPayError) {
+    return Boolean(error.retryable);
+  }
+  return false;
+}
 
 /**
- * An actionable suggestion that tells the consumer how to recover from or
- * mitigate a failure (or a degraded success).
+ * Checks whether an error has code `TX_STATUS_UNKNOWN`.
  *
- * Recovery hints are advisory — the consumer decides whether and how to act
- * on them. They are particularly useful for transient errors (retry after
- * delay) or validation-adjacent failures (fund the account, reduce the
- * amount, etc.).
- *
- * @example
- * ```ts
- * const hint: RecoveryHint = {
- *   action: 'retry',
- *   message: 'The network timed out. Try again in a few seconds.',
- *   retryable: true,
- *   suggestedDelayMs: 5000,
- * };
- * ```
+ * @param error - The error to check
+ * @returns `true` if the status of the transaction is unknown
  */
-export interface RecoveryHint {
-  /**
-   * A well-known action string that programmatic consumers can switch on.
-   *
-   * Common values:
-   * - `"retry"`        — The operation may succeed if retried.
-   * - `"fund_account"` — The account needs to be funded first.
-   * - `"reduce_amount"` — The requested amount exceeds available balance.
-   * - `"check_input"`  — One or more inputs need correction.
-   * - `"check_network"` — A network issue occurred; verify connectivity.
-   * - `"contact_support"` — The error is unexpected; escalate to support.
-   */
-  action: string;
-
-  /**
-   * Human-readable explanation of what the consumer should do.
-   */
-  message: string;
-
-  /**
-   * Whether the operation is safe to retry automatically.
-   * Defaults to `false` when omitted.
-   */
-  retryable?: boolean;
-
-  /**
-   * Suggested delay in milliseconds before retrying.
-   * Only meaningful when `retryable` is `true`.
-   */
-  suggestedDelayMs?: number;
-
-  /**
-   * Optional structured metadata specific to the hint.
-   * Keys and values are operation-dependent.
-   */
-  metadata?: Record<string, unknown>;
+export function isUnknownStatusError(error: unknown): boolean {
+  if (error instanceof PocketPayError) {
+    return error.code === 'TX_STATUS_UNKNOWN';
+  }
+  return false;
 }

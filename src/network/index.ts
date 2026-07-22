@@ -169,8 +169,15 @@ export class NetworkClient {
         } catch {
           errorBody = await response.text();
         }
+        const bodyStr =
+          typeof errorBody === 'string'
+            ? errorBody
+            : (errorBody as any)?.detail || (errorBody as any)?.message || '';
+        const msg = bodyStr
+          ? `${operation} failed with status ${response.status}: ${bodyStr}`
+          : `${operation} failed with status ${response.status}`;
         throw new PocketPayError(
-          `${operation} failed with status ${response.status}`,
+          msg,
           `HTTP_ERROR_${response.status}`,
           response.status,
         );
@@ -229,3 +236,6 @@ export async function executeSorobanOperation<T>(
     throw wrapError(error, operation, 'SOROBAN_ERROR');
   }
 }
+
+export { submitTransactionIdempotently, pollTransactionStatus } from './idempotency';
+
