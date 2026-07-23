@@ -1,0 +1,279 @@
+import * as StellarSDK from '@stellar/stellar-sdk';
+import {
+  SorobanInvocationResult,
+  SorobanInvocationStatus,
+  SorobanInvocationMapperOptions,
+  VaultMappedResult,
+  VaultOperationType,
+  PocketPayError,
+} from '../types';
+
+/**
+ * Maps contract error objects or thrown exceptions into a standardized error representation.
+ *
+ * @param error - Raw error object, string, or Exception
+ * @returns Standardized error string and optional errorCode
+ */
+export function mapSorobanContractError(error: unknown): { error: string; errorCode?: string | number } {
+  if (!error) {
+    return { error: 'Unknown Soroban contract error', errorCode: 'UNKNOWN_SOROBAN_ERROR' };
+  }
+
+  if (error instanceof PocketPayError) {
+    return {
+      error: error.message,
+      errorCode: error.code || 'POCKETPAY_ERROR',
+    };
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message;
+    if (msg.includes('Simulation failed')) {
+      return { error: msg, errorCode: 'SIMULATION_ERROR' };
+    }
+    if (msg.includes('Send error')) {
+      return { error: msg, errorCode: 'TRANSACTION_SEND_ERROR' };
+    }
+    if (msg.includes('MISSING_CONTRACT_ID') || msg.includes('contract ID')) {
+      return { error: msg, errorCode: 'MISSING_CONTRACT_ID' };
+    }
+    if (msg.includes('Timeout') || msg.includes('timeout')) {
+      return { error: msg, errorCode: 'REQUEST_TIMEOUT' };
+    }
+    return { error: msg, errorCode: 'SOROBAN_EXECUTION_ERROR' };
+  }
+
+  if (typeof error === 'string') {
+    return { error, errorCode: 'SOROBAN_ERROR' };
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const errObj = error as Record<string, any>;
+    const message = errObj.error || errObj.message || errObj.reason || JSON.stringify(error);
+    const errorCode = errObj.code || errObj.errorCode || errObj.status || 'SOROBAN_CONTRACT_ERROR';
+    return { error: String(message), errorCode };
+  }
+
+  return { error: String(error), errorCode: 'UNKNOWN_ERROR' };
+}
+
+/**
+ * Maps raw Soroban RPC invocation responses (simulateTransaction, sendTransaction, getTransaction, or raw ScVal)
+ * into a stable typed SDK value (`SorobanInvocationResult<T>`).
+ *
+ * @param rawResponse - The raw response returned from Soroban RPC or contract invocation
+ * @param options - Configuration options for mapping context
+ * @returns Strongly typed SorobanInvocationResult<T>
+ */
+export function mapSorobanInvocationResult<T = unknown>(
+  rawResponse: unknown,
+  options?: SorobanInvocationMapperOptions
+): SorobanInvocationResult<T> {
+  if (rawResponse === null || rawResponse === undefined) {
+    return {
+      success: false,
+      status: 'error',
+      error: 'Empty or null response received from Soroban contract',
+      errorCode: 'NULL_RESPONSE',
+      rawResponse,
+    };
+  }
+
+  // Handle direct boolean or primitive return values
+  if (typeof rawResponse === 'boolean') {
+    return {
+      success: rawResponse,
+      status: rawResponse ? 'success' : 'failed',
+      result: rawResponse as unknown as T,
+      rawResponse,
+    };
+  }
+
+  if (typeof rawResponse === 'object') {
+    const resp = rawResponse as Record<string, any>;
+
+    // Case 1: StellarSDK Simulation Error check
+    if (StellarSDK.rpc.Api.isSimulationError(resp as any)) {
+      const errorMsg = resp.error || 'Soroban transaction simulation failed';
+      return {
+        success: false,
+        status: 'simulation_error',
+        error: `Simulation failed: ${errorMsg}`,
+        errorCode: 'SIMULATION_FAILED',
+        rawResponse,
+      };
+    }
+
+    // Case 2: Object with explicit simulation error property
+    if (resp.error && typeof resp.error === 'string' && resp.error.startsWith('Simulation failed:')) {
+      return {
+        success: false,
+        status: 'simulation_error',
+        error: resp.error,
+        errorCode: 'SIMULATION_FAILED',
+        rawResponse,
+      };
+    }
+
+    // Case 3: SendTransaction response error status
+    if (resp.status === 'ERROR') {
+      const errorMsg = resp.errorResult || resp.error || 'Transaction submission rejected by Soroban RPC';
+      return {
+        success: false,
+        status: 'failed',
+        error: typeof errorMsg === 'string' && errorMsg.startsWith('Send error:') ? errorMsg : `Send error: ${errorMsg}`,
+        errorCode: 'SUBMISSION_ERROR',
+        hash: resp.hash,
+        rawResponse,
+      };
+    }
+
+    // Case 4: GetTransaction response status check
+    if (resp.status === 'FAILED' || resp.status === 'NOT_FOUND') {
+      return {
+        success: false,
+        status: 'failed',
+        error: `Transaction status: ${resp.status}`,
+        errorCode: `TX_STATUS_${resp.status}`,
+        hash: resp.hash,
+        rawResponse,
+      };
+    }
+
+    // Case 5: Standard { success: false, error: ... } shape
+    if (resp.success === false) {
+      const mappedErr = mapSorobanContractError(resp.error || 'Operation failed');
+      return {
+        success: false,
+        status: resp.error?.includes?.('Simulation') ? 'simulation_error' : 'failed',
+        error: mappedErr.error,
+        errorCode: mappedErr.errorCode,
+        hash: resp.hash,
+        rawResponse,
+      };
+    }
+
+    // Case 6: Successful simulation with result.retval
+    if (resp.result && resp.result.retval) {
+      let nativeVal: any;
+      try {
+        nativeVal = StellarSDK.scValToNative(resp.result.retval);
+      } catch {
+        nativeVal = resp.result.retval;
+      }
+      return {
+        success: true,
+        status: 'success',
+        result: nativeVal as T,
+        rawResponse,
+      };
+    }
+
+    // Case 7: Successful transaction completion status or SDK VaultResult shape
+    if (resp.status === 'SUCCESS' || resp.success === true) {
+      let resultVal: any = resp.result !== undefined ? resp.result : resp.balance;
+      if (resp.retval) {
+        try {
+          resultVal = StellarSDK.scValToNative(resp.retval);
+        } catch {
+          resultVal = resp.retval;
+        }
+      }
+      return {
+        success: true,
+        status: 'success',
+        hash: resp.hash,
+        result: resultVal as T,
+        rawResponse,
+      };
+    }
+
+    // Case 8: Pending transaction state
+    if (resp.status === 'PENDING') {
+      return {
+        success: true,
+        status: 'pending',
+        hash: resp.hash,
+        rawResponse,
+      };
+    }
+  }
+
+  // Fallback for primitive native values (number, bigint, string)
+  return {
+    success: true,
+    status: 'success',
+    result: rawResponse as T,
+    rawResponse,
+  };
+}
+
+/**
+ * Maps vault contract responses (deposit, withdraw, get_balance) into a stable, typed `VaultMappedResult`.
+ *
+ * @param operation - Vault operation type ('deposit' | 'withdraw' | 'get_balance')
+ * @param rawResponse - Raw response from Soroban vault invocation or VaultResult
+ * @param context - Additional contextual parameters like requested amount
+ * @returns Structured VaultMappedResult
+ */
+export function mapVaultInvocationResult(
+  operation: VaultOperationType,
+  rawResponse: unknown,
+  context?: { amount?: string; contractId?: string; hash?: string }
+): VaultMappedResult {
+  const genericResult = mapSorobanInvocationResult(rawResponse, { operation });
+  const hash = genericResult.hash || context?.hash;
+
+  if (!genericResult.success) {
+    return {
+      success: false,
+      status: genericResult.status,
+      operation,
+      hash,
+      amount: context?.amount,
+      error: genericResult.error || 'Vault operation failed',
+      errorCode: genericResult.errorCode || 'VAULT_OPERATION_FAILED',
+    };
+  }
+
+  if (operation === 'get_balance') {
+    let rawValue = genericResult.result;
+    let balanceXLM = '0';
+    let rawStroops: string | undefined;
+
+    if (rawValue !== undefined && rawValue !== null) {
+      if (typeof rawValue === 'string') {
+        // If already formatted as XLM string (e.g. "15.0000000")
+        if (rawValue.includes('.')) {
+          balanceXLM = rawValue;
+          rawStroops = String(Math.round(parseFloat(rawValue) * 10_000_000));
+        } else {
+          // Stroop value represented as string
+          rawStroops = rawValue;
+          const num = BigInt(rawValue);
+          balanceXLM = (Number(num) / 10_000_000).toFixed(7);
+        }
+      } else if (typeof rawValue === 'number' || typeof rawValue === 'bigint') {
+        rawStroops = String(rawValue);
+        balanceXLM = (Number(rawValue) / 10_000_000).toFixed(7);
+      }
+    }
+
+    return {
+      success: true,
+      status: 'success',
+      operation,
+      balance: balanceXLM,
+      rawStroops,
+    };
+  }
+
+  // deposit or withdraw operations
+  return {
+    success: true,
+    status: genericResult.status,
+    operation,
+    hash,
+    amount: context?.amount,
+  };
+}
