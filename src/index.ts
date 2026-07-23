@@ -97,6 +97,12 @@ export {
   sortTransactionsByDate,
   safeGetTransactions,
   safeGetPayments,
+  // ─── Transaction Fixtures ──────────────────────────────────────────────────
+  successfulPaymentSummary,
+  failedPaymentSummary,
+  pendingTransactionSummary,
+  unknownTransactionSummary,
+  transactionSummaryFixtures,
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
