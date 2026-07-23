@@ -1,10 +1,12 @@
+import { TransactionSummary, TransactionDirection, TransactionStatus } from './transaction';
+export * from './transaction';
+export * from './balance';
+
 /**
  * Stellar PocketPay SDK — Type Definitions
  *
  * All shared types, interfaces, and enums used across the SDK.
  */
-
-export * from './transaction';
 
 // ─── Network ────────────────────────────────────────────────────────────────
 
@@ -23,37 +25,6 @@ export interface SDKConfig {
   timeout?: number;
   /** Soroban contract ID for vault operations (optional) */
   contractId?: string;
-}
-
-/** Severity level of a configuration validation issue */
-export type ConfigIssueSeverity = 'error' | 'warning';
-
-/** A structured issue found during SDK configuration validation */
-export interface ConfigValidationIssue {
-  /** Severity level: 'error' (fatal issue) or 'warning' (non-fatal advisory) */
-  severity: ConfigIssueSeverity;
-  /** Configuration field associated with the issue */
-  field: string;
-  /** Machine-readable error or warning code */
-  code: string;
-  /** Human-readable description of the issue */
-  message: string;
-  /** Sanitized input value that caused the issue (never exposes secrets) */
-  value?: unknown;
-}
-
-/** Structured output returned by `validatePocketPayConfig` */
-export interface ConfigValidationResult {
-  /** `true` if there are zero errors (warnings may still be present) */
-  valid: boolean;
-  /** All validation issues (combines errors and warnings) */
-  issues: ConfigValidationIssue[];
-  /** Error-level issues (`severity === 'error'`) */
-  errors: ConfigValidationIssue[];
-  /** Warning-level issues (`severity === 'warning'`) */
-  warnings: ConfigValidationIssue[];
-  /** Resolved SDKConfig if `valid` is true; `undefined` if `valid` is false */
-  config?: SDKConfig;
 }
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
@@ -275,6 +246,9 @@ export interface PaymentList {
 }
 
 // ─── Transaction Filtering ───────────────────────────────────────────────────
+
+/**
+
 
 /**
  * Structural shape shared by {@link TransactionSummary} and
