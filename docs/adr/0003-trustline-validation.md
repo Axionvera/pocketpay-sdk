@@ -66,3 +66,4 @@ The SDK exports the following trustline helpers under `src/payments/`:
 ## References
 - [Trustline Validation Guide](../trustline-validation.md)
 - [Stellar Documentation on Trustlines](https://developers.stellar.org/docs/fundamentals/issuing-assets/trustlines)
+- [Issue #167: Add SDK trustline validation design](https://github.com/Axionvera/pocketpay-sdk/issues/167)
