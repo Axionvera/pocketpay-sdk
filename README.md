@@ -58,6 +58,7 @@ npm install @axionvera/pocketpay-sdk
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Wallet Recovery Limitations](./docs/wallet-recovery-limitations.md) - What happens when keys are lost, what the SDK does not provide, and your application's responsibilities
+- [Wallet Secret Export Policy](./docs/wallet-secret-export.md) - Supported local-key access, unsupported export behaviour, security risks, and consumer responsibilities
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Trustline Validation](./docs/trustline-validation.md) - Pre-flight trustline verification and issued asset payment safety
 - [Issued Asset Payments](./docs/issued-asset-payments.md) - Full guide to sending issued assets: asset identifiers, trustline setup, `sendAsset`, validation rules, and error reference
