@@ -350,6 +350,68 @@ export interface VaultBalanceParams {
   contractId: string;
 }
 
+/** High-level invocation status for Soroban operations */
+export type SorobanInvocationStatus =
+  | 'success'
+  | 'failed'
+  | 'simulation_error'
+  | 'error'
+  | 'pending';
+
+/** Parameters for configuring Soroban invocation result mapping */
+export interface SorobanInvocationMapperOptions {
+  /** Operation name (e.g. "deposit", "withdraw", "get_balance") */
+  operation?: string;
+  /** Contract ID associated with the invocation */
+  contractId?: string;
+  /** Optional requested amount string for context */
+  amount?: string;
+}
+
+/** Stable typed SDK value for Soroban contract invocation results */
+export interface SorobanInvocationResult<T = unknown> {
+  /** High-level indicator of success */
+  success: boolean;
+  /** Invocation execution status */
+  status: SorobanInvocationStatus;
+  /** Parsed contract return value or typed output */
+  result?: T;
+  /** Human-readable error description when success is false */
+  error?: string;
+  /** Numeric or string error code from contract or RPC if available */
+  errorCode?: string | number;
+  /** On-chain transaction hash if transaction was submitted */
+  hash?: string;
+  /** Raw RPC response object preserved for advanced inspection */
+  rawResponse?: unknown;
+}
+
+/** Specific operation types supported by vault mapping */
+export type VaultOperationType = 'deposit' | 'withdraw' | 'get_balance';
+
+/** Structured, typed result representation for vault operations */
+export interface VaultMappedResult {
+  /** Whether the vault operation succeeded */
+  success: boolean;
+  /** Execution status classification */
+  status: SorobanInvocationStatus;
+  /** Type of vault operation */
+  operation: VaultOperationType;
+  /** Transaction hash if submitted on-chain */
+  hash?: string;
+  /** Balance in XLM (for get_balance or post-op balance) */
+  balance?: string;
+  /** Raw balance in stroops / sub-units */
+  rawStroops?: string;
+  /** Amount processed in XLM for deposit / withdraw */
+  amount?: string;
+  /** Formatted error message on failure */
+  error?: string;
+  /** Classified error code on failure */
+  errorCode?: string | number;
+}
+
+
 // ─── Friendbot / Funding ────────────────────────────────────────────────────
 
 /**

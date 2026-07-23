@@ -34,6 +34,11 @@ export type {
   VaultWithdrawParams,
   VaultBalanceParams,
   VaultResult,
+  VaultMappedResult,
+  VaultOperationType,
+  SorobanInvocationStatus,
+  SorobanInvocationResult,
+  SorobanInvocationMapperOptions,
   FundResult,
   SuccessResult,
   FailureResult,
@@ -129,7 +134,14 @@ export {
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
-export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
+export {
+  depositToVault,
+  withdrawFromVault,
+  getVaultBalance,
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './soroban';
 
 // ─── Network & Idempotency ──────────────────────────────────────────────────
 export {

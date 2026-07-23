@@ -12,11 +12,22 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { resolveConfig, getNetworkPassphrase } from '../config';
 import {
   VaultDepositParams, VaultWithdrawParams,
-  VaultBalanceParams, VaultResult,
+  VaultBalanceParams, VaultResult, VaultMappedResult,
   PocketPayError, SDKConfig,
 } from '../types';
 import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
 import { withTimeout } from '../network';
+import {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './mapper';
+
+export {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+};
 
 /**
  * Resolves the vault contract ID from params or environment.
@@ -56,7 +67,7 @@ function getSorobanServer(config?: Partial<SDKConfig>): StellarSDK.rpc.Server {
 export async function depositToVault(
   params: VaultDepositParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   const { sourceSecret, amount } = params;
   validateSecretKey(sourceSecret);
   validateAmount(amount);
@@ -101,10 +112,7 @@ export async function depositToVault(
     );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
+      return mapVaultInvocationResult('deposit', simulated, { amount, contractId });
     }
 
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
@@ -117,7 +125,7 @@ export async function depositToVault(
     );
 
     if (sendResult.status === 'ERROR') {
-      return { success: false, error: `Send error: ${sendResult.errorResult}` };
+      return mapVaultInvocationResult('deposit', sendResult, { amount, contractId });
     }
 
     // Poll for result
@@ -135,11 +143,7 @@ export async function depositToVault(
       );
     }
 
-    if (getResult.status === 'SUCCESS') {
-      return { success: true, hash: sendResult.hash };
-    }
-
-    return { success: false, error: `Transaction status: ${getResult.status}` };
+    return mapVaultInvocationResult('deposit', getResult, { amount, contractId, hash: sendResult.hash });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Vault deposit failed', 'VAULT_DEPOSIT_ERROR');
@@ -156,7 +160,7 @@ export async function depositToVault(
 export async function withdrawFromVault(
   params: VaultWithdrawParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   const { sourceSecret, amount } = params;
   validateSecretKey(sourceSecret);
   validateAmount(amount);
@@ -199,10 +203,7 @@ export async function withdrawFromVault(
     );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
+      return mapVaultInvocationResult('withdraw', simulated, { amount, contractId });
     }
 
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
@@ -215,7 +216,7 @@ export async function withdrawFromVault(
     );
 
     if (sendResult.status === 'ERROR') {
-      return { success: false, error: `Send error: ${sendResult.errorResult}` };
+      return mapVaultInvocationResult('withdraw', sendResult, { amount, contractId });
     }
 
     let getResult = await withTimeout(
@@ -232,11 +233,7 @@ export async function withdrawFromVault(
       );
     }
 
-    if (getResult.status === 'SUCCESS') {
-      return { success: true, hash: sendResult.hash };
-    }
-
-    return { success: false, error: `Transaction status: ${getResult.status}` };
+    return mapVaultInvocationResult('withdraw', getResult, { amount, contractId, hash: sendResult.hash });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Vault withdrawal failed', 'VAULT_WITHDRAW_ERROR');
@@ -253,7 +250,7 @@ export async function withdrawFromVault(
 export async function getVaultBalance(
   params: VaultBalanceParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   validatePublicKey(params.publicKey);
   const contractId = resolveContractId(params.contractId);
 
@@ -287,25 +284,10 @@ export async function getVaultBalance(
       sorobanServer.simulateTransaction(tx),
     );
 
-    if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
-    }
-
-    // Extract return value
-    const successSim = simulated as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
-    if (successSim.result) {
-      const retVal = successSim.result.retval;
-      const balance = StellarSDK.scValToNative(retVal);
-      const balanceXLM = (Number(balance) / 10_000_000).toFixed(7);
-      return { success: true, balance: balanceXLM };
-    }
-
-    return { success: true, balance: '0' };
+    return mapVaultInvocationResult('get_balance', simulated, { contractId });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Failed to query vault balance', 'VAULT_BALANCE_ERROR');
   }
 }
+
