@@ -13,16 +13,19 @@ dotenv.config();
 export type {
   StellarNetwork,
   SDKConfig,
+  ConfigIssueSeverity,
+  ConfigValidationIssue,
+  ConfigValidationResult,
   WalletKeypair,
   AssetBalance,
   AccountBalance,
   BalanceResult,
   SendXLMParams,
+  SendAssetParams,
   PaymentResult,
   TransactionSummary,
   TransactionRecord,
   TransactionList,
-  TransactionDirection,
   FilterableTransaction,
   FilterTransactionsOptions,
   SortableTransaction,
@@ -34,6 +37,11 @@ export type {
   VaultWithdrawParams,
   VaultBalanceParams,
   VaultResult,
+  VaultMappedResult,
+  VaultOperationType,
+  SorobanInvocationStatus,
+  SorobanInvocationResult,
+  SorobanInvocationMapperOptions,
   FundResult,
   SuccessResult,
   FailureResult,
@@ -41,9 +49,26 @@ export type {
   EnhancedSuccessResult,
   EnhancedFailureResult,
   EnhancedPocketPayResult,
+  StellarAssetSpec,
+  TrustlineStatus,
+  TrustlineCheckResult,
+  TrustlineCheckOptions,
+  // ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+  AssetBalanceState,
+  AccountBalanceState,
+  NativeAssetBalanceItem,
+  IssuedAssetBalanceItem,
+  UnknownAssetBalanceItem,
+  AssetBalanceItem,
+  MultiAssetBalance,
+  MultiAssetBalanceResult,
+  // ─── Retry Policy ──────────────────────────────────────────────────────────
+  SubmissionOutcome,
+  RetryPolicy,
+  RetryPolicyExhaustedResult,
 } from './types';
 
-export { PocketPayError } from './types';
+export { PocketPayError, TransactionDirection, TransactionStatus } from './types';
 
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
@@ -52,6 +77,9 @@ export type { ResultWarning, RecoveryHint } from './errors';
 export {
   createWallet,
   importWallet,
+  safeImportWallet,
+  enhancedImportWallet,
+  safeEnhancedImportWallet,
   getPublicKey,
   getBalance,
   getBalanceOrUnfunded,
@@ -60,6 +88,13 @@ export {
   safeFundTestnetAccount,
   enhancedGetBalance,
   safeEnhancedGetBalance,
+  // Multi-Asset Balance
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
@@ -68,6 +103,20 @@ export {
   safeSendXLM,
   enhancedSendXLM,
   safeEnhancedSendXLM,
+  sendAsset,
+  safeSendAsset,
+  validateAssetSpec,
+  checkDestinationTrustline,
+  safeCheckDestinationTrustline,
+  verifyPaymentTrustlineOrThrow,
+  validateSendXLMParams,
+} from './payments';
+
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -82,15 +131,29 @@ export {
   sortTransactionsByDate,
   safeGetTransactions,
   safeGetPayments,
+  // ─── Transaction Fixtures ──────────────────────────────────────────────────
+  successfulPaymentSummary,
+  failedPaymentSummary,
+  pendingTransactionSummary,
+  unknownTransactionSummary,
+  transactionSummaryFixtures,
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
-export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
+export {
+  depositToVault,
+  withdrawFromVault,
+  getVaultBalance,
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './soroban';
 
 // ─── Network & Idempotency ──────────────────────────────────────────────────
 export {
   submitTransactionIdempotently,
   pollTransactionStatus,
+  withRetryPolicy,
 } from './network';
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
@@ -98,11 +161,15 @@ export {
   classifySubmitError,
   isRetryableError,
   isUnknownStatusError,
+  classifySubmissionOutcome,
+  isSafeToRetry,
+  requiresStatusCheck,
 } from './errors';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,
+  validatePocketPayConfig,
   getHorizonServer,
   setHorizonServerFactory,
   resetHorizonServerFactory,

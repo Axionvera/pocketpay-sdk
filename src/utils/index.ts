@@ -38,21 +38,74 @@ export function validatePublicKey(publicKey: string): boolean {
   }
 }
 
-export function validateSecretKey(secretKey: string): boolean {
-  try {
-    StellarSDK.Keypair.fromSecret(secretKey);
-    return true;
-  } catch {
+export function validateSecretKey(secretKey: unknown): boolean {
+  if (typeof secretKey !== 'string') {
     throw new PocketPayError(
-      'Invalid Stellar secret key',
+      'Invalid Stellar secret key: secret key must be a string',
       'INVALID_SECRET_KEY',
       {
         validation: {
           field: 'secretKey',
-          reason: 'invalid_format'
-          // Do NOT include value (secret!)
-        }
-      }
+          reason: 'not_a_string',
+        },
+      },
+    );
+  }
+
+  if (!secretKey || secretKey.trim().length === 0) {
+    throw new PocketPayError(
+      'Invalid Stellar secret key: secret key cannot be empty',
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'missing',
+        },
+      },
+    );
+  }
+
+  const trimmed = secretKey.trim();
+
+  if (!trimmed.startsWith('S')) {
+    throw new PocketPayError(
+      "Invalid Stellar secret key: secret key must start with 'S'",
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_prefix',
+        },
+      },
+    );
+  }
+
+  if (trimmed.length !== 56) {
+    throw new PocketPayError(
+      `Invalid Stellar secret key: secret key must be 56 characters long (got ${trimmed.length})`,
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_length',
+        },
+      },
+    );
+  }
+
+  try {
+    StellarSDK.Keypair.fromSecret(trimmed);
+    return true;
+  } catch {
+    throw new PocketPayError(
+      'Invalid Stellar secret key: failed strkey checksum or payload verification',
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_format',
+        },
+      },
     );
   }
 }
@@ -378,9 +431,54 @@ export async function toResult<T>(
     return toFailureResult(pocketErr);
   }
 }
+
+export function toEnhancedSuccessResult<T>(
+  value: T,
+  warnings?: ResultWarning[],
+  recoveryHints?: RecoveryHint[],
+): EnhancedSuccessResult<T> {
+  const result: EnhancedSuccessResult<T> = { ok: true, value };
+  if (warnings && warnings.length > 0) result.warnings = warnings;
+  if (recoveryHints && recoveryHints.length > 0) result.recoveryHints = recoveryHints;
+  return result;
+}
+
+export function toEnhancedFailureResult(
+  error: PocketPayError,
+  warnings?: ResultWarning[],
+  recoveryHints?: RecoveryHint[],
+): EnhancedFailureResult {
+  const result: EnhancedFailureResult = { ok: false, error };
+  if (warnings && warnings.length > 0) result.warnings = warnings;
+  if (recoveryHints && recoveryHints.length > 0) result.recoveryHints = recoveryHints;
+  return result;
+}
+
+export async function toEnhancedResult<T>(
+  fn: () => Promise<T>,
+  options?: {
+    errorContext?: string;
+    errorCode?: string;
+    warnings?: ResultWarning[];
+    recoveryHints?: RecoveryHint[];
+  },
+): Promise<EnhancedPocketPayResult<T>> {
+  try {
+    const value = await fn();
+    return toEnhancedSuccessResult(value, options?.warnings, options?.recoveryHints);
+  } catch (err) {
+    const pocketErr =
+      err instanceof PocketPayError
+        ? err
+        : wrapError(err, options?.errorContext ?? 'Operation failed', options?.errorCode ?? 'UNKNOWN_ERROR');
+    return toEnhancedFailureResult(pocketErr, options?.warnings, options?.recoveryHints);
+  }
+}
+
 export {
   getAccountExplorerLink,
   getTransactionExplorerLink,
   getOperationExplorerLink,
 } from './explorer';
+
 

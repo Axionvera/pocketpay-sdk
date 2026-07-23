@@ -245,7 +245,7 @@ npx expo install expo-secure-store
 
 ```typescript
 import * as SecureStore from 'expo-secure-store';
-import { createWallet, importWallet } from '@axionvera/pocketpay-sdk';
+import { createWallet, importWallet } from 'stellar-pocketpay-sdk';
 
 const WALLET_KEY = 'pocketpay_secret_key';
 
@@ -289,7 +289,7 @@ npx pod-install   # iOS
 
 ```typescript
 import * as Keychain from 'react-native-keychain';
-import { createWallet, importWallet } from '@axionvera/pocketpay-sdk';
+import { createWallet, importWallet } from 'stellar-pocketpay-sdk';
 
 const KEYCHAIN_SERVICE = 'pocketpay_wallet';
 
@@ -318,6 +318,45 @@ async function loadWallet() {
 
 ## Environment Configuration (no dotenv)
 
+> [!CAUTION]
+> **This is a known blocker, not a recommendation.** The SDK's entry point
+> (`src/index.ts`) calls `dotenv.config()` at module load time. `dotenv` depends
+> on the Node.js `fs` and `path` modules, which Metro cannot resolve. Importing
+> the SDK in React Native will fail at bundle time unless you shim these
+> modules. Track this in
+> [issue #139](https://github.com/Stellar-PocketPay/stellar-pocketpay-sdk/issues/139).
+
+### Workaround: alias dotenv in Metro
+
+Until the SDK gates this call behind a runtime check, alias `dotenv` to an
+empty module in `metro.config.js`:
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
+const config = getDefaultConfig(__dirname);
+
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  dotenv: path.resolve(__dirname, 'shims/dotenv.js'),
+  buffer: require.resolve('buffer'),
+  events: require.resolve('events'),
+  stream: require.resolve('stream-browserify'),
+};
+
+module.exports = config;
+```
+
+```js
+// shims/dotenv.js
+module.exports = { config: () => ({ parsed: {} }) };
+```
+
+With the shim in place, `process.env` reads inside the SDK resolve to
+`undefined` and fall through to the built-in testnet defaults. The SDK will not
+throw, but it will silently use Testnet. Pass configuration explicitly if you
+need any other network.
 `dotenv` reads `.env` files from the filesystem — it is a **Node.js-only**
 utility and does not work in React Native. Do not call `require('dotenv').config()`
 in a mobile app; it will either throw or silently do nothing.
@@ -382,7 +421,7 @@ The safest pattern is to pass configuration values directly to SDK calls rather
 than relying on any global injection mechanism:
 
 ```typescript
-import { sendXLM } from '@axionvera/pocketpay-sdk';
+import { sendXLM } from 'stellar-pocketpay-sdk';
 
 // horizonUrl comes from your app's config layer, not from process.env
 const result = await sendXLM({
@@ -431,7 +470,7 @@ storage, and fetches a balance:
 import React, { useState } from 'react';
 import { Button, Text, View, StyleSheet } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { createWallet, importWallet, fundTestnetAccount, getBalance } from '@axionvera/pocketpay-sdk';
+import { createWallet, importWallet, fundTestnetAccount, getBalance } from 'stellar-pocketpay-sdk';
 
 const WALLET_KEY = 'pocketpay_secret_key';
 
@@ -510,7 +549,7 @@ const styles = StyleSheet.create({
 | Vault helpers are pre-release | Call signature may change. Pin your SDK version and review the Changelog before upgrading. |
 | Secure storage is device-local | Keys stored in `expo-secure-store` or `react-native-keychain` are not synced to cloud backup by default. Uninstalling the app destroys the key unless you provide an export/recovery flow. |
 | Hermes crypto coverage varies by RN version | Older RN / Expo versions may need additional shims. Validate against your specific versions. |
-| No deep imports | Only the package root (`@axionvera/pocketpay-sdk`) is the supported entry point. Do not import from internal paths. |
+| No deep imports | Only the package root (`stellar-pocketpay-sdk`) is the supported entry point. Do not import from internal paths. |
 
 ---
 
