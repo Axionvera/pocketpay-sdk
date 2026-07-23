@@ -5,8 +5,14 @@
  * Defaults to Stellar Testnet. Override via environment variables or programmatic config.
  */
 import * as StellarSDK from '@stellar/stellar-sdk';
-import { SDKConfig, StellarNetwork } from '../types';
-import { PocketPayError } from '../types';
+import {
+  SDKConfig,
+  StellarNetwork,
+  ConfigValidationIssue,
+  ConfigValidationResult,
+  PocketPayError,
+} from '../types';
+import { redactSensitive } from '../utils';
 // ─── Default URLs ───────────────────────────────────────────────────────────
 const HORIZON_URLS: Record<StellarNetwork, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
@@ -244,6 +250,325 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
   }
 
   return { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
+}
+
+/**
+ * Helper to sanitize potential sensitive values in validation outputs.
+ * Never exposes secret keys or sensitive strings in issue outputs.
+ */
+function sanitizeValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return redactSensitive(value);
+  }
+  return value;
+}
+
+/**
+ * Validates SDK configuration and returns a structured summary of issues and warnings.
+ *
+ * Unlike {@link resolveConfig}, this helper does not throw on invalid parameters.
+ * Instead, it collects all errors and advisory warnings into a structured {@link ConfigValidationResult}.
+ *
+ * @param overrides - Optional partial SDK configuration or unvalidated config object to evaluate
+ * @returns Structured validation result containing `valid`, `issues`, `errors`, `warnings`, and resolved `config` if valid
+ *
+ * @example
+ * ```ts
+ * const result = validatePocketPayConfig({
+ *   network: 'testnet',
+ *   horizonUrl: 'https://horizon-testnet.stellar.org',
+ * });
+ *
+ * if (!result.valid) {
+ *   console.error('Config validation failed:', result.errors);
+ * } else {
+ *   console.log('Resolved config:', result.config);
+ * }
+ * ```
+ */
+export function validatePocketPayConfig(
+  overrides?: Partial<SDKConfig> | Record<string, unknown>
+): ConfigValidationResult {
+  const issues: ConfigValidationIssue[] = [];
+
+  // 1. Network Validation
+  const rawNetwork: unknown =
+    overrides?.network !== undefined
+      ? overrides.network
+      : process.env.STELLAR_NETWORK ?? 'testnet';
+
+  let network: StellarNetwork = 'testnet';
+  if (rawNetwork !== 'testnet' && rawNetwork !== 'mainnet') {
+    issues.push({
+      severity: 'error',
+      field: 'network',
+      code: 'INVALID_NETWORK',
+      message: `Unsupported network: "${rawNetwork}". Supported networks: testnet, mainnet`,
+      value: sanitizeValue(rawNetwork),
+    });
+  } else {
+    network = rawNetwork;
+  }
+
+  // 2. Horizon URL Validation & Warnings
+  const rawHorizonUrl: unknown =
+    overrides?.horizonUrl !== undefined
+      ? overrides.horizonUrl
+      : process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[network];
+
+  if (typeof rawHorizonUrl !== 'string') {
+    issues.push({
+      severity: 'error',
+      field: 'horizonUrl',
+      code: 'INVALID_HORIZON_URL',
+      message: `Invalid Horizon URL: "${rawHorizonUrl}". Must be a non-empty string.`,
+      value: sanitizeValue(rawHorizonUrl),
+    });
+  } else {
+    try {
+      const parsed = new URL(rawHorizonUrl);
+      if (!parsed.protocol.startsWith('http')) {
+        issues.push({
+          severity: 'error',
+          field: 'horizonUrl',
+          code: 'INVALID_HORIZON_URL',
+          message: `Invalid Horizon URL: "${rawHorizonUrl}". Protocol must be http or https.`,
+          value: sanitizeValue(rawHorizonUrl),
+        });
+      } else {
+        // Advisory Warnings for Horizon URL
+        if (
+          parsed.protocol === 'http:' &&
+          parsed.hostname !== 'localhost' &&
+          parsed.hostname !== '127.0.0.1'
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'horizonUrl',
+            code: 'INSECURE_HTTP_URL',
+            message: `Horizon URL "${rawHorizonUrl}" uses unencrypted HTTP protocol for a non-localhost host.`,
+            value: sanitizeValue(rawHorizonUrl),
+          });
+        }
+        if (
+          network === 'mainnet' &&
+          rawHorizonUrl.toLowerCase().includes('testnet')
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'horizonUrl',
+            code: 'NETWORK_MISMATCH',
+            message: `Horizon URL "${rawHorizonUrl}" contains "testnet" but network is configured as mainnet.`,
+            value: sanitizeValue(rawHorizonUrl),
+          });
+        } else if (
+          network === 'testnet' &&
+          rawHorizonUrl.toLowerCase().includes('horizon.stellar.org') &&
+          !rawHorizonUrl.toLowerCase().includes('testnet')
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'horizonUrl',
+            code: 'NETWORK_MISMATCH',
+            message: `Horizon URL "${rawHorizonUrl}" points to Stellar public mainnet endpoint but network is configured as testnet.`,
+            value: sanitizeValue(rawHorizonUrl),
+          });
+        }
+      }
+    } catch {
+      issues.push({
+        severity: 'error',
+        field: 'horizonUrl',
+        code: 'INVALID_HORIZON_URL',
+        message: `Invalid Horizon URL: "${rawHorizonUrl}". Must be a valid HTTP(S) URL.`,
+        value: sanitizeValue(rawHorizonUrl),
+      });
+    }
+  }
+
+  // 3. Soroban RPC URL Validation & Warnings
+  const rawSorobanRpcUrl: unknown =
+    overrides?.sorobanRpcUrl !== undefined
+      ? overrides.sorobanRpcUrl
+      : process.env.STELLAR_SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[network];
+
+  if (typeof rawSorobanRpcUrl !== 'string') {
+    issues.push({
+      severity: 'error',
+      field: 'sorobanRpcUrl',
+      code: 'INVALID_SOROBAN_RPC_URL',
+      message: `Invalid Soroban RPC URL: "${rawSorobanRpcUrl}". Must be a non-empty string.`,
+      value: sanitizeValue(rawSorobanRpcUrl),
+    });
+  } else {
+    try {
+      const parsed = new URL(rawSorobanRpcUrl);
+      if (!parsed.protocol.startsWith('http')) {
+        issues.push({
+          severity: 'error',
+          field: 'sorobanRpcUrl',
+          code: 'INVALID_SOROBAN_RPC_URL',
+          message: `Invalid Soroban RPC URL: "${rawSorobanRpcUrl}". Protocol must be http or https.`,
+          value: sanitizeValue(rawSorobanRpcUrl),
+        });
+      } else {
+        // Advisory Warnings for Soroban RPC URL
+        if (
+          parsed.protocol === 'http:' &&
+          parsed.hostname !== 'localhost' &&
+          parsed.hostname !== '127.0.0.1'
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'sorobanRpcUrl',
+            code: 'INSECURE_HTTP_URL',
+            message: `Soroban RPC URL "${rawSorobanRpcUrl}" uses unencrypted HTTP protocol for a non-localhost host.`,
+            value: sanitizeValue(rawSorobanRpcUrl),
+          });
+        }
+        if (
+          network === 'mainnet' &&
+          rawSorobanRpcUrl.toLowerCase().includes('testnet')
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'sorobanRpcUrl',
+            code: 'NETWORK_MISMATCH',
+            message: `Soroban RPC URL "${rawSorobanRpcUrl}" contains "testnet" but network is configured as mainnet.`,
+            value: sanitizeValue(rawSorobanRpcUrl),
+          });
+        } else if (
+          network === 'testnet' &&
+          rawSorobanRpcUrl.toLowerCase().includes('soroban.stellar.org') &&
+          !rawSorobanRpcUrl.toLowerCase().includes('testnet')
+        ) {
+          issues.push({
+            severity: 'warning',
+            field: 'sorobanRpcUrl',
+            code: 'NETWORK_MISMATCH',
+            message: `Soroban RPC URL "${rawSorobanRpcUrl}" points to Stellar public mainnet endpoint but network is configured as testnet.`,
+            value: sanitizeValue(rawSorobanRpcUrl),
+          });
+        }
+      }
+    } catch {
+      issues.push({
+        severity: 'error',
+        field: 'sorobanRpcUrl',
+        code: 'INVALID_SOROBAN_RPC_URL',
+        message: `Invalid Soroban RPC URL: "${rawSorobanRpcUrl}". Must be a valid HTTP(S) URL.`,
+        value: sanitizeValue(rawSorobanRpcUrl),
+      });
+    }
+  }
+
+  // 4. Timeout Validation & Warnings
+  const rawTimeout: unknown =
+    overrides?.timeout ??
+    (process.env.STELLAR_TIMEOUT
+      ? parseInt(process.env.STELLAR_TIMEOUT, 10)
+      : DEFAULT_TIMEOUT_MS);
+
+  if (typeof rawTimeout !== 'number' || Number.isNaN(rawTimeout)) {
+    issues.push({
+      severity: 'error',
+      field: 'timeout',
+      code: 'INVALID_TIMEOUT',
+      message: `Invalid timeout: "${rawTimeout}". Timeout must be a number (milliseconds).`,
+      value: sanitizeValue(rawTimeout),
+    });
+  } else if (rawTimeout <= 0) {
+    issues.push({
+      severity: 'error',
+      field: 'timeout',
+      code: 'INVALID_TIMEOUT',
+      message: `Invalid timeout: ${rawTimeout}. Timeout must be greater than 0.`,
+      value: rawTimeout,
+    });
+  } else if (!Number.isFinite(rawTimeout)) {
+    issues.push({
+      severity: 'error',
+      field: 'timeout',
+      code: 'INVALID_TIMEOUT',
+      message: `Invalid timeout: ${rawTimeout}. Timeout must be a finite number.`,
+      value: sanitizeValue(rawTimeout),
+    });
+  } else {
+    if (rawTimeout < 1000) {
+      issues.push({
+        severity: 'warning',
+        field: 'timeout',
+        code: 'EXTREME_TIMEOUT',
+        message: `Timeout of ${rawTimeout}ms is unusually low (< 1000ms) and may lead to frequent timeouts.`,
+        value: rawTimeout,
+      });
+    } else if (rawTimeout > 120000) {
+      issues.push({
+        severity: 'warning',
+        field: 'timeout',
+        code: 'EXTREME_TIMEOUT',
+        message: `Timeout of ${rawTimeout}ms is unusually high (> 120000ms).`,
+        value: rawTimeout,
+      });
+    }
+  }
+
+  // 5. Contract ID Validation
+  const rawContractId: unknown =
+    overrides?.contractId !== undefined
+      ? overrides.contractId
+      : process.env.STELLAR_CONTRACT_ID;
+
+  if (
+    rawContractId !== undefined &&
+    rawContractId !== null &&
+    rawContractId !== ''
+  ) {
+    if (typeof rawContractId !== 'string') {
+      issues.push({
+        severity: 'error',
+        field: 'contractId',
+        code: 'INVALID_CONTRACT_ID',
+        message: `Invalid contract ID: "${rawContractId}". Contract ID must be a non-empty string.`,
+        value: sanitizeValue(rawContractId),
+      });
+    } else if (
+      !rawContractId.startsWith('C') ||
+      rawContractId.length !== 56 ||
+      !/^C[A-Z2-7]{55}$/.test(rawContractId)
+    ) {
+      issues.push({
+        severity: 'error',
+        field: 'contractId',
+        code: 'INVALID_CONTRACT_ID',
+        message: `Invalid contract ID: "${rawContractId}". Contract ID must be a 56-character base32 string starting with 'C'.`,
+        value: sanitizeValue(rawContractId),
+      });
+    }
+  }
+
+  const errors = issues.filter((i) => i.severity === 'error');
+  const warnings = issues.filter((i) => i.severity === 'warning');
+  const valid = errors.length === 0;
+
+  let resolvedConfig: SDKConfig | undefined = undefined;
+  if (valid) {
+    resolvedConfig = {
+      network,
+      horizonUrl: rawHorizonUrl as string,
+      sorobanRpcUrl: rawSorobanRpcUrl as string,
+      timeout: rawTimeout as number,
+      contractId: (rawContractId as string) || undefined,
+    };
+  }
+
+  return {
+    valid,
+    issues,
+    errors,
+    warnings,
+    config: resolvedConfig,
+  };
 }
 /**
  * Factory used to construct Horizon server instances. Defaults to a real

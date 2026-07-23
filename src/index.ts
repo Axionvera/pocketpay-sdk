@@ -13,6 +13,9 @@ dotenv.config();
 export type {
   StellarNetwork,
   SDKConfig,
+  ConfigIssueSeverity,
+  ConfigValidationIssue,
+  ConfigValidationResult,
   WalletKeypair,
   AssetBalance,
   AccountBalance,
@@ -151,6 +154,7 @@ export {
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,
+  validatePocketPayConfig,
   getHorizonServer,
   setHorizonServerFactory,
   resetHorizonServerFactory,
