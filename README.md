@@ -49,6 +49,7 @@ npm install @axionvera/pocketpay-sdk
 - [SDK Roadmap](./docs/roadmap.md) - Directional plans and contributor opportunities across the SDK
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
+- [Testnet Account Funding](./docs/testnet-funding.md) - Funding and activating Testnet accounts with Friendbot, confirming activation, and common unfunded-account errors
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [React Native Compatibility](./docs/react-native.md) - Integration guide for Expo and bare React Native: polyfills, Metro config, secure storage, and known limitations
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
