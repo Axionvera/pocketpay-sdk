@@ -213,6 +213,35 @@ main().catch(console.error);
    Fee Charged:      100 stroops
 ```
 
+### Validating input before sending
+
+If you are wiring `sendXLM` to a form and want to surface every field error at once instead of throwing on the first failure, use `validateSendXLMParams`. It runs the same input checks `sendXLM` runs internally (secret key format, destination key format, amount format + positivity + 7-decimal precision, memo byte length, and self-payment detection) and returns a structured result. It never submits a transaction and never touches the network.
+
+```typescript
+import { validateSendXLMParams, sendXLM } from '@axionvera/pocketpay-sdk';
+
+const params = {
+  sourceSecret: form.secret,
+  destination: form.destination,
+  amount: form.amount,
+  memo: form.memo,
+};
+
+const check = validateSendXLMParams(params);
+if (!check.ok) {
+  for (const err of check.errors) {
+    // err.code is a stable string like "INVALID_PUBLIC_KEY" or "SELF_PAYMENT".
+    // err.field is one of "sourceSecret" | "destination" | "amount" | "memo".
+    showFieldError(err.field, err.message);
+  }
+  return;
+}
+
+const result = await sendXLM(params);
+```
+
+Branch on `err.code`, not on `err.message`. Codes are part of the SDK's public contract; messages are not.
+
 ---
 
 ## Complete Example Script

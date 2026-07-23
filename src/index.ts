@@ -83,6 +83,14 @@ export {
   checkDestinationTrustline,
   safeCheckDestinationTrustline,
   verifyPaymentTrustlineOrThrow,
+  validateSendXLMParams,
+} from './payments';
+
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────

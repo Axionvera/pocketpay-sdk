@@ -225,6 +225,17 @@ export {
   verifyPaymentTrustlineOrThrow,
 } from './trustline';
 
+// ─── Send-XLM Input Validation (non-throwing) ───────────────────────────────
+export {
+  validateSendXLMParams,
+} from './validation';
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
+} from './validation';
+
 // ─── Issued Asset Payments ──────────────────────────────────────────────────
 
 /**

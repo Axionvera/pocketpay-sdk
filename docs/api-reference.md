@@ -90,3 +90,31 @@ const TransactionDetail = ({ transaction }) => {
     </div>
   );
 };
+```
+
+### validateSendXLMParams
+
+Non-throwing input validation for `sendXLM`. Runs the same preflight checks `sendXLM` performs internally (secret key format, destination key format, amount, memo, self-payment) and returns a structured result rather than throwing on the first failure. Pure: no Horizon calls, no signing, no transaction submission.
+
+```ts
+function validateSendXLMParams(params: SendXLMParams): SendXLMValidationResult;
+
+type SendXLMValidationResult =
+  | { ok: true }
+  | { ok: false; errors: ValidationError[] };
+
+interface ValidationError {
+  code:
+    | 'INVALID_SECRET_KEY'
+    | 'INVALID_PUBLIC_KEY'
+    | 'INVALID_AMOUNT'
+    | 'INVALID_AMOUNT_PRECISION'
+    | 'INVALID_MEMO'
+    | 'SELF_PAYMENT';
+  field: 'sourceSecret' | 'destination' | 'amount' | 'memo';
+  reason: string;
+  message: string;
+}
+```
+
+Consumers should branch on `err.code`; codes are part of the public contract, messages are not. See `docs/getting-started.md` for a form-integration example.
