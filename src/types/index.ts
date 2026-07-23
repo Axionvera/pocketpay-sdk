@@ -1,4 +1,6 @@
+import { TransactionSummary, TransactionDirection, TransactionStatus } from './transaction';
 export * from './transaction';
+export * from './balance';
 
 /**
  * Stellar PocketPay SDK — Type Definitions
@@ -191,29 +193,6 @@ export interface PaymentResult {
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 
-/** A single transaction summary — the SDK's stable typed model for one transaction. */
-export interface TransactionSummary {
-  /** Transaction hash */
-  hash: string;
-  /** Ledger number */
-  ledger: number;
-  /** ISO 8601 timestamp */
-  createdAt: string;
-  /** Source account public key */
-  sourceAccount: string;
-  /** Fee paid in stroops */
-  fee: string;
-  /** Number of operations in the transaction */
-  operationCount: number;
-  /** Whether the transaction was successful */
-  successful: boolean;
-  /** Optional memo */
-  memo?: string;
-  /** Memo type */
-  memoType: string;
-  /** Horizon paging token (cursor) for this record */
-  pagingToken: string;
-}
 /**
  * @deprecated Use {@link TransactionSummary}. Retained as an alias for
  * backward compatibility with existing consumers.
@@ -269,15 +248,7 @@ export interface PaymentList {
 // ─── Transaction Filtering ───────────────────────────────────────────────────
 
 /**
- * The relative direction of a transaction or payment with respect to a
- * reference Stellar account.
- *
- * - `"incoming"` — value or activity flowed *to* the reference account.
- * - `"outgoing"` — value or activity originated *from* the reference account.
- * - `"self"`     — the reference account is both sender and receiver (e.g. a
- *   payment where `from === to`).
- */
-export type TransactionDirection = 'incoming' | 'outgoing' | 'self';
+
 
 /**
  * Structural shape shared by {@link TransactionSummary} and

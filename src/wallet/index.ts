@@ -370,3 +370,14 @@ export async function safeEnhancedGetBalance(
   });
 }
 
+// ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+export {
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
+} from './multi-asset';
+
+
