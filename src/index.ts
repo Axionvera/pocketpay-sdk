@@ -77,6 +77,9 @@ export type { ResultWarning, RecoveryHint } from './errors';
 export {
   createWallet,
   importWallet,
+  safeImportWallet,
+  enhancedImportWallet,
+  safeEnhancedImportWallet,
   getPublicKey,
   getBalance,
   getBalanceOrUnfunded,

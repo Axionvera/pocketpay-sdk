@@ -118,3 +118,22 @@ interface ValidationError {
 ```
 
 Consumers should branch on `err.code`; codes are part of the public contract, messages are not. See `docs/getting-started.md` for a form-integration example.
+
+## Wallet Import API
+
+### `importWallet(secretKey)`
+Imports an existing wallet from a Stellar secret key (S...).
+- **Throws**: `PocketPayError` (`INVALID_SECRET_KEY`) with typed validation reason (`not_a_string`, `missing`, `invalid_prefix`, `invalid_length`, `invalid_format`).
+
+### `safeImportWallet(secretKey)`
+Safely attempts to import a wallet without throwing.
+- **Returns**: `PocketPayResult<WalletKeypair>` (`{ ok: true, value }` or `{ ok: false, error }`).
+
+### `enhancedImportWallet(secretKey)`
+Imports a wallet and returns an enhanced result with warnings and recovery hints.
+- **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
+
+### `safeEnhancedImportWallet(secretKey)`
+Non-throwing wrapper for `enhancedImportWallet`.
+- **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
+

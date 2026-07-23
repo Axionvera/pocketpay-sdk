@@ -88,6 +88,43 @@ Do not send a secret key to customer support or ask a user to paste one into a
 support ticket. Diagnose wallet-import problems with public keys, sanitized
 error codes, and non-sensitive device or transaction metadata.
 
+## Validation & Safe Error Handling
+
+When importing secret keys, the SDK performs strict local validation prior to any key derivation or SDK operations:
+
+- **Type Check**: Non-string values throw `PocketPayError` with validation reason `not_a_string`.
+- **Presence Check**: Empty or whitespace-only strings throw `PocketPayError` with validation reason `missing`.
+- **Prefix Check**: Keys must start with `'S'`. Non-matching values throw `PocketPayError` with validation reason `invalid_prefix`.
+- **Length Check**: Keys must be exactly 56 characters. Incorrect lengths throw `PocketPayError` with validation reason `invalid_length`.
+- **Format Check**: Keys with invalid strkey payloads or checksums throw `PocketPayError` with validation reason `invalid_format`.
+
+### Redaction Guarantee
+Secret key inputs are **never** attached to `error.validation.value` or raw error messages. Sanitized error messages give clear guidance without echoing key material.
+
+### Safe & Enhanced Import Helpers
+
+In addition to `importWallet(secretKey)`, the SDK provides non-throwing and enriched wrappers:
+
+```typescript
+import { safeImportWallet, enhancedImportWallet } from '@axionvera/pocketpay-sdk';
+
+// 1. Non-throwing result wrapper
+const result = safeImportWallet(userInputKey);
+if (result.ok) {
+  console.log('Wallet imported:', result.value.publicKey);
+} else {
+  console.error('Import failed [code]:', result.error.code);
+}
+
+// 2. Enhanced wrapper with recovery hints
+const enhanced = enhancedImportWallet(userInputKey);
+if (!enhanced.ok) {
+  enhanced.recoveryHints?.forEach(hint => {
+    console.log('Recovery action:', hint.action, hint.message);
+  });
+}
+```
+
 ## Integration Checklist
 
 - Secret keys never appear in logs, errors, analytics, or crash reports.
