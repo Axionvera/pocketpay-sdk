@@ -69,6 +69,7 @@ npm install @axionvera/pocketpay-sdk
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
 - [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
+- [Dependency Review Standards](./docs/dependency-review.md) - Guidelines for evaluating, adding, and updating SDK dependencies
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
 
 ## Package Root Imports
