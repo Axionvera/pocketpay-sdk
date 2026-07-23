@@ -63,6 +63,7 @@ npm install @axionvera/pocketpay-sdk
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Trustline Validation](./docs/trustline-validation.md) - Pre-flight trustline verification and issued asset payment safety
 - [Issued Asset Payments](./docs/issued-asset-payments.md) - Full guide to sending issued assets: asset identifiers, trustline setup, `sendAsset`, validation rules, and error reference
+- [Multi-Asset Balance Model](./docs/multi-asset-balance-model.md) - Rich balance model for native XLM and issued credit assets with reserves and status taxonomy
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
 - [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
