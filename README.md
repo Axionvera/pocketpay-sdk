@@ -63,6 +63,7 @@ npm install @axionvera/pocketpay-sdk
 - [Trustline Validation](./docs/trustline-validation.md) - Pre-flight trustline verification and issued asset payment safety
 - [Issued Asset Payments](./docs/issued-asset-payments.md) - Full guide to sending issued assets: asset identifiers, trustline setup, `sendAsset`, validation rules, and error reference
 - [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [Package Provenance](./docs/package-provenance.md) - Publishing integrity, trusted publishing options, and consumer verification guidance
 - [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
