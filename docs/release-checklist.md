@@ -1,6 +1,6 @@
 # Release Checklist
 
-Follow these steps before publishing or tagging a new version of the SDK.
+Follow these steps before publishing or tagging a new version of the SDK. Follow the [package provenance guide](./package-provenance.md) when changing publishing credentials, package metadata, or release automation.
 
 ## 1. Run the verification script
 
