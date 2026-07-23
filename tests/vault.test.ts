@@ -133,7 +133,7 @@ describe('Soroban Vault Methods Boundary Tests', () => {
 
     it('returns expected output shape on success', async () => {
       const result = await depositToVault({ sourceSecret: mockSecret, amount: '10' });
-      expect(result).toEqual({ success: true, hash: 'mock-hash' });
+      expect(result).toMatchObject({ success: true, hash: 'mock-hash', operation: 'deposit' });
     });
 
     it('maps simulation errors to PocketPayError / VaultResult', async () => {
@@ -141,7 +141,7 @@ describe('Soroban Vault Methods Boundary Tests', () => {
       mockServer.simulateTransaction.mockResolvedValue({ error: 'sim-fail' });
       
       const result = await depositToVault({ sourceSecret: mockSecret, amount: '10' });
-      expect(result).toEqual({ success: false, error: 'Simulation failed: sim-fail' });
+      expect(result).toMatchObject({ success: false, error: 'Simulation failed: sim-fail', status: 'simulation_error' });
     });
 
     it('wraps unhandled RPC errors in PocketPayError', async () => {
@@ -166,13 +166,13 @@ describe('Soroban Vault Methods Boundary Tests', () => {
 
     it('returns expected output shape on success', async () => {
       const result = await withdrawFromVault({ sourceSecret: mockSecret, amount: '5' });
-      expect(result).toEqual({ success: true, hash: 'mock-hash' });
+      expect(result).toMatchObject({ success: true, hash: 'mock-hash', operation: 'withdraw' });
     });
 
     it('maps RPC send errors correctly', async () => {
       mockServer.sendTransaction.mockResolvedValue({ status: 'ERROR', errorResult: 'tx_failed' });
       const result = await withdrawFromVault({ sourceSecret: mockSecret, amount: '5' });
-      expect(result).toEqual({ success: false, error: 'Send error: tx_failed' });
+      expect(result).toMatchObject({ success: false, error: 'Send error: tx_failed', status: 'failed' });
     });
   });
 
@@ -190,7 +190,7 @@ describe('Soroban Vault Methods Boundary Tests', () => {
     it('returns parsed XLM balance on success', async () => {
       (StellarSDK as any).scValToNative.mockReturnValue(150000000n);
       const result = await getVaultBalance({ publicKey: mockPublicKey, contractId });
-      expect(result).toEqual({ success: true, balance: '15.0000000' });
+      expect(result).toMatchObject({ success: true, balance: '15.0000000', operation: 'get_balance' });
     });
 
     it('validates missing public key', async () => {

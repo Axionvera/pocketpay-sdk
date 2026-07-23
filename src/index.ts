@@ -26,7 +26,6 @@ export type {
   TransactionSummary,
   TransactionRecord,
   TransactionList,
-  TransactionDirection,
   FilterableTransaction,
   FilterTransactionsOptions,
   SortableTransaction,
@@ -38,6 +37,11 @@ export type {
   VaultWithdrawParams,
   VaultBalanceParams,
   VaultResult,
+  VaultMappedResult,
+  VaultOperationType,
+  SorobanInvocationStatus,
+  SorobanInvocationResult,
+  SorobanInvocationMapperOptions,
   FundResult,
   SuccessResult,
   FailureResult,
@@ -49,13 +53,22 @@ export type {
   TrustlineStatus,
   TrustlineCheckResult,
   TrustlineCheckOptions,
+  // ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+  AssetBalanceState,
+  AccountBalanceState,
+  NativeAssetBalanceItem,
+  IssuedAssetBalanceItem,
+  UnknownAssetBalanceItem,
+  AssetBalanceItem,
+  MultiAssetBalance,
+  MultiAssetBalanceResult,
   // ─── Retry Policy ──────────────────────────────────────────────────────────
   SubmissionOutcome,
   RetryPolicy,
   RetryPolicyExhaustedResult,
 } from './types';
 
-export { PocketPayError } from './types';
+export { PocketPayError, TransactionDirection, TransactionStatus } from './types';
 
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
@@ -72,6 +85,13 @@ export {
   safeFundTestnetAccount,
   enhancedGetBalance,
   safeEnhancedGetBalance,
+  // Multi-Asset Balance
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
@@ -86,6 +106,14 @@ export {
   checkDestinationTrustline,
   safeCheckDestinationTrustline,
   verifyPaymentTrustlineOrThrow,
+  validateSendXLMParams,
+} from './payments';
+
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -109,7 +137,14 @@ export {
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
-export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
+export {
+  depositToVault,
+  withdrawFromVault,
+  getVaultBalance,
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './soroban';
 
 // ─── Network & Idempotency ──────────────────────────────────────────────────
 export {
