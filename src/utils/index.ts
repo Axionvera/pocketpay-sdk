@@ -480,5 +480,5 @@ export {
   getTransactionExplorerLink,
   getOperationExplorerLink,
 } from './explorer';
-
+export * from './assetHelpers';
 

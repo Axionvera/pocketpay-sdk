@@ -905,3 +905,4 @@ export interface RetryPolicyExhaustedResult {
   /** Number of attempts made. */
   attempts: number;
 }
+export * from './asset';
