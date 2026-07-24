@@ -53,6 +53,11 @@ export type {
   TrustlineStatus,
   TrustlineCheckResult,
   TrustlineCheckOptions,
+  // ─── Typed Asset Model ─────────────────────────────────────────────────────
+  Asset,
+  NativeAsset,
+  IssuedAsset,
+  AssetValidationResult,
   // ─── Multi-Asset Balance Model ──────────────────────────────────────────────
   AssetBalanceState,
   AccountBalanceState,
@@ -68,7 +73,17 @@ export type {
   RetryPolicyExhaustedResult,
 } from './types';
 
-export { PocketPayError, TransactionDirection, TransactionStatus } from './types';
+export {
+  PocketPayError,
+  TransactionDirection,
+  TransactionStatus,
+  // ─── Typed Asset Model Exports ─────────────────────────────────────────────
+  NATIVE_ASSET,
+  isNativeAsset,
+  isIssuedAsset,
+  validateAsset,
+  assertValidAsset,
+} from './types';
 
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
@@ -224,6 +239,9 @@ export {
   toEnhancedResult,
   // Asset helpers
   findAssetBalance,
+  formatAsset,
+  parseAssetString,
+  areAssetsEqual,
   // Security helpers
   redactSensitive,
 } from './utils';
