@@ -254,8 +254,9 @@ The enhanced pattern is currently applied to two pilot operations:
 |:---|:---|:---|:---|
 | `sendXLM` | `enhancedSendXLM` | `HIGH_FEE_RATIO` (fee > 10% of amount) | `fund_account`, `check_input`, `retry` |
 | `getBalance` | `enhancedGetBalance` | `ZERO_NATIVE_BALANCE`, `MANY_ASSETS` (> 20) | `fund_account`, `check_network`, `check_input` |
+| `importWallet` | `enhancedImportWallet` | None | `check_input` |
 
-Each pilot also has a non-throwing variant: `safeEnhancedSendXLM` and `safeEnhancedGetBalance`.
+Each pilot also has a non-throwing variant: `safeEnhancedSendXLM`, `safeEnhancedGetBalance`, and `safeEnhancedImportWallet`.
 
 ### Building Your Own Enhanced Results
 

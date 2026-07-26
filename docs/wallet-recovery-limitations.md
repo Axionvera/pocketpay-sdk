@@ -6,7 +6,27 @@ Understanding what happens when wallet secrets are lost, what the PocketPay SDK 
 
 **A Stellar secret key that is lost cannot be recovered.** There is no password reset, no customer support override, no central authority, and no backdoor. This is not a limitation of the PocketPay SDK — it is a fundamental property of Stellar and every other self-custody blockchain protocol.
 
-When `createWallet()` generates a keypair, the `secretKey` exists only in the value returned to your application. The SDK does not send it anywhere, store it anywhere, or keep a copy. If that value is lost, the wallet and all funds it holds become permanently inaccessible.
+When `createWallet()` generates a keypair, or `importWallet(secretKey)` derives a keypair, the `secretKey` exists only in memory within the object returned to your application. The SDK does not send it anywhere, store it anywhere, or keep a copy. If that value is lost, the wallet and all funds it holds become permanently inaccessible.
+
+### Local Wallet Generation & Import Boundary
+
+The SDK provides two local, stateless key management primitives:
+
+```typescript
+import { createWallet, importWallet } from "stellar-pocketpay-sdk";
+
+// 1. Local Generation
+const wallet = createWallet();
+// SDK returns: { publicKey: "G...", secretKey: "S..." }
+// At this exact moment, wallet.secretKey exists ONLY in your variable.
+
+// 2. Local Import
+const importedWallet = importWallet("S...");
+// SDK validates key format and derives keypair in memory.
+```
+
+**SDK Boundary:** The SDK returns the `WalletKeypair` object directly to the caller. From that line of code forward, saving the `secretKey` into OS secure storage or prompting the user for backup is entirely the consuming application's responsibility.
+
 
 ## What the SDK Does NOT Provide
 

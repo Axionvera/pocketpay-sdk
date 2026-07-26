@@ -209,3 +209,5 @@ await sendAsset({
 > **See also:** [Issued Asset Payments Guide](./issued-asset-payments.md) for
 > the full lifecycle including `ChangeTrust` setup, the complete payment flow,
 > error reference, and native XLM compatibility.
+>
+> *Resolves [Issue #167](https://github.com/Axionvera/pocketpay-sdk/issues/167).*

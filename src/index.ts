@@ -13,6 +13,9 @@ dotenv.config();
 export type {
   StellarNetwork,
   SDKConfig,
+  ConfigIssueSeverity,
+  ConfigValidationIssue,
+  ConfigValidationResult,
   WalletKeypair,
   AssetBalance,
   AccountBalance,
@@ -23,7 +26,6 @@ export type {
   TransactionSummary,
   TransactionRecord,
   TransactionList,
-  TransactionDirection,
   FilterableTransaction,
   FilterTransactionsOptions,
   SortableTransaction,
@@ -35,6 +37,11 @@ export type {
   VaultWithdrawParams,
   VaultBalanceParams,
   VaultResult,
+  VaultMappedResult,
+  VaultOperationType,
+  SorobanInvocationStatus,
+  SorobanInvocationResult,
+  SorobanInvocationMapperOptions,
   FundResult,
   SuccessResult,
   FailureResult,
@@ -46,13 +53,37 @@ export type {
   TrustlineStatus,
   TrustlineCheckResult,
   TrustlineCheckOptions,
+  // ─── Typed Asset Model ─────────────────────────────────────────────────────
+  Asset,
+  NativeAsset,
+  IssuedAsset,
+  AssetValidationResult,
+  // ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+  AssetBalanceState,
+  AccountBalanceState,
+  NativeAssetBalanceItem,
+  IssuedAssetBalanceItem,
+  UnknownAssetBalanceItem,
+  AssetBalanceItem,
+  MultiAssetBalance,
+  MultiAssetBalanceResult,
   // ─── Retry Policy ──────────────────────────────────────────────────────────
   SubmissionOutcome,
   RetryPolicy,
   RetryPolicyExhaustedResult,
 } from './types';
 
-export { PocketPayError } from './types';
+export {
+  PocketPayError,
+  TransactionDirection,
+  TransactionStatus,
+  // ─── Typed Asset Model Exports ─────────────────────────────────────────────
+  NATIVE_ASSET,
+  isNativeAsset,
+  isIssuedAsset,
+  validateAsset,
+  assertValidAsset,
+} from './types';
 
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
@@ -61,6 +92,9 @@ export type { ResultWarning, RecoveryHint } from './errors';
 export {
   createWallet,
   importWallet,
+  safeImportWallet,
+  enhancedImportWallet,
+  safeEnhancedImportWallet,
   getPublicKey,
   getBalance,
   getBalanceOrUnfunded,
@@ -69,6 +103,13 @@ export {
   safeFundTestnetAccount,
   enhancedGetBalance,
   safeEnhancedGetBalance,
+  // Multi-Asset Balance
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
@@ -83,6 +124,14 @@ export {
   checkDestinationTrustline,
   safeCheckDestinationTrustline,
   verifyPaymentTrustlineOrThrow,
+  validateSendXLMParams,
+} from './payments';
+
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -97,6 +146,12 @@ export {
   sortTransactionsByDate,
   safeGetTransactions,
   safeGetPayments,
+  // ─── Transaction Fixtures ──────────────────────────────────────────────────
+  successfulPaymentSummary,
+  failedPaymentSummary,
+  pendingTransactionSummary,
+  unknownTransactionSummary,
+  transactionSummaryFixtures,
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
@@ -113,6 +168,13 @@ export {
   type ParamTypes,
   type ScValType,
   type ErrorMapping,
+export {
+  depositToVault,
+  withdrawFromVault,
+  getVaultBalance,
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
 } from './soroban';
 
 // ─── Network & Idempotency ──────────────────────────────────────────────────
@@ -135,6 +197,7 @@ export {
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,
+  validatePocketPayConfig,
   getHorizonServer,
   setHorizonServerFactory,
   resetHorizonServerFactory,
@@ -189,6 +252,9 @@ export {
   toEnhancedResult,
   // Asset helpers
   findAssetBalance,
+  formatAsset,
+  parseAssetString,
+  areAssetsEqual,
   // Security helpers
   redactSensitive,
 } from './utils';

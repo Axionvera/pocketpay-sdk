@@ -61,3 +61,46 @@ config, such as `getBalance`, `getTransactions`, `getPayments`, `sendXLM`, and
 When a request times out, the SDK throws a `PocketPayError` with code
 `REQUEST_TIMEOUT` and a message that includes the operation and timeout duration.
 
+## Early Configuration Validation
+
+Applications can validate SDK configurations early before initiating network or transaction operations using `validatePocketPayConfig`.
+
+Unlike `resolveConfig`, `validatePocketPayConfig` does not throw exceptions. Instead, it returns a structured `ConfigValidationResult` containing:
+- `valid`: `boolean` (`true` when zero errors are found)
+- `errors`: List of fatal validation issues (e.g. invalid network, malformed URLs, invalid timeout, bad contract ID format)
+- `warnings`: Advisory non-fatal issues (e.g. HTTP/HTTPS protocol mismatches, mainnet/testnet endpoint mismatches, extreme timeout values)
+- `issues`: Complete list of all errors and warnings
+- `config`: Resolved `SDKConfig` (populated when `valid` is `true`)
+
+### Usage Example
+
+```ts
+import { validatePocketPayConfig } from 'stellar-pocketpay-sdk';
+
+const validationResult = validatePocketPayConfig({
+  network: 'testnet',
+  horizonUrl: 'https://horizon-testnet.stellar.org',
+  timeout: 30000,
+});
+
+if (!validationResult.valid) {
+  console.error('Configuration validation failed:');
+  for (const error of validationResult.errors) {
+    console.error(`- [${error.field}] ${error.code}: ${error.message}`);
+  }
+} else {
+  console.log('SDK Configuration is valid:', validationResult.config);
+  
+  if (validationResult.warnings.length > 0) {
+    for (const warning of validationResult.warnings) {
+      console.warn(`- [${warning.field}] Warning ${warning.code}: ${warning.message}`);
+    }
+  }
+}
+```
+
+### Security & Secret Redaction
+
+Validation issue outputs never expose sensitive keys (e.g. Stellar secret keys `S...`). Any sensitive value passed in malformed inputs is automatically redacted (masked as `S[REDACTED]`) before being returned in validation issues.
+
+

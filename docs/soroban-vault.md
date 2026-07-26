@@ -237,6 +237,68 @@ The SDK satisfies this by signing the prepared transaction with the
 
 ---
 
+## Result Mapping & Mobile Integration
+
+Raw contract responses from Soroban RPC nodes (such as simulation outputs, XDR payloads, or status flags) can be complex for application logic and mobile clients to handle directly. The SDK provides standard result mappers (`mapSorobanInvocationResult`, `mapVaultInvocationResult`, and `mapSorobanContractError`) that map raw contract outputs into stable, typed values.
+
+### Invocation Result Shapes
+
+```typescript
+import {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+  SorobanInvocationResult,
+  VaultMappedResult,
+} from 'stellar-pocketpay-sdk';
+
+// Generic Soroban Invocation Result
+interface SorobanInvocationResult<T = unknown> {
+  success: boolean;                           // High-level success flag
+  status: 'success' | 'failed' | 'simulation_error' | 'error' | 'pending';
+  result?: T;                                 // Parsed contract return value
+  error?: string;                             // Formatted error message
+  errorCode?: string | number;                // Classified error code
+  hash?: string;                              // Transaction hash if submitted
+  rawResponse?: unknown;                      // Raw RPC response object
+}
+
+// Vault-specific Mapped Result (returned by depositToVault, withdrawFromVault, getVaultBalance)
+interface VaultMappedResult {
+  success: boolean;
+  status: 'success' | 'failed' | 'simulation_error' | 'error' | 'pending';
+  operation: 'deposit' | 'withdraw' | 'get_balance';
+  hash?: string;
+  balance?: string;                          // Formatted XLM balance string (e.g. "15.0000000")
+  rawStroops?: string;                       // Raw sub-unit balance (e.g. "150000000")
+  amount?: string;                           // Amount requested (deposit/withdraw)
+  error?: string;
+  errorCode?: string | number;
+}
+```
+
+### Direct Usage Example
+
+```typescript
+import { mapSorobanInvocationResult, mapVaultInvocationResult } from 'stellar-pocketpay-sdk';
+
+// 1. Mapping a raw Soroban simulation response
+const simResponse = await sorobanServer.simulateTransaction(tx);
+const mappedSim = mapSorobanInvocationResult(simResponse);
+
+if (mappedSim.success) {
+  console.log('Parsed return value:', mappedSim.result);
+} else {
+  console.error('Simulation error:', mappedSim.error, 'Code:', mappedSim.errorCode);
+}
+
+// 2. Mapping vault invocation responses
+const mappedVault = mapVaultInvocationResult('get_balance', simResponse, { contractId });
+console.log('Balance XLM:', mappedVault.balance, 'Raw Stroops:', mappedVault.rawStroops);
+```
+
+---
+
 ## Current contract limitations
 
 These are real limitations of the contract as it exists today. Read them before

@@ -279,3 +279,31 @@ export async function safeGetPayments(
   );
 }
 
+
+export * from './mapper';
+export * from './fixtures';
+
+// ─── Offline Transaction Preparation ───────────────────────────────────────────
+export {
+  prepareTransactionOffline,
+  fetchNetworkState,
+  updateWithNetworkState,
+  buildUnsignedTransaction,
+  signTransaction,
+  signTransactionWithSigner,
+  submitSignedTransaction,
+  prepareAndSignTransaction,
+  prepareTransactionWithManualSequence,
+  safeFetchNetworkState,
+  safeSubmitSignedTransaction,
+  safePrepareAndSignTransaction,
+} from './offline-preparation';
+export type {
+  OfflinePaymentOperation,
+  OfflineTransactionParams,
+  NetworkState,
+  PreparedTransaction,
+  UnsignedTransaction,
+  SignedTransaction,
+  SubmissionResult,
+} from './offline-preparation';
