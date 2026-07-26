@@ -155,6 +155,19 @@ export {
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
+export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
+export {
+  ContractClient,
+  createContractClient,
+  VaultClient,
+  createVaultClient,
+  type ContractClientConfig,
+  type ContractInvokeResult,
+  type ReadOnlyCallOptions,
+  type InvokeCallOptions,
+  type ParamTypes,
+  type ScValType,
+  type ErrorMapping,
 export {
   depositToVault,
   withdrawFromVault,

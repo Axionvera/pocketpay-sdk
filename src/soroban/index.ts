@@ -29,6 +29,21 @@ export {
   mapSorobanContractError,
 };
 
+// ─── Contract Client Factory ─────────────────────────────────────────────────────
+export {
+  ContractClient,
+  createContractClient,
+  VaultClient,
+  createVaultClient,
+  type ContractClientConfig,
+  type ContractInvokeResult,
+  type ReadOnlyCallOptions,
+  type InvokeCallOptions,
+  type ParamTypes,
+  type ScValType,
+  type ErrorMapping,
+} from './client-factory';
+
 /**
  * Resolves the vault contract ID from params or environment.
  */
