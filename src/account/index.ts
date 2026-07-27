@@ -39,3 +39,14 @@ export {
   createLocalAccount,
   createAccountWithSigner,
 } from './account';
+
+// ─── Sequence handling ───────────────────────────────────────────────────────
+export {
+  SequenceProvider,
+  defaultSequenceProvider,
+  validateSequenceValue,
+  isSequenceStale,
+  DEFAULT_SEQUENCE_MAX_AGE_MS,
+} from './sequence';
+
+export type { SequenceSnapshot, SequenceProviderOptions } from './sequence';

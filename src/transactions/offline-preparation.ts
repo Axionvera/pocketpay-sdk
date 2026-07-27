@@ -48,6 +48,8 @@ import {
 } from '../types';
 import { validatePublicKey, validateSecretKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult } from '../utils';
 import { withTimeout } from '../network';
+import { ErrorCode, ERROR_CODES } from '../errors/codes';
+import { validateSequenceValue, isSequenceStale } from '../account/sequence';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────────
 
@@ -91,6 +93,15 @@ export interface OfflineTransactionParams {
 export interface NetworkState {
   /** Source account sequence number (REQUIRED for valid transaction) */
   sequence: string;
+  /**
+   * Epoch milliseconds at which `sequence` was read from Horizon.
+   *
+   * Preparation deliberately splits fetching state from building, so a snapshot
+   * can sit unused while other transactions consume the account's sequence.
+   * Without this marker there was no way to tell a fresh snapshot from one that
+   * had already been superseded. Absent when the sequence was supplied manually.
+   */
+  fetchedAt?: number;
   /** Current base fee from network (optional - can use default) */
   currentFee?: string;
   /** Account balance information (optional - for validation) */
@@ -318,6 +329,7 @@ export async function fetchNetworkState(
 
     return {
       sequence: account.sequence,
+      fetchedAt: Date.now(),
       currentFee: String(StellarSDK.BASE_FEE), // Could fetch actual fee from network
       balance: {
         native: account.balances?.find((b: any) => b.asset_type === 'native')?.balance || '0',
@@ -352,12 +364,18 @@ export function updateWithNetworkState(
   if (!networkState.sequence) {
     throw new PocketPayError(
       'Network state must include sequence number',
-      'MISSING_SEQUENCE',
+      ErrorCode.TX_BAD_SEQUENCE,
       {
+        category: ERROR_CODES[ErrorCode.TX_BAD_SEQUENCE].category,
+        safeMessage: ERROR_CODES[ErrorCode.TX_BAD_SEQUENCE].safeMessage,
         validation: { field: 'sequence', reason: 'required' },
       },
     );
   }
+
+  // A manually supplied sequence used to reach the builder unchecked; a
+  // malformed value only surfaced at submission time as an opaque failure.
+  validateSequenceValue(networkState.sequence);
 
   return {
     ...prepared,
@@ -369,15 +387,49 @@ export function updateWithNetworkState(
 // ─── Transaction Building Functions ─────────────────────────────────────────────
 
 /**
+ * Reports whether a prepared transaction's sequence snapshot has aged out.
+ *
+ * Returns `false` when the sequence was supplied manually, since there is no
+ * read time to compare against — the caller owns freshness in that case.
+ *
+ * @param prepared - A prepared transaction
+ * @param maxAgeMs - Maximum acceptable age of the snapshot
+ */
+export function isPreparedSequenceStale(
+  prepared: PreparedTransaction,
+  maxAgeMs?: number,
+): boolean {
+  const fetchedAt = prepared.networkState?.fetchedAt;
+  if (fetchedAt === undefined) return false;
+  return isSequenceStale({ fetchedAt }, maxAgeMs);
+}
+
+/** Options accepted by {@link buildUnsignedTransaction}. */
+export interface BuildUnsignedOptions {
+  /**
+   * Reject the build when the sequence snapshot is older than `maxSequenceAgeMs`.
+   *
+   * Off by default so existing callers are unaffected. Turn it on when several
+   * intents may share one account and a superseded snapshot would otherwise
+   * produce a `tx_bad_seq` only at submission time.
+   */
+  enforceSequenceFreshness?: boolean;
+  /** Age threshold used when `enforceSequenceFreshness` is set. */
+  maxSequenceAgeMs?: number;
+}
+
+/**
  * Builds an unsigned transaction from a prepared transaction.
  *
  * This function requires the prepared transaction to have network state (sequence number).
  *
  * @param prepared - Prepared transaction with network state
+ * @param options - Optional sequence-freshness enforcement
  * @returns Unsigned transaction ready for signing
  */
 export function buildUnsignedTransaction(
   prepared: PreparedTransaction,
+  options: BuildUnsignedOptions = {},
 ): UnsignedTransaction {
   if (!prepared.readyToBuild) {
     throw new PocketPayError(
@@ -385,6 +437,21 @@ export function buildUnsignedTransaction(
       'TRANSACTION_NOT_READY',
       {
         validation: { field: 'networkState.sequence', reason: 'required' },
+      },
+    );
+  }
+
+  if (
+    options.enforceSequenceFreshness &&
+    isPreparedSequenceStale(prepared, options.maxSequenceAgeMs)
+  ) {
+    throw new PocketPayError(
+      'The prepared sequence snapshot is stale; refresh network state before building.',
+      ErrorCode.TX_BAD_SEQUENCE,
+      {
+        category: ERROR_CODES[ErrorCode.TX_BAD_SEQUENCE].category,
+        safeMessage: ERROR_CODES[ErrorCode.TX_BAD_SEQUENCE].safeMessage,
+        validation: { field: 'networkState.sequence', reason: 'stale' },
       },
     );
   }

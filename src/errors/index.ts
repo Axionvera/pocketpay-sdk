@@ -71,6 +71,29 @@ export function classifySubmitError(error: unknown, txHash?: string): PocketPayE
 
   if (resultCodes?.transaction) {
     const txCode = resultCodes.transaction;
+
+    // tx_bad_seq is the one transaction result code with a distinct recovery
+    // path: the envelope is permanently invalid, but rebuilding it against a
+    // fresh sequence succeeds. Collapsing it into TX_FAILED with everything
+    // else left callers parsing `message` to tell them apart. Every other
+    // result code keeps its existing classification.
+    if (txCode === 'tx_bad_seq') {
+      return new PocketPayError(
+        `Payment failed with transaction result code: ${txCode}`,
+        ErrorCode.TX_BAD_SEQUENCE,
+        {
+          statusCode: 400,
+          cause: err instanceof Error ? err : undefined,
+          category: ErrorCategory.Transaction,
+          safeMessage: ERROR_CODES[ErrorCode.TX_BAD_SEQUENCE].safeMessage,
+        },
+        txHash,
+        // Not retryable: resubmitting the same signed envelope can never
+        // succeed. Callers must rebuild — see requiresRebuild().
+        false,
+      );
+    }
+
     return new PocketPayError(
       `Payment failed with transaction result code: ${txCode}`,
       ErrorCode.TX_FAILED,
@@ -161,6 +184,34 @@ export function isRetryableError(error: unknown): boolean {
 export function isUnknownStatusError(error: unknown): boolean {
   if (error instanceof PocketPayError) {
     return error.code === 'TX_STATUS_UNKNOWN';
+  }
+  return false;
+}
+
+/**
+ * Returns `true` when the failure can only be recovered by **rebuilding** the
+ * transaction against fresh account state — not by resubmitting the envelope.
+ *
+ * This is deliberately distinct from {@link isRetryableError} and
+ * {@link isSafeToRetry}, which both mean "the same signed envelope may be sent
+ * again". A `TX_BAD_SEQUENCE` failure is never safe to resubmit: the sequence
+ * baked into the envelope is spent. Refresh the sequence, rebuild, re-sign.
+ *
+ * @param error - The error to check
+ * @returns `true` for errors whose recovery is a rebuild
+ *
+ * @example
+ * ```ts
+ * const classified = classifySubmitError(rawError, txHash);
+ * if (requiresRebuild(classified)) {
+ *   sequences.invalidate(sourcePublicKey);
+ *   await sendXLM(params); // rebuilt against a fresh sequence
+ * }
+ * ```
+ */
+export function requiresRebuild(error: unknown): boolean {
+  if (error instanceof PocketPayError) {
+    return error.code === ErrorCode.TX_BAD_SEQUENCE;
   }
   return false;
 }
