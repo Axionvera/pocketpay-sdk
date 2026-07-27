@@ -215,6 +215,37 @@ export {
   assertCapability,
 } from './errors';
 
+// ─── Diagnostics (opt-in, redacted) ─────────────────────────────────────────
+export type {
+  DiagnosticsDomain,
+  DiagnosticsHooks,
+  EnableDiagnosticsOptions,
+  SafeConfigSnapshot,
+  SafeNetworkSnapshot,
+  CapabilityDiagnosticsEntry,
+  WalletCapabilitySnapshot,
+  VaultReadinessSnapshot,
+  DiagnosticsReport,
+  DiagnosticsEvent,
+  DiagnosticsSensitiveKey,
+} from './diagnostics';
+
+export {
+  DIAGNOSTICS_SENSITIVE_KEYS,
+  DIAGNOSTICS_REDACTED_PLACEHOLDER,
+  redactDiagnosticsValue,
+  redactDiagnosticsString,
+  isDiagnosticsSensitiveKey,
+  enableDiagnostics,
+  disableDiagnostics,
+  setDiagnosticsHooks,
+  resetDiagnosticsHooks,
+  isDiagnosticsEnabled,
+  getDiagnosticsHooks,
+  emitDiagnosticsEvent,
+  buildDiagnosticsReport,
+} from './diagnostics';
+
 export type {
   FeatureContext,
   UnsupportedFeatureOptions,

@@ -164,6 +164,7 @@ console.debug(message, redactSensitive(context));
 
 ## See also
 
+- [SDK Diagnostics](./diagnostics.md) — Opt-in lifecycle hooks and support-safe reports with strict redaction.
 - [Logging Guidance](./logging.md) - Base safe-logging practices and the safe-identifier table.
 - [Error Handling](./error-handling.md) - Logging `PocketPayError` without leaking context.
 - [Security Best Practices](./security.md) - Key management and transaction safety.

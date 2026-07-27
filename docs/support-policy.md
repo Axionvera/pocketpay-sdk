@@ -116,6 +116,19 @@ non-Node runtimes are tracked as future work.
 
 CI runs on **Node 22** via GitHub Actions. See `.github/workflows/ci.yml`.
 
+## Safe support diagnostics
+
+When filing or answering support requests about SDK behaviour, use the opt-in
+diagnostics APIs documented in [diagnostics.md](./diagnostics.md):
+
+- `buildDiagnosticsReport()` — shareable JSON snapshot (config, network,
+  capabilities, vault readiness) with secrets redacted.
+- `enableDiagnostics({ hooks })` — lifecycle events that never include secret
+  keys, mnemonics, or signed XDR.
+
+Do **not** ask users for secret keys, seed phrases, or signed transaction
+envelopes.
+
 ## Maintenance status
 
 | Aspect | Status |

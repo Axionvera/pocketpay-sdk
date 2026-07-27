@@ -77,6 +77,16 @@ Horizon server factory (`setHorizonServerFactory`, `resetHorizonServerFactory`)
 lets tests swap the network layer. Every module that touches the network reads
 its endpoints from here rather than hardcoding them.
 
+### diagnostics
+
+Opt-in observability for support and local debugging. The module owns the
+redacted report model (`buildDiagnosticsReport`), lifecycle hook registry
+(`enableDiagnostics` / `emitDiagnosticsEvent`), and deny-list redaction
+(`redactDiagnosticsValue`). Feature modules may emit events; diagnostics must
+not import wallet/payments/soroban implementation details beyond types already
+available through config and the capability registry. Hooks are off by default.
+See [diagnostics.md](./diagnostics.md).
+
 ### utils
 
 Cross-cutting helpers used by every feature module. Two groups live here. First,

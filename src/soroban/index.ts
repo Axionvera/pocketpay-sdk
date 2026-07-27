@@ -24,6 +24,7 @@ import {
   mapVaultInvocationResult,
   mapSorobanContractError,
 } from './mapper';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 
 export {
   mapSorobanInvocationResult,
@@ -79,6 +80,11 @@ function resolveContractId(
     process.env.STELLAR_CONTRACT_ID;
 
   if (!id) {
+    emitDiagnosticsEvent('vault', 'vault.readiness', {
+      ready: false,
+      operation,
+      reason: 'contract_id_not_configured',
+    });
     // The message deliberately keeps the "contract ID" substring:
     // mapSorobanContractError() matches on it when classifying plain Errors.
     throw new CapabilityMismatchError({
@@ -91,6 +97,12 @@ function resolveContractId(
         'or set the VAULT_CONTRACT_ID env var.',
     });
   }
+
+  emitDiagnosticsEvent('vault', 'vault.readiness', {
+    ready: true,
+    operation,
+    contractIdConfigured: true,
+  });
   return id;
 }
 
