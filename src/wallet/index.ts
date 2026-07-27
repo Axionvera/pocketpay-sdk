@@ -10,7 +10,17 @@ import {
   WalletKeypair, AccountBalance, AssetBalance,
   BalanceResult, FundResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult,
 } from '../types';
-import { validatePublicKey, validateSecretKey, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import {
+  validatePublicKey,
+  validateSecretKey,
+  wrapError,
+  toSuccessResult,
+  toFailureResult,
+  toResult,
+  toEnhancedSuccessResult,
+  toEnhancedFailureResult,
+  toEnhancedResult,
+} from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
 import { NetworkClient, withTimeout } from '../network';
 

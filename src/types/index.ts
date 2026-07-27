@@ -27,6 +27,27 @@ export interface SDKConfig {
   contractId?: string;
 }
 
+/** Severity assigned to a configuration validation issue. */
+export type ConfigIssueSeverity = 'error' | 'warning';
+
+/** A structured error or warning produced while validating SDK configuration. */
+export interface ConfigValidationIssue {
+  severity: ConfigIssueSeverity;
+  field: keyof SDKConfig;
+  code: string;
+  message: string;
+  value?: unknown;
+}
+
+/** Complete, non-throwing result returned by configuration validation. */
+export interface ConfigValidationResult {
+  valid: boolean;
+  issues: ConfigValidationIssue[];
+  errors: ConfigValidationIssue[];
+  warnings: ConfigValidationIssue[];
+  config?: SDKConfig;
+}
+
 // ─── Wallet ─────────────────────────────────────────────────────────────────
 
 /** A newly created or imported Stellar keypair */
