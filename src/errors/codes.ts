@@ -63,6 +63,7 @@ export const ErrorCode = {
   // ─── Network ──────────────────────────────────────────────────────────────
   NET_RATE_LIMITED: 'NET_RATE_LIMITED',
   NET_TIMEOUT: 'NET_TIMEOUT',
+  REQUEST_TIMEOUT: 'REQUEST_TIMEOUT',
   NET_UNREACHABLE: 'NET_UNREACHABLE',
   NET_HTTP: 'NET_HTTP',
   NET_IDEMPOTENCY_CONFLICT: 'NET_IDEMPOTENCY_CONFLICT',
@@ -260,6 +261,16 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     httpStatus: 504,
     safeMessage: 'The request timed out. Please try again.',
     developerHint: 'Transient; retry with idempotency key.',
+  },
+  [ErrorCode.REQUEST_TIMEOUT]: {
+    category: ErrorCategory.Network,
+    retryable: true,
+    httpStatus: 504,
+    safeMessage: 'The request timed out. Please try again.',
+    developerHint:
+      'An SDK-side timeout elapsed before the network answered. Check error.timeout.stage: ' +
+      'preparation timeouts are safe to retry; submission and confirmation report ' +
+      'TX_STATUS_UNKNOWN instead and must be polled, never blindly resubmitted.',
   },
   [ErrorCode.NET_UNREACHABLE]: {
     category: ErrorCategory.Network,
