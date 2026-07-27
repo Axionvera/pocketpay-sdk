@@ -27,6 +27,10 @@ vi.mock('@stellar/stellar-sdk', () => ({
       fromSecret: vi.fn(),
     },
   },
+  Networks: {
+    TESTNET: 'Test SDF Network ; September 2015',
+    PUBLIC: 'Public Global Stellar Network ; September 2015',
+  }
 }));
 
 describe('Destination Validation - Local Validation', () => {

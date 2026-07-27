@@ -164,6 +164,41 @@ export interface SendAssetParams {
   skipTrustlineCheck?: boolean;
 }
 
+/** Parameters for previewing a payment without signing or submitting */
+export interface PaymentPreviewParams {
+  /** Public key of the source account (G...) */
+  sourceAccount: string;
+  /** Public key of the destination account (G...) */
+  destination: string;
+  /** Amount to send (as string for precision, e.g. "10.5") */
+  amount: string;
+  /**
+   * Asset to send. Pass `{ code: 'XLM' }` for native XLM.
+   * For issued assets supply both `code` and `issuer`.
+   */
+  asset?: StellarAssetSpec;
+  /** Optional memo text (max 28 bytes) */
+  memo?: string;
+}
+
+/** Typed preview of a payment */
+export interface PaymentPreview {
+  /** Source account public key */
+  sourceAccount: string;
+  /** Destination account public key */
+  destination: string;
+  /** Amount to be sent */
+  amount: string;
+  /** Asset to be sent */
+  asset: StellarAssetSpec;
+  /** Memo text if provided */
+  memo?: string;
+  /** Network the payment will be on */
+  network: string;
+  /** Estimated base fee in stroops */
+  estimatedFee: string;
+}
+
 /** Result of a successful payment */
 export interface PaymentResult {
   /** Whether the transaction was successful */
