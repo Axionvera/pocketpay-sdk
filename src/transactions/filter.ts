@@ -29,16 +29,16 @@ function resolveDirection(
   if (isPayment) {
     const from = record.from;
     const to = record.to;
-    if (from !== undefined && to !== undefined && from === to) return 'self';
-    if (from === account) return 'outgoing';
-    if (to === account) return 'incoming';
+    if (from !== undefined && to !== undefined && from === to) return TransactionDirection.SELF;
+    if (from === account) return TransactionDirection.OUTGOING;
+    if (to === account) return TransactionDirection.INCOMING;
     return null;
   }
 
   // Transaction record: the source account is the originating party.
   if (record.sourceAccount === undefined) return null;
-  if (record.sourceAccount === account) return 'outgoing';
-  return 'incoming';
+  if (record.sourceAccount === account) return TransactionDirection.OUTGOING;
+  return TransactionDirection.INCOMING;
 }
 
 /**

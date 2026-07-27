@@ -52,9 +52,11 @@ Every vault helper needs to know which deployed contract to call. The ID is
 resolved by `resolveContractId()` with this precedence:
 
 1. The `contractId` passed in the params object, **if present**.
-2. Otherwise, the `VAULT_CONTRACT_ID` environment variable.
-3. If neither is set, the call throws a `PocketPayError` with code
-   `MISSING_CONTRACT_ID`.
+2. Otherwise, `SDKConfig.contractId` from the config argument.
+3. Otherwise, the `VAULT_CONTRACT_ID` environment variable.
+4. Otherwise, the `STELLAR_CONTRACT_ID` environment variable.
+5. If none is set, the call throws a `CapabilityMismatchError` (a subclass of
+   `PocketPayError`) with code `VAULT_CONTRACT_NOT_CONFIGURED`.
 
 ```typescript
 // Option A — pass it explicitly
@@ -237,6 +239,68 @@ The SDK satisfies this by signing the prepared transaction with the
 
 ---
 
+## Result Mapping & Mobile Integration
+
+Raw contract responses from Soroban RPC nodes (such as simulation outputs, XDR payloads, or status flags) can be complex for application logic and mobile clients to handle directly. The SDK provides standard result mappers (`mapSorobanInvocationResult`, `mapVaultInvocationResult`, and `mapSorobanContractError`) that map raw contract outputs into stable, typed values.
+
+### Invocation Result Shapes
+
+```typescript
+import {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+  SorobanInvocationResult,
+  VaultMappedResult,
+} from 'stellar-pocketpay-sdk';
+
+// Generic Soroban Invocation Result
+interface SorobanInvocationResult<T = unknown> {
+  success: boolean;                           // High-level success flag
+  status: 'success' | 'failed' | 'simulation_error' | 'error' | 'pending';
+  result?: T;                                 // Parsed contract return value
+  error?: string;                             // Formatted error message
+  errorCode?: string | number;                // Classified error code
+  hash?: string;                              // Transaction hash if submitted
+  rawResponse?: unknown;                      // Raw RPC response object
+}
+
+// Vault-specific Mapped Result (returned by depositToVault, withdrawFromVault, getVaultBalance)
+interface VaultMappedResult {
+  success: boolean;
+  status: 'success' | 'failed' | 'simulation_error' | 'error' | 'pending';
+  operation: 'deposit' | 'withdraw' | 'get_balance';
+  hash?: string;
+  balance?: string;                          // Formatted XLM balance string (e.g. "15.0000000")
+  rawStroops?: string;                       // Raw sub-unit balance (e.g. "150000000")
+  amount?: string;                           // Amount requested (deposit/withdraw)
+  error?: string;
+  errorCode?: string | number;
+}
+```
+
+### Direct Usage Example
+
+```typescript
+import { mapSorobanInvocationResult, mapVaultInvocationResult } from 'stellar-pocketpay-sdk';
+
+// 1. Mapping a raw Soroban simulation response
+const simResponse = await sorobanServer.simulateTransaction(tx);
+const mappedSim = mapSorobanInvocationResult(simResponse);
+
+if (mappedSim.success) {
+  console.log('Parsed return value:', mappedSim.result);
+} else {
+  console.error('Simulation error:', mappedSim.error, 'Code:', mappedSim.errorCode);
+}
+
+// 2. Mapping vault invocation responses
+const mappedVault = mapVaultInvocationResult('get_balance', simResponse, { contractId });
+console.log('Balance XLM:', mappedVault.balance, 'Raw Stroops:', mappedVault.rawStroops);
+```
+
+---
+
 ## Current contract limitations
 
 These are real limitations of the contract as it exists today. Read them before
@@ -282,7 +346,7 @@ Vault-relevant error codes carried on `PocketPayError.code`:
 
 | Code                   | When it occurs                                            |
 | ---------------------- | -------------------------------------------------------- |
-| `MISSING_CONTRACT_ID`  | No `contractId` param and no `VAULT_CONTRACT_ID` env var. |
+| `VAULT_CONTRACT_NOT_CONFIGURED` | No contract ID from params, `SDKConfig.contractId`, or env. |
 | `INVALID_SECRET_KEY`   | `sourceSecret` is not a valid Stellar secret key.        |
 | `INVALID_PUBLIC_KEY`   | `publicKey` is not a valid Stellar public key.           |
 | `INVALID_AMOUNT`       | Amount is non-numeric or not greater than zero.          |

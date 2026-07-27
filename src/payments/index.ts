@@ -225,6 +225,34 @@ export {
   verifyPaymentTrustlineOrThrow,
 } from './trustline';
 
+// ─── Destination Account Validation ─────────────────────────────────────────
+export {
+  validateDestinationLocal,
+  validateDestinationNetwork,
+  validateDestinationComplete,
+  validateDestinationOrThrow,
+  safeValidateDestination,
+  safeValidateDestinationLocal,
+  safeValidateDestinationNetwork,
+} from './destination-validation';
+export type {
+  DestinationValidationLevel,
+  DestinationValidationStatus,
+  DestinationValidationOptions,
+  DestinationValidationResult,
+} from './destination-validation';
+
+// ─── Send-XLM Input Validation (non-throwing) ───────────────────────────────
+export {
+  validateSendXLMParams,
+} from './validation';
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
+} from './validation';
+
 // ─── Issued Asset Payments ──────────────────────────────────────────────────
 
 /**
@@ -396,3 +424,4 @@ export async function safeSendAsset(
 }
 
 
+export { previewPayment } from './preview';

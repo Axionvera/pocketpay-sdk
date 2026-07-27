@@ -3,6 +3,51 @@ export type { ResultWarning, RecoveryHint } from '../types';
 // ─── Error Classification ───────────────────────────────────────────────────
 
 import { PocketPayError, SubmissionOutcome } from '../types';
+import {
+  ErrorCategory,
+  ErrorCode,
+  ERROR_CODES,
+  type ErrorCodeValue,
+  isKnownErrorCode,
+} from './codes';
+import { describeError, getErrorCategory, redactError, redactSensitive, isRetryableCode } from './taxonomy';
+
+export {
+  ErrorCategory,
+  ErrorCode,
+  ERROR_CODES,
+  isKnownErrorCode,
+  describeError,
+  getErrorCategory,
+  redactError,
+  redactSensitive,
+  isRetryableCode,
+};
+
+// ─── Unsupported features and capability gating ─────────────────────────────
+
+export {
+  UnsupportedFeatureError,
+  CapabilityMismatchError,
+  isUnsupportedFeatureError,
+  isCapabilityMismatchError,
+} from './unsupported';
+
+export type {
+  FeatureContext,
+  UnsupportedFeatureOptions,
+  CapabilityMismatchOptions,
+} from './unsupported';
+
+export {
+  SDK_CAPABILITIES,
+  getCapability,
+  listCapabilities,
+  assertCapability,
+} from './capabilities';
+
+export type { CapabilityStatus, CapabilitySpec } from './capabilities';
+
 
 /**
  * Classifies raw network or Horizon submission errors into a structured `PocketPayError`
@@ -28,10 +73,12 @@ export function classifySubmitError(error: unknown, txHash?: string): PocketPayE
     const txCode = resultCodes.transaction;
     return new PocketPayError(
       `Payment failed with transaction result code: ${txCode}`,
-      'PAYMENT_FAILED',
+      ErrorCode.TX_FAILED,
       {
         statusCode: 400,
         cause: err instanceof Error ? err : undefined,
+        category: ErrorCategory.Transaction,
+        safeMessage: ERROR_CODES[ErrorCode.TX_FAILED].safeMessage,
       },
       txHash,
       false,
@@ -48,10 +95,12 @@ export function classifySubmitError(error: unknown, txHash?: string): PocketPayE
   if (isTimeout) {
     return new PocketPayError(
       `Transaction status unknown after submission attempt for hash ${txHash ?? 'unknown'}`,
-      'TX_STATUS_UNKNOWN',
+      ErrorCode.TX_STATUS_UNKNOWN,
       {
         statusCode: status || 504,
         cause: err instanceof Error ? err : undefined,
+        category: ErrorCategory.Transaction,
+        safeMessage: ERROR_CODES[ErrorCode.TX_STATUS_UNKNOWN].safeMessage,
       },
       txHash,
       false,
@@ -61,22 +110,29 @@ export function classifySubmitError(error: unknown, txHash?: string): PocketPayE
   if (status === 429) {
     return new PocketPayError(
       'Rate limit exceeded (429)',
-      'SEND_ERROR',
+      ErrorCode.NET_RATE_LIMITED,
       {
         statusCode: 429,
         cause: err instanceof Error ? err : undefined,
+        category: ErrorCategory.Network,
+        safeMessage: ERROR_CODES[ErrorCode.NET_RATE_LIMITED].safeMessage,
       },
       txHash,
       true,
     );
   }
 
+  // Unknown / generic submission failure. Redact any secret material that may
+  // have leaked into the raw message before storing it on the error.
+  const rawMessage = err?.message || String(error);
   return new PocketPayError(
-    `Transaction submission failed: ${err?.message || String(error)}`,
-    'SEND_ERROR',
+    `Transaction submission failed: ${redactSensitive(rawMessage)}`,
+    ErrorCode.TX_FAILED,
     {
       statusCode: status,
       cause: err instanceof Error ? err : undefined,
+      category: ErrorCategory.Transaction,
+      safeMessage: ERROR_CODES[ErrorCode.TX_FAILED].safeMessage,
     },
     txHash,
     false,

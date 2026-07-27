@@ -102,7 +102,7 @@ examples/       Runnable usage examples
 - Run `npm run lint` before pushing — this type-checks the full source tree.
 - Match the naming and file conventions already present in `src/`.
 - Keep functions focused and add JSDoc comments for any exported API.
-- Do not introduce new runtime dependencies without discussion in the issue first.
+- Do not introduce new dependencies without following the [Dependency Review Standards](./docs/dependency-review.md) and discussing in the issue first.
 
 ---
 

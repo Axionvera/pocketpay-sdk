@@ -90,3 +90,71 @@ const TransactionDetail = ({ transaction }) => {
     </div>
   );
 };
+```
+
+### previewPayment
+
+Previews a payment without signing or submitting a transaction. This helper performs synchronous validation on the input parameters (public keys, amount, memo, asset spec) and returns a typed preview object suitable for UI confirmation screens.
+
+```ts
+import { previewPayment } from 'stellar-pocketpay-sdk';
+
+const preview = await previewPayment({
+  sourceAccount: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+  destination: 'G1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  amount: '50.5',
+  asset: { code: 'USDC', issuer: 'GUSDCISSUER...' },
+  memo: 'Invoice #42'
+});
+
+console.log(`Sending ${preview.amount} ${preview.asset.code}`);
+console.log(`To: ${preview.destination}`);
+console.log(`Network: ${preview.network}`);
+console.log(`Estimated Fee: ${preview.estimatedFee} stroops`);
+```
+
+### validateSendXLMParams
+
+Non-throwing input validation for `sendXLM`. Runs the same preflight checks `sendXLM` performs internally (secret key format, destination key format, amount, memo, self-payment) and returns a structured result rather than throwing on the first failure. Pure: no Horizon calls, no signing, no transaction submission.
+
+```ts
+function validateSendXLMParams(params: SendXLMParams): SendXLMValidationResult;
+
+type SendXLMValidationResult =
+  | { ok: true }
+  | { ok: false; errors: ValidationError[] };
+
+interface ValidationError {
+  code:
+    | 'INVALID_SECRET_KEY'
+    | 'INVALID_PUBLIC_KEY'
+    | 'INVALID_AMOUNT'
+    | 'INVALID_AMOUNT_PRECISION'
+    | 'INVALID_MEMO'
+    | 'SELF_PAYMENT';
+  field: 'sourceSecret' | 'destination' | 'amount' | 'memo';
+  reason: string;
+  message: string;
+}
+```
+
+Consumers should branch on `err.code`; codes are part of the public contract, messages are not. See `docs/getting-started.md` for a form-integration example.
+
+## Wallet Import API
+
+### `importWallet(secretKey)`
+Imports an existing wallet from a Stellar secret key (S...).
+- **Throws**: `PocketPayError` (`INVALID_SECRET_KEY`) with typed validation reason (`not_a_string`, `missing`, `invalid_prefix`, `invalid_length`, `invalid_format`).
+
+### `safeImportWallet(secretKey)`
+Safely attempts to import a wallet without throwing.
+- **Returns**: `PocketPayResult<WalletKeypair>` (`{ ok: true, value }` or `{ ok: false, error }`).
+
+### `enhancedImportWallet(secretKey)`
+Imports a wallet and returns an enhanced result with warnings and recovery hints.
+- **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
+
+### `safeEnhancedImportWallet(secretKey)`
+Non-throwing wrapper for `enhancedImportWallet`.
+- **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
+

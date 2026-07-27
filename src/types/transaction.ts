@@ -4,6 +4,7 @@
 export enum TransactionDirection {
   INCOMING = 'incoming',
   OUTGOING = 'outgoing',
+  SELF = 'self',
 }
 
 /**
@@ -17,41 +18,62 @@ export enum TransactionStatus {
 }
 
 /**
- * Transaction summary for mobile UI
+ * Transaction summary for mobile UI and Horizon transaction queries
  */
 export interface TransactionSummary {
   /** Unique transaction identifier */
-  id: string;
+  id?: string;
   
   /** Stellar transaction hash */
-  txHash: string;
+  hash?: string;
+
+  /** Stellar transaction hash (alias for txHash) */
+  txHash?: string;
   
-  /** Transaction direction (incoming/outgoing) */
-  direction: TransactionDirection;
+  /** Ledger sequence number */
+  ledger?: number;
+
+  /** Source account public key */
+  sourceAccount?: string;
+
+  /** Number of operations in transaction */
+  operationCount?: number;
+
+  /** Whether the transaction was successful */
+  successful?: boolean;
+
+  /** Memo type */
+  memoType?: string;
+
+  /** Horizon paging token (cursor) */
+  pagingToken?: string;
+
+  /** Transaction direction (incoming/outgoing/self) */
+  direction?: TransactionDirection | 'incoming' | 'outgoing' | 'self';
   
-  /** Amount in the asset's smallest unit (e.g., stroops for XLM) */
-  amount: string;
+  /** Amount in the asset's smallest unit */
+  amount?: string;
   
   /** Human-readable amount (formatted with proper decimals) */
-  amountDisplay: string;
+  amountDisplay?: string;
   
   /** Asset code (XLM, USDC, etc.) */
-  asset: string;
+  asset?: string;
   
   /** Counterparty address (sender for incoming, recipient for outgoing) */
-  counterparty: string;
+  counterparty?: string;
   
   /** Transaction memo (if any) */
   memo?: string;
   
   /** Transaction status */
-  status: TransactionStatus;
+  status?: TransactionStatus | 'pending' | 'completed' | 'failed' | 'unknown';
   
   /** ISO timestamp of the transaction */
   createdAt: string;
   
   /** Human-readable relative time (e.g., "2 hours ago") */
-  timeAgo: string;
+  timeAgo?: string;
   
   /** Fee paid for the transaction */
   fee?: string;

@@ -10,8 +10,20 @@ import {
   WalletKeypair, AccountBalance, AssetBalance,
   BalanceResult, FundResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult,
 } from '../types';
-import { validatePublicKey, validateSecretKey, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import {
+  validatePublicKey,
+  validateSecretKey,
+  wrapError,
+  toSuccessResult,
+  toFailureResult,
+  toResult,
+  toEnhancedSuccessResult,
+  toEnhancedFailureResult,
+  toEnhancedResult,
+} from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
+import { ErrorCode } from '../errors/codes';
+import { CapabilityMismatchError } from '../errors/unsupported';
 import { NetworkClient, withTimeout } from '../network';
 
 /**
@@ -56,14 +68,97 @@ export function createWallet(): WalletKeypair {
  */
 export function importWallet(secretKey: string): WalletKeypair {
   validateSecretKey(secretKey);
-  const kp = StellarSDK.Keypair.fromSecret(secretKey);
-  return { publicKey: kp.publicKey(), secretKey: kp.secret() };
+  const trimmed = secretKey.trim();
+  try {
+    const kp = StellarSDK.Keypair.fromSecret(trimmed);
+    return { publicKey: kp.publicKey(), secretKey: kp.secret() };
+  } catch (error) {
+    if (error instanceof PocketPayError) {
+      throw error;
+    }
+    throw new PocketPayError(
+      'Invalid Stellar secret key',
+      'INVALID_SECRET_KEY',
+      {
+        validation: {
+          field: 'secretKey',
+          reason: 'invalid_format',
+        },
+        cause: error instanceof Error ? error : undefined,
+      },
+    );
+  }
 }
 
 /** Derives the public key from a secret key. */
 export function getPublicKey(secretKey: string): string {
   validateSecretKey(secretKey);
-  return StellarSDK.Keypair.fromSecret(secretKey).publicKey();
+  const trimmed = secretKey.trim();
+  return StellarSDK.Keypair.fromSecret(trimmed).publicKey();
+}
+
+/**
+ * Safely imports a wallet from a secret key without throwing.
+ *
+ * @param secretKey - Stellar secret key (S...) to import
+ * @returns A {@link PocketPayResult} with either the {@link WalletKeypair} or a {@link PocketPayError}
+ */
+export function safeImportWallet(secretKey: string): PocketPayResult<WalletKeypair> {
+  try {
+    const wallet = importWallet(secretKey);
+    return toSuccessResult(wallet);
+  } catch (error) {
+    const pocketErr =
+      error instanceof PocketPayError
+        ? error
+        : wrapError(error, 'Failed to import wallet', 'INVALID_SECRET_KEY');
+    return toFailureResult(pocketErr);
+  }
+}
+
+/**
+ * Imports an existing wallet with an enriched result containing warnings and recovery hints.
+ *
+ * @param secretKey - Stellar secret key (S...) to import
+ * @returns An {@link EnhancedPocketPayResult} with the imported wallet or failure details & recovery hints
+ */
+export function enhancedImportWallet(
+  secretKey: string,
+): EnhancedPocketPayResult<WalletKeypair> {
+  const warnings: ResultWarning[] = [];
+  const recoveryHints: RecoveryHint[] = [];
+
+  try {
+    const wallet = importWallet(secretKey);
+    return toEnhancedSuccessResult(wallet, warnings, recoveryHints);
+  } catch (error) {
+    const pocketErr =
+      error instanceof PocketPayError
+        ? error
+        : wrapError(error, 'Failed to import wallet', 'INVALID_SECRET_KEY');
+
+    if (pocketErr.code === 'INVALID_SECRET_KEY') {
+      recoveryHints.push({
+        action: 'check_input',
+        message: 'Ensure the secret key is a valid 56-character Stellar secret key starting with S.',
+        retryable: false,
+      });
+    }
+
+    return toEnhancedFailureResult(pocketErr, warnings, recoveryHints);
+  }
+}
+
+/**
+ * Non-throwing wrapper for {@link enhancedImportWallet}.
+ *
+ * @param secretKey - Stellar secret key (S...) to import
+ * @returns An enriched result that never throws
+ */
+export function safeEnhancedImportWallet(
+  secretKey: string,
+): EnhancedPocketPayResult<WalletKeypair> {
+  return enhancedImportWallet(secretKey);
 }
 
 /**
@@ -202,18 +297,17 @@ export async function fundTestnetAccount(
   validatePublicKey(publicKey);
   const cfg = resolveConfig(config);
   if (cfg.network !== 'testnet') {
-    throw new PocketPayError(
-      'fundTestnetAccount is only available on testnet. ' +
-      'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
-      'TESTNET_ONLY',
-      {
-        validation: {
-          field: 'network',
-          reason: 'not_testnet',
-          value: cfg.network
-        }
-      }
-    );
+    // Friendbot is a testnet-only service, so this is a capability that the
+    // caller's configuration gates, not a malformed request.
+    throw new CapabilityMismatchError({
+      code: ErrorCode.WALLET_TESTNET_ONLY,
+      module: 'wallet',
+      operation: 'fundTestnetAccount',
+      capability: 'wallet.testnet-funding',
+      message:
+        'fundTestnetAccount is only available on testnet. ' +
+        'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
+    });
   }
   try {
     const client = new NetworkClient({
@@ -369,4 +463,15 @@ export async function safeEnhancedGetBalance(
     errorCode: 'BALANCE_ERROR',
   });
 }
+
+// ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+export {
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
+} from './multi-asset';
+
 

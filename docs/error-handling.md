@@ -52,14 +52,21 @@ These errors occur during interactions with the Stellar Horizon network.
 ### 3. Friendbot (Testnet Funding) Errors
 These errors are specific to the testnet Friendbot service.
 
-*   `TESTNET_ONLY`: Attempted to call `fundTestnetAccount` while configured for mainnet.
+*   `WALLET_TESTNET_ONLY`: Attempted to call `fundTestnetAccount` while configured for
+    mainnet. Friendbot is testnet-only. Raised as a `CapabilityMismatchError` carrying
+    `module`, `operation`, and `capability`. Replaces the former unregistered
+    `TESTNET_ONLY` string — see [Capability Error Standard](./capability_error_standard.md).
 *   `FRIENDBOT_ERROR` (HTTP 400/404/500): Friendbot returned a non-2xx response. The `statusCode` property contains the HTTP response code.
 *   `FUND_ERROR`: A network or system failure occurred while requesting funds.
 
 ### 4. Soroban Vault Errors
 These errors are related to Smart Contract operations on the Soroban network.
 
-*   `MISSING_CONTRACT_ID`: The Vault contract ID was not passed as a parameter and is missing from the `VAULT_CONTRACT_ID` environment variable.
+*   `VAULT_CONTRACT_NOT_CONFIGURED`: No Vault contract ID could be resolved from the
+    call params, `SDKConfig.contractId`, `VAULT_CONTRACT_ID`, or `STELLAR_CONTRACT_ID`.
+    Raised as a `CapabilityMismatchError` carrying `module`, `operation`, and
+    `capability`. Replaces the former unregistered `MISSING_CONTRACT_ID` string —
+    see [Capability Error Standard](./capability_error_standard.md).
 *   `VAULT_DEPOSIT_ERROR`: Simulation or submission failed while depositing XLM into the vault.
 *   `VAULT_WITHDRAW_ERROR`: Simulation or submission failed while withdrawing XLM from the vault.
 *   `VAULT_BALANCE_ERROR`: Simulation failed while querying the vault balance.
@@ -254,8 +261,9 @@ The enhanced pattern is currently applied to two pilot operations:
 |:---|:---|:---|:---|
 | `sendXLM` | `enhancedSendXLM` | `HIGH_FEE_RATIO` (fee > 10% of amount) | `fund_account`, `check_input`, `retry` |
 | `getBalance` | `enhancedGetBalance` | `ZERO_NATIVE_BALANCE`, `MANY_ASSETS` (> 20) | `fund_account`, `check_network`, `check_input` |
+| `importWallet` | `enhancedImportWallet` | None | `check_input` |
 
-Each pilot also has a non-throwing variant: `safeEnhancedSendXLM` and `safeEnhancedGetBalance`.
+Each pilot also has a non-throwing variant: `safeEnhancedSendXLM`, `safeEnhancedGetBalance`, and `safeEnhancedImportWallet`.
 
 ### Building Your Own Enhanced Results
 

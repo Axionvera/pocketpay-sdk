@@ -13,17 +13,21 @@ dotenv.config();
 export type {
   StellarNetwork,
   SDKConfig,
+  ConfigIssueSeverity,
+  ConfigValidationIssue,
+  ConfigValidationResult,
   WalletKeypair,
   AssetBalance,
   AccountBalance,
   BalanceResult,
   SendXLMParams,
   SendAssetParams,
+  PaymentPreviewParams,
+  PaymentPreview,
   PaymentResult,
   TransactionSummary,
   TransactionRecord,
   TransactionList,
-  TransactionDirection,
   FilterableTransaction,
   FilterTransactionsOptions,
   SortableTransaction,
@@ -35,6 +39,11 @@ export type {
   VaultWithdrawParams,
   VaultBalanceParams,
   VaultResult,
+  VaultMappedResult,
+  VaultOperationType,
+  SorobanInvocationStatus,
+  SorobanInvocationResult,
+  SorobanInvocationMapperOptions,
   FundResult,
   SuccessResult,
   FailureResult,
@@ -46,13 +55,37 @@ export type {
   TrustlineStatus,
   TrustlineCheckResult,
   TrustlineCheckOptions,
+  // ─── Typed Asset Model ─────────────────────────────────────────────────────
+  Asset,
+  NativeAsset,
+  IssuedAsset,
+  AssetValidationResult,
+  // ─── Multi-Asset Balance Model ──────────────────────────────────────────────
+  AssetBalanceState,
+  AccountBalanceState,
+  NativeAssetBalanceItem,
+  IssuedAssetBalanceItem,
+  UnknownAssetBalanceItem,
+  AssetBalanceItem,
+  MultiAssetBalance,
+  MultiAssetBalanceResult,
   // ─── Retry Policy ──────────────────────────────────────────────────────────
   SubmissionOutcome,
   RetryPolicy,
   RetryPolicyExhaustedResult,
 } from './types';
 
-export { PocketPayError } from './types';
+export {
+  PocketPayError,
+  TransactionDirection,
+  TransactionStatus,
+  // ─── Typed Asset Model Exports ─────────────────────────────────────────────
+  NATIVE_ASSET,
+  isNativeAsset,
+  isIssuedAsset,
+  validateAsset,
+  assertValidAsset,
+} from './types';
 
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
@@ -61,6 +94,9 @@ export type { ResultWarning, RecoveryHint } from './errors';
 export {
   createWallet,
   importWallet,
+  safeImportWallet,
+  enhancedImportWallet,
+  safeEnhancedImportWallet,
   getPublicKey,
   getBalance,
   getBalanceOrUnfunded,
@@ -69,6 +105,13 @@ export {
   safeFundTestnetAccount,
   enhancedGetBalance,
   safeEnhancedGetBalance,
+  // Multi-Asset Balance
+  calculateNativeReserves,
+  parseMultiAssetBalance,
+  getMultiAssetBalance,
+  safeGetMultiAssetBalance,
+  formatAssetBalanceDisplay,
+  findAssetInMultiBalance,
 } from './wallet';
 
 // ─── Payments ───────────────────────────────────────────────────────────────
@@ -79,10 +122,19 @@ export {
   safeEnhancedSendXLM,
   sendAsset,
   safeSendAsset,
+  previewPayment,
   validateAssetSpec,
   checkDestinationTrustline,
   safeCheckDestinationTrustline,
   verifyPaymentTrustlineOrThrow,
+  validateSendXLMParams,
+} from './payments';
+
+export type {
+  ValidationError,
+  ValidationErrorCode,
+  ValidationErrorField,
+  SendXLMValidationResult,
 } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
@@ -106,7 +158,27 @@ export {
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
-export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
+export {
+  ContractClient,
+  createContractClient,
+  VaultClient,
+  createVaultClient,
+  type ContractClientConfig,
+  type ContractInvokeResult,
+  type ReadOnlyCallOptions,
+  type InvokeCallOptions,
+  type ParamTypes,
+  type ScValType,
+  type ErrorMapping,
+} from './soroban';
+export {
+  depositToVault,
+  withdrawFromVault,
+  getVaultBalance,
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './soroban';
 
 // ─── Network & Idempotency ──────────────────────────────────────────────────
 export {
@@ -123,11 +195,38 @@ export {
   classifySubmissionOutcome,
   isSafeToRetry,
   requiresStatusCheck,
+  // Public error code & taxonomy standard (issue #260)
+  ErrorCategory,
+  ErrorCode,
+  ERROR_CODES,
+  isKnownErrorCode,
+  describeError,
+  getErrorCategory,
+  redactError,
+  isRetryableCode,
+  // Unsupported feature & capability error standard
+  UnsupportedFeatureError,
+  CapabilityMismatchError,
+  isUnsupportedFeatureError,
+  isCapabilityMismatchError,
+  SDK_CAPABILITIES,
+  getCapability,
+  listCapabilities,
+  assertCapability,
+} from './errors';
+
+export type {
+  FeatureContext,
+  UnsupportedFeatureOptions,
+  CapabilityMismatchOptions,
+  CapabilityStatus,
+  CapabilitySpec,
 } from './errors';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,
+  validatePocketPayConfig,
   getHorizonServer,
   setHorizonServerFactory,
   resetHorizonServerFactory,
@@ -182,6 +281,9 @@ export {
   toEnhancedResult,
   // Asset helpers
   findAssetBalance,
+  formatAsset,
+  parseAssetString,
+  areAssetsEqual,
   // Security helpers
   redactSensitive,
 } from './utils';
