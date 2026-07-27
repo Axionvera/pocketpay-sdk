@@ -52,10 +52,10 @@ npm install @axionvera/pocketpay-sdk
 - [Testnet Account Funding](./docs/testnet-funding.md) - Funding and activating Testnet accounts with Friendbot, confirming activation, and common unfunded-account errors
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [React Native Compatibility](./docs/react-native.md) - Integration guide for Expo and bare React Native: polyfills, Metro config, secure storage, and known limitations
-- [Local Mobile Consumption](./docs/local-mobile-consumption.md) - Safely test unpublished SDK changes in `pocketpay-mobile` with tarballs, links, local paths, or workspaces
+- [Local Mobile Consumption](./docs/local-mobile-consumption.md) - Safely test unpublished SDK changes in `pocketpay-mobile`with tarballs, links, local paths, or workspaces
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
-- [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy` API
+- [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy`API
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [Logging: Transaction Payloads & Debug Mode](./docs/logging-payloads-and-debug.md) - Safely logging signed transaction XDR, memos, and debug output
@@ -68,7 +68,11 @@ npm install @axionvera/pocketpay-sdk
 - [Issued Asset Payments](./docs/issued-asset-payments.md) - Full guide to sending issued assets: asset identifiers, trustline setup, `sendAsset`, validation rules, and error reference
 - [Multi-Asset Balance Model](./docs/multi-asset-balance-model.md) - Rich balance model for native XLM and issued credit assets with reserves and status taxonomy
 - [Asset Formatting Rules](./docs/asset-formatting.md) - Guidance for displaying native and issued asset codes, issuers, balances, decimals, unknown assets, and UX warnings safely
-- [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
+- [SDK Release Readiness Checklist](./docs/release-checklist.md) - Repeatable release gates covering verification, public API review, security review, documentation, migration guidance, and publishing
+- [SDK Migration System](./docs/sdk_migration_system.md) - Compatibility classifications, deprecation lifecycle, migration requirements, and maintainer review process
+- [Migration Note Template](./docs/migration-note-template.md) - Reusable template for documenting breaking, configuration, runtime, and security-sensitive migrations
+- [Changelog Policy](./docs/changelog-policy.md) - Rules for changelog categories, Semantic Versioning, breaking changes, security entries, and migration links
+- [SDK Security Readiness Review](./docs/sdk_security_readiness_review.md) - Security review gates for secrets, signing, transactions, validation, networking, logging, dependencies, and public APIs
 - [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Dependency Review Standards](./docs/dependency-review.md) - Guidelines for evaluating, adding, and updating SDK dependencies
