@@ -38,6 +38,7 @@ export const ErrorCode = {
   WALLET_INVALID_PUBLIC_KEY: 'WALLET_INVALID_PUBLIC_KEY',
   WALLET_ACCOUNT_UNFUNDED: 'WALLET_ACCOUNT_UNFUNDED',
   WALLET_KEYPAIR_MISMATCH: 'WALLET_KEYPAIR_MISMATCH',
+  WALLET_TESTNET_ONLY: 'WALLET_TESTNET_ONLY',
 
   // ─── Payment ───────────────────────────────────────────────────────────────
   PAYMENT_SELF: 'PAYMENT_SELF',
@@ -134,6 +135,12 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     retryable: false,
     safeMessage: 'The provided secret and public key do not match.',
     developerHint: 'Derive the public key from the secret and compare before signing.',
+  },
+  [ErrorCode.WALLET_TESTNET_ONLY]: {
+    category: ErrorCategory.Wallet,
+    retryable: false,
+    safeMessage: 'This operation is only available on testnet.',
+    developerHint: 'Friendbot funding exists only on testnet. Set network to "testnet" to use it.',
   },
 
   [ErrorCode.PAYMENT_SELF]: {

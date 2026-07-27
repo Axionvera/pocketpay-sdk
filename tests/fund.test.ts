@@ -173,13 +173,19 @@ describe('fundTestnetAccount', () => {
   // ── Mainnet guard ───────────────────────────────────────────────────────
 
   describe('testnet-only guard', () => {
-    it('should throw TESTNET_ONLY on mainnet without making a fetch call', async () => {
+    it('should throw WALLET_TESTNET_ONLY on mainnet without making a fetch call', async () => {
       process.env['STELLAR_NETWORK'] = 'mainnet';
       const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);
 
+      // Was the unregistered string 'TESTNET_ONLY'; now a published code so
+      // describeError() can describe it instead of falling back to a generic
+      // "An unexpected error occurred." message.
       await expect(fundTestnetAccount(wallet.publicKey)).rejects.toMatchObject({
-        code: 'TESTNET_ONLY',
+        code: 'WALLET_TESTNET_ONLY',
+        module: 'wallet',
+        operation: 'fundTestnetAccount',
+        capability: 'wallet.testnet-funding',
       });
       // No network call should have been made
       expect(fetchMock).not.toHaveBeenCalled();

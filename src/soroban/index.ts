@@ -13,8 +13,10 @@ import { resolveConfig, getNetworkPassphrase } from '../config';
 import {
   VaultDepositParams, VaultWithdrawParams,
   VaultBalanceParams, VaultResult, VaultMappedResult,
-  PocketPayError, SDKConfig,
+  VaultOperationType, PocketPayError, SDKConfig,
 } from '../types';
+import { ErrorCode } from '../errors/codes';
+import { CapabilityMismatchError } from '../errors/unsupported';
 import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
 import { withTimeout } from '../network';
 import {
@@ -45,21 +47,49 @@ export {
 } from './client-factory';
 
 /**
- * Resolves the vault contract ID from params or environment.
+ * Resolves the vault contract ID, in precedence order:
+ *
+ *  1. the explicit `contractId` param
+ *  2. `SDKConfig.contractId` from the caller's config
+ *  3. the `VAULT_CONTRACT_ID` env var
+ *  4. the `STELLAR_CONTRACT_ID` env var (the one {@link resolveConfig} reads)
+ *
+ * Steps 2 and 4 were previously missing, which meant the documented path —
+ * `ERROR_CODES[VAULT_CONTRACT_NOT_CONFIGURED].developerHint` says "Set
+ * SDKConfig.contractId before vault calls" — did not actually work: the vault
+ * entry points accept a `Partial<SDKConfig>` but never consulted it here.
+ *
+ * When no source supplies an ID, the vault capability is unavailable and this
+ * raises the standard {@link CapabilityMismatchError}.
+ *
+ * @param operation - Vault operation being attempted, for error diagnostics
+ * @param contractId - Explicit contract ID from the call params
+ * @param config - Optional SDK config overrides supplied by the caller
+ * @throws CapabilityMismatchError with code `VAULT_CONTRACT_NOT_CONFIGURED`
  */
-function resolveContractId(contractId?: string): string {
-  const id = contractId || process.env.VAULT_CONTRACT_ID;
+function resolveContractId(
+  operation: VaultOperationType,
+  contractId?: string,
+  config?: Partial<SDKConfig>
+): string {
+  const id =
+    contractId ||
+    config?.contractId ||
+    process.env.VAULT_CONTRACT_ID ||
+    process.env.STELLAR_CONTRACT_ID;
+
   if (!id) {
-    throw new PocketPayError(
-      'Vault contract ID is required. Pass it as a param or set VAULT_CONTRACT_ID env var.',
-      'MISSING_CONTRACT_ID',
-      {
-        validation: {
-          field: 'contractId',
-          reason: 'missing'
-        }
-      }
-    );
+    // The message deliberately keeps the "contract ID" substring:
+    // mapSorobanContractError() matches on it when classifying plain Errors.
+    throw new CapabilityMismatchError({
+      code: ErrorCode.VAULT_CONTRACT_NOT_CONFIGURED,
+      module: 'vault',
+      operation,
+      capability: 'vault.contract',
+      message:
+        'Vault contract ID is required. Pass it as a param, set SDKConfig.contractId, ' +
+        'or set the VAULT_CONTRACT_ID env var.',
+    });
   }
   return id;
 }
@@ -87,7 +117,7 @@ export async function depositToVault(
   validateSecretKey(sourceSecret);
   validateAmount(amount);
 
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('deposit', params.contractId, config);
   const keypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const publicKey = keypair.publicKey();
 
@@ -180,7 +210,7 @@ export async function withdrawFromVault(
   validateSecretKey(sourceSecret);
   validateAmount(amount);
 
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('withdraw', params.contractId, config);
   const keypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const publicKey = keypair.publicKey();
 
@@ -267,7 +297,7 @@ export async function getVaultBalance(
   config?: Partial<SDKConfig>
 ): Promise<VaultMappedResult> {
   validatePublicKey(params.publicKey);
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('get_balance', params.contractId, config);
 
   try {
     const cfg = resolveConfig(config);

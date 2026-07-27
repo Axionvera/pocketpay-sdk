@@ -204,6 +204,23 @@ export {
   getErrorCategory,
   redactError,
   isRetryableCode,
+  // Unsupported feature & capability error standard
+  UnsupportedFeatureError,
+  CapabilityMismatchError,
+  isUnsupportedFeatureError,
+  isCapabilityMismatchError,
+  SDK_CAPABILITIES,
+  getCapability,
+  listCapabilities,
+  assertCapability,
+} from './errors';
+
+export type {
+  FeatureContext,
+  UnsupportedFeatureOptions,
+  CapabilityMismatchOptions,
+  CapabilityStatus,
+  CapabilitySpec,
 } from './errors';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
