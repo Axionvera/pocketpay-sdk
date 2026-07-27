@@ -59,6 +59,8 @@ export const ErrorCode = {
   TX_BUILD_FAILED: 'TX_BUILD_FAILED',
   TX_INVALID_MEMO: 'TX_INVALID_MEMO',
   TX_BAD_SEQUENCE: 'TX_BAD_SEQUENCE',
+  TX_SIGNER_MISSING: 'TX_SIGNER_MISSING',
+  TX_SIGNER_MISMATCH: 'TX_SIGNER_MISMATCH',
 
   // ─── Network ──────────────────────────────────────────────────────────────
   NET_RATE_LIMITED: 'NET_RATE_LIMITED',
@@ -245,6 +247,18 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     developerHint:
       'Text memos are limited to 28 bytes; id memos are unsigned 64-bit integers; ' +
       'hash and return memos are 64 hex characters.',
+  },
+  [ErrorCode.TX_SIGNER_MISSING]: {
+    category: ErrorCategory.Transaction,
+    retryable: false,
+    safeMessage: 'This account cannot sign transactions.',
+    developerHint: 'The account has no Signer attached (read-only). Check canSignTransaction(account) before calling sign(), or attach a Signer via createLocalAccount/createAccountWithSigner.',
+  },
+  [ErrorCode.TX_SIGNER_MISMATCH]: {
+    category: ErrorCategory.Transaction,
+    retryable: false,
+    safeMessage: 'The signer does not match the transaction source account.',
+    developerHint: 'Compare account.publicKey (or signer.publicKey) to the transaction source account before signing.',
   },
 
   [ErrorCode.NET_RATE_LIMITED]: {

@@ -18,18 +18,23 @@
 
 import type * as StellarSDK from '@stellar/stellar-sdk';
 import { validatePublicKey } from '../utils';
+import { PocketPayError } from '../types';
+import { ErrorCategory, ErrorCode, ERROR_CODES } from '../errors';
 import { LocalSigner } from './signer';
-import type { AccountAbstraction, AccountIdentity, Signer } from './types';
+import type { AccountAbstraction, AccountIdentity, ReadOnlyAccount, Signer, SigningAccount } from './types';
 
 // ─── Concrete implementation ─────────────────────────────────────────────────
 
 /**
- * Concrete implementation of `AccountAbstraction`.
+ * Concrete implementation shared by both branches of `AccountAbstraction`.
  *
- * This class is intentionally kept internal. Consumers interact with it
- * through the `AccountAbstraction` interface and the two factory functions.
+ * This class is intentionally kept internal and untyped against the public
+ * union — the factory functions below cast each instance to the precise
+ * branch (`ReadOnlyAccount` / `SigningAccount`) that matches whether a
+ * `signer` was supplied, since `signer === undefined` and `signer !== undefined`
+ * are mutually exclusive and fixed at construction time.
  */
-class AccountAbstractionImpl implements AccountAbstraction {
+class AccountAbstractionImpl {
   readonly identity: AccountIdentity;
   readonly signer: Signer | undefined;
 
@@ -51,9 +56,15 @@ class AccountAbstractionImpl implements AccountAbstraction {
     networkPassphrase: string,
   ): Promise<StellarSDK.Transaction | StellarSDK.FeeBumpTransaction> {
     if (!this.signer) {
-      throw new Error(
+      throw new PocketPayError(
         `Account ${this.identity.publicKey} is read-only and cannot sign transactions. ` +
         'Attach a Signer (e.g. via createLocalAccount) before calling sign().',
+        ErrorCode.TX_SIGNER_MISSING,
+        {
+          category: ErrorCategory.Transaction,
+          safeMessage: ERROR_CODES[ErrorCode.TX_SIGNER_MISSING].safeMessage,
+          validation: { field: 'account', reason: 'no_signer_attached' },
+        },
       );
     }
     return this.signer.sign(transaction, networkPassphrase);
@@ -82,10 +93,13 @@ class AccountAbstractionImpl implements AccountAbstraction {
  * console.log(account.canSign);    // false
  * ```
  */
-export function createReadOnlyAccount(publicKey: string): AccountAbstraction {
+export function createReadOnlyAccount(publicKey: string): ReadOnlyAccount {
   validatePublicKey(publicKey);
   const identity: AccountIdentity = { publicKey };
-  return new AccountAbstractionImpl(identity);
+  // No signer is ever passed here, so `canSign`/`signer` are fixed at
+  // `false`/`undefined` for the lifetime of this instance — safe to assert
+  // the precise union branch.
+  return new AccountAbstractionImpl(identity) as unknown as ReadOnlyAccount;
 }
 
 /**
@@ -111,12 +125,14 @@ export function createReadOnlyAccount(publicKey: string): AccountAbstraction {
  * const signed = await account.sign(tx, Networks.TESTNET);
  * ```
  */
-export function createLocalAccount(secretKey: string): AccountAbstraction {
+export function createLocalAccount(secretKey: string): SigningAccount {
   // LocalSigner validates the secret key internally; the public key is
   // derived from the Stellar Keypair so it is always consistent.
   const signer = new LocalSigner({ secretKey });
   const identity: AccountIdentity = { publicKey: signer.publicKey };
-  return new AccountAbstractionImpl(identity, signer);
+  // A signer is always passed here, so `canSign`/`signer` are fixed at
+  // `true`/`Signer` for the lifetime of this instance.
+  return new AccountAbstractionImpl(identity, signer) as unknown as SigningAccount;
 }
 
 /**
@@ -145,5 +161,9 @@ export function createAccountWithSigner(
   signer?: Signer,
 ): AccountAbstraction {
   validatePublicKey(identity.publicKey);
-  return new AccountAbstractionImpl(identity, signer);
+  const account = new AccountAbstractionImpl(identity, signer);
+  // The branch is determined by whether `signer` was actually supplied.
+  return signer
+    ? (account as unknown as SigningAccount)
+    : (account as unknown as ReadOnlyAccount);
 }

@@ -299,10 +299,12 @@ export {
   buildUnsignedTransaction,
   signTransaction,
   signTransactionWithSigner,
+  signWithAccount,
   submitSignedTransaction,
   prepareAndSignTransaction,
   prepareTransactionWithManualSequence,
   safeFetchNetworkState,
+  safeSignWithAccount,
   safeSubmitSignedTransaction,
   safePrepareAndSignTransaction,
 } from './offline-preparation';

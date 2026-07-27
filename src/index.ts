@@ -170,6 +170,36 @@ export {
   transactionSummaryFixtures,
 } from './transactions';
 
+// ─── Offline Transaction Preparation (armado → firma → submit) ─────────────
+export {
+  prepareTransactionOffline,
+  fetchNetworkState,
+  updateWithNetworkState,
+  buildUnsignedTransaction,
+  signTransaction,
+  signTransactionWithSigner,
+  // Capability-checked signing entry point: verifies the AccountAbstraction
+  // can sign, and that it matches the transaction's source account, before
+  // ever calling into the signer.
+  signWithAccount,
+  submitSignedTransaction,
+  prepareAndSignTransaction,
+  prepareTransactionWithManualSequence,
+  safeFetchNetworkState,
+  safeSignWithAccount,
+  safeSubmitSignedTransaction,
+  safePrepareAndSignTransaction,
+} from './transactions';
+export type {
+  OfflinePaymentOperation,
+  OfflineTransactionParams,
+  NetworkState,
+  PreparedTransaction,
+  UnsignedTransaction,
+  SignedTransaction,
+  SubmissionResult,
+} from './transactions';
+
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
 export {
   ContractClient,
@@ -289,8 +319,11 @@ export {
 export type {
   AccountIdentity,
   Signer,
+  ExternalSignerAdapter,
   LocalSignerConfig,
   AccountAbstraction,
+  ReadOnlyAccount,
+  SigningAccount,
 } from './account';
 
 export {
@@ -299,6 +332,8 @@ export {
   createReadOnlyAccount,
   createLocalAccount,
   createAccountWithSigner,
+  // Capability check: type guard narrowing AccountAbstraction to SigningAccount
+  canSignTransaction,
 } from './account';
 
 // ─── Utils ──────────────────────────────────────────────────────────────────

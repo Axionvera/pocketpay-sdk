@@ -102,17 +102,111 @@ export interface LocalSignerConfig {
   secretKey: string;
 }
 
+// ─── External Signer Adapter ─────────────────────────────────────────────────
+
+/**
+ * Extension point for signers backed by an external device or service
+ * (hardware wallet, mobile app, browser extension, remote HSM/MPC signer).
+ *
+ * This is a **contract only** — no concrete adapter ships in SDK core. A
+ * future package (or the consuming app) implements this interface and passes
+ * an instance to {@link createAccountWithSigner}.
+ *
+ * @remarks
+ * `ExternalSignerAdapter` is structurally a {@link Signer}, so anything that
+ * accepts a `Signer` already accepts an `ExternalSignerAdapter` — the two
+ * extra fields exist so consumers can branch on transport (`kind`) and probe
+ * reachability (`isAvailable`) without attempting a sign first.
+ *
+ * The SDK's capability registry already tracks this extension point under
+ * `'signer.remote'` (see `SDK_CAPABILITIES`, `src/errors/capabilities.ts`),
+ * currently `status: 'planned'`. An adapter that cannot fulfil a request
+ * should signal that through the SDK's existing unsupported-feature standard
+ * — `assertCapability('signer.remote', false, { module: 'account', operation: 'sign' })`,
+ * which throws {@link UnsupportedFeatureError} — rather than inventing a new
+ * error path. See `docs/capability_error_standard.md` for the full standard.
+ */
+export interface ExternalSignerAdapter extends Signer {
+  /**
+   * The transport/device family this adapter bridges to. Purely descriptive —
+   * the SDK does not branch on this value.
+   */
+  readonly kind: 'hardware' | 'mobile' | 'browser' | 'remote';
+
+  /**
+   * Cheap, synchronous capability probe: `true` when this adapter is wired up
+   * in the current build/runtime (e.g. the browser extension is installed).
+   *
+   * `isAvailable === true` does **not** guarantee `sign()` will succeed — the
+   * device can still be disconnected, locked, or reject the request when
+   * `sign()` is actually called. Callers that need a hard guarantee must
+   * still handle rejection from `sign()` itself — an `UnsupportedFeatureError`
+   * (via `assertCapability`) or a transport-specific error the adapter defines.
+   */
+  readonly isAvailable: boolean;
+}
+
 // ─── Account Abstraction ─────────────────────────────────────────────────────
+
+/**
+ * A read-only account: identity only, no signer attached. `canSign` is
+ * always `false` and `signer` is always `undefined` — enforced at the type
+ * level so `if (account.canSign)` narrows out the possibility of a signer in
+ * both directions.
+ *
+ * `sign()` is still present (so existing call sites that don't check
+ * `canSign` first keep compiling) but always rejects with a typed
+ * `PocketPayError` (`TX_SIGNER_MISSING`).
+ */
+export interface ReadOnlyAccount {
+  readonly identity: AccountIdentity;
+  readonly signer: undefined;
+  readonly canSign: false;
+  readonly publicKey: string;
+  sign(
+    transaction: StellarSDK.Transaction | StellarSDK.FeeBumpTransaction,
+    networkPassphrase: string,
+  ): Promise<StellarSDK.Transaction | StellarSDK.FeeBumpTransaction>;
+}
+
+/**
+ * A signing-capable account: identity plus an attached {@link Signer}.
+ * `canSign` is always `true` and `signer` is always present — enforced at
+ * the type level.
+ */
+export interface SigningAccount {
+  readonly identity: AccountIdentity;
+  readonly signer: Signer;
+  readonly canSign: true;
+  readonly publicKey: string;
+  sign(
+    transaction: StellarSDK.Transaction | StellarSDK.FeeBumpTransaction,
+    networkPassphrase: string,
+  ): Promise<StellarSDK.Transaction | StellarSDK.FeeBumpTransaction>;
+}
 
 /**
  * An account abstraction that binds a public {@link AccountIdentity} to an
  * optional {@link Signer}.
  *
- * - **Read-only accounts** hold only an `AccountIdentity` and no signer.
- *   They are useful for balance queries, transaction history, and any
- *   read path that does not require signing.
- * - **Signing accounts** additionally hold a `Signer` implementation.
- *   They can authorise transactions on behalf of the identity.
+ * This is a discriminated union on `canSign` — TypeScript narrows `signer`
+ * from `Signer | undefined` down to exactly `Signer` (or exactly `undefined`)
+ * once you branch on `canSign`, without a cast or a try/catch:
+ *
+ * ```ts
+ * if (canSignTransaction(account)) {
+ *   // account: SigningAccount — account.signer is Signer, not Signer | undefined
+ *   await account.signer.sign(tx, passphrase);
+ * } else {
+ *   // account: ReadOnlyAccount
+ * }
+ * ```
+ *
+ * - **Read-only accounts** ({@link ReadOnlyAccount}) hold only an
+ *   `AccountIdentity` and no signer. Useful for balance queries, transaction
+ *   history, and any read path that does not require signing.
+ * - **Signing accounts** ({@link SigningAccount}) additionally hold a
+ *   `Signer` implementation and can authorise transactions.
  *
  * Typical usage:
  * ```ts
@@ -124,55 +218,25 @@ export interface LocalSignerConfig {
  * const signed = await wallet.sign(tx, passphrase);
  * ```
  */
-export interface AccountAbstraction {
-  /**
-   * The public identity of this account (public key only, no secrets).
-   */
-  readonly identity: AccountIdentity;
+export type AccountAbstraction = ReadOnlyAccount | SigningAccount;
 
-  /**
-   * The signer attached to this account, or `undefined` for read-only
-   * accounts.
-   *
-   * Consumers that need to sign should check this field (or use
-   * {@link AccountAbstraction.canSign}) before attempting to sign.
-   */
-  readonly signer: Signer | undefined;
-
-  /**
-   * Convenience getter: `true` when a `Signer` is present.
-   *
-   * @example
-   * ```ts
-   * if (!account.canSign) {
-   *   throw new Error('This account is read-only and cannot sign transactions.');
-   * }
-   * ```
-   */
-  readonly canSign: boolean;
-
-  /**
-   * Convenience getter: the public key of the identity (shorthand for
-   * `account.identity.publicKey`).
-   */
-  readonly publicKey: string;
-
-  /**
-   * Signs a Stellar transaction using the attached signer.
-   *
-   * @param transaction - The built (but unsigned) transaction.
-   * @param networkPassphrase - The network passphrase for the target network.
-   * @returns The signed transaction.
-   * @throws {Error} if no signer is attached (`canSign` is `false`).
-   *
-   * @example
-   * ```ts
-   * const tx = builder.build();
-   * const signed = await account.sign(tx, Networks.TESTNET);
-   * ```
-   */
-  sign(
-    transaction: StellarSDK.Transaction | StellarSDK.FeeBumpTransaction,
-    networkPassphrase: string,
-  ): Promise<StellarSDK.Transaction | StellarSDK.FeeBumpTransaction>;
+/**
+ * Type guard: checks whether an {@link AccountAbstraction} can sign, and
+ * narrows it to {@link SigningAccount} when it can.
+ *
+ * Prefer this over calling `sign()` inside a try/catch — it lets the
+ * capability check happen (and be branched on) before any signing attempt.
+ *
+ * @example
+ * ```ts
+ * if (!canSignTransaction(account)) {
+ *   // account: ReadOnlyAccount — handle the read-only case explicitly
+ *   return;
+ * }
+ * // account: SigningAccount from here on
+ * await account.signer.sign(tx, networkPassphrase);
+ * ```
+ */
+export function canSignTransaction(account: AccountAbstraction): account is SigningAccount {
+  return account.canSign;
 }

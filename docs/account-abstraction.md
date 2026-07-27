@@ -55,15 +55,42 @@ a `Keypair` from `@stellar/stellar-sdk` and signs transactions synchronously
 ### AccountAbstraction
 
 The central handle that combines an `AccountIdentity` with an optional
-`Signer`:
+`Signer`. It is a **discriminated union**, `ReadOnlyAccount | SigningAccount`,
+on the literal `canSign` field — this lets TypeScript narrow `signer` from
+`Signer | undefined` down to exactly `Signer` (or exactly `undefined`) once
+you branch on `canSign`, instead of requiring a non-null assertion or a
+try/catch around `sign()`:
 
 | Property    | Type                    | Description                                       |
 |-------------|-------------------------|---------------------------------------------------|
 | `identity`  | `AccountIdentity`       | The public key identity (read-only)               |
-| `signer`    | `Signer \| undefined`   | The attached signer, or `undefined` for read-only |
-| `canSign`   | `boolean`               | `true` when a `Signer` is attached                |
+| `signer`    | `Signer \| undefined`   | `Signer` on `SigningAccount`, `undefined` on `ReadOnlyAccount` |
+| `canSign`   | `boolean`               | `true` on `SigningAccount`, `false` on `ReadOnlyAccount` |
 | `publicKey` | `string`                | Shorthand for `identity.publicKey`                |
-| `sign()`    | method                  | Signs a transaction via the attached signer       |
+| `sign()`    | method                  | Signs via the attached signer; rejects with a typed `TX_SIGNER_MISSING` `PocketPayError` on `ReadOnlyAccount` |
+
+### canSignTransaction — the capability check
+
+```ts
+function canSignTransaction(account: AccountAbstraction): account is SigningAccount
+```
+
+A type guard: prefer this over calling `sign()` inside a try/catch. It lets
+you check — and have the compiler check — capability before ever touching
+the signer:
+
+```ts
+if (canSignTransaction(account)) {
+  // account: SigningAccount — account.signer is Signer, not Signer | undefined
+  await account.signer.sign(tx, networkPassphrase);
+} else {
+  // account: ReadOnlyAccount
+}
+```
+
+See [Signing Boundaries](./signing-boundaries.md) for how this check is used
+in transaction orchestration (`signWithAccount`) and the typed errors
+(`TX_SIGNER_MISSING`, `TX_SIGNER_MISMATCH`) it produces.
 
 ## API
 
@@ -80,7 +107,7 @@ import {
 } from 'stellar-pocketpay-sdk';
 ```
 
-#### `createReadOnlyAccount(publicKey: string): AccountAbstraction`
+#### `createReadOnlyAccount(publicKey: string): ReadOnlyAccount`
 
 Creates a read-only account from a Stellar public key. `canSign` is `false`;
 calling `sign()` throws. Use this for balance queries, transaction history, and
@@ -92,7 +119,7 @@ console.log(observer.publicKey);  // G...
 console.log(observer.canSign);    // false
 ```
 
-#### `createLocalAccount(secretKey: string): AccountAbstraction`
+#### `createLocalAccount(secretKey: string): SigningAccount`
 
 Creates a signing-capable account from a Stellar secret key. The public key is
 derived automatically. `canSign` is `true`; `sign()` uses the local keypair.
@@ -131,13 +158,87 @@ const signed = await signer.sign(tx, Networks.TESTNET);
 
 ### Classes and interfaces
 
-| Export               | Kind        | Description                                    |
-|----------------------|-------------|------------------------------------------------|
-| `AccountIdentity`    | `interface` | Public key identity (type only)                |
-| `Signer`             | `interface` | Signing capability contract (type only)        |
-| `LocalSignerConfig`  | `interface` | Config for `LocalSigner` (type only)           |
-| `AccountAbstraction` | `interface` | Full account handle (type only)                |
-| `LocalSigner`        | `class`     | In-memory keypair signer implementation        |
+| Export                 | Kind        | Description                                              |
+|------------------------|-------------|------------------------------------------------------------|
+| `AccountIdentity`      | `interface` | Public key identity (type only)                          |
+| `Signer`               | `interface` | Signing capability contract (type only)                  |
+| `ExternalSignerAdapter`| `interface` | Extension point for hardware/mobile/browser signers — contract only, no implementation ships in SDK core (type only) |
+| `LocalSignerConfig`    | `interface` | Config for `LocalSigner` (type only)                     |
+| `AccountAbstraction`   | `type`      | `ReadOnlyAccount \| SigningAccount` discriminated union (type only) |
+| `ReadOnlyAccount`      | `interface` | Identity only, `canSign: false` (type only)               |
+| `SigningAccount`       | `interface` | Identity + `Signer`, `canSign: true` (type only)           |
+| `LocalSigner`          | `class`     | In-memory keypair signer implementation                  |
+| `canSignTransaction`   | function    | Type guard narrowing `AccountAbstraction` to `SigningAccount` |
+
+### ExternalSignerAdapter — the extension point for mobile, browser, hardware
+
+```ts
+interface ExternalSignerAdapter extends Signer {
+  readonly kind: 'hardware' | 'mobile' | 'browser' | 'remote';
+  readonly isAvailable: boolean;
+}
+```
+
+This is a **contract only** — no concrete adapter ships in SDK core. It
+extends `Signer`, so anything satisfying it already works with
+`createAccountWithSigner()` today, with no other SDK change required once a
+real adapter exists:
+
+```ts
+const hardwareAdapter: ExternalSignerAdapter = {
+  kind: 'hardware',
+  publicKey: 'GXXX...',
+  isAvailable: true,
+  async sign(tx, networkPassphrase) {
+    // Bridge to the device, present the tx for approval, return it signed.
+  },
+};
+
+const account = createAccountWithSigner({ publicKey: 'GXXX...' }, hardwareAdapter);
+```
+
+An adapter that can't fulfil a request should reject using the SDK's existing
+unsupported-feature standard — `assertCapability('signer.remote', false, { module: 'account', operation: 'sign' })`,
+which throws `UnsupportedFeatureError` — rather than a signer-specific error
+code. See [Capability Error Standard](./capability_error_standard.md).
+
+## Orchestration: signing a prepared transaction
+
+`src/transactions/offline-preparation.ts` exposes the armado → firma →
+submit pipeline. `signWithAccount()` is the capability-checked entry point
+that connects it to `AccountAbstraction`:
+
+```ts
+import {
+  prepareTransactionOffline,
+  fetchNetworkState,
+  updateWithNetworkState,
+  buildUnsignedTransaction,
+  signWithAccount,
+  submitSignedTransaction,
+  createLocalAccount,
+} from 'stellar-pocketpay-sdk';
+
+const prepared = prepareTransactionOffline({
+  sourcePublicKey: account.publicKey,
+  operations: [{ destination: 'GDEST...', amount: '10', asset: { code: 'XLM' } }],
+});
+const networkState = await fetchNetworkState(account.publicKey);
+const unsigned = buildUnsignedTransaction(updateWithNetworkState(prepared, networkState));
+
+// Checks canSignTransaction(account) and account.publicKey === unsigned.sourcePublicKey
+// BEFORE calling into the signer. Throws TX_SIGNER_MISSING / TX_SIGNER_MISMATCH otherwise.
+const signed = await signWithAccount(unsigned, account);
+
+const result = await submitSignedTransaction(signed);
+```
+
+`safeSignWithAccount()` is the non-throwing variant, returning a typed
+`PocketPayResult<SignedTransaction>`. Neither function changes
+`signTransaction(unsigned, secretKey)` or `signTransactionWithSigner(unsigned, signer)`
+(the pre-existing lower-level functions) — `signWithAccount` is additive and
+delegates to `signTransactionWithSigner` once both checks pass. See
+[Signing Boundaries](./signing-boundaries.md) for the full model.
 
 ## Relationship to existing wallet helpers
 
@@ -240,23 +341,35 @@ const account = createAccountWithSigner(
   context that only reads the account.
 - `LocalSigner` holds a Stellar `Keypair` in memory. Ensure the `LocalSigner`
   instance is discarded when no longer needed so the secret key can be
-  garbage-collected.
+  garbage-collected. `JSON.stringify()` and Node's `console.log()`/
+  `util.inspect()` on a `LocalSigner` (or a `SigningAccount` holding one)
+  only ever surface `{ publicKey }` — never the wrapped `Keypair`'s raw key
+  bytes.
 - Never log or transmit the `secretKey` value. See [Security Best Practices](./security.md).
 - For production key management, prefer hardware wallets or remote HSMs over
-  `LocalSigner`. The `Signer` interface is designed to accommodate these.
+  `LocalSigner`. The `Signer`/`ExternalSignerAdapter` interfaces are designed
+  to accommodate these.
+- Full boundary reference, including what this model does and does **not**
+  guarantee for custom signers: [Signing Boundaries](./signing-boundaries.md).
 
 ## Future extensions
 
 The `Signer` interface intentionally has a minimal surface so extensions are
-low-friction:
+low-friction. `ExternalSignerAdapter` (see above) formalizes this as a named
+extension point — a contract, not an implementation:
 
 - **Multisig co-signers**: collect partial signatures from multiple `Signer`
   instances and assemble them before submission.
 - **MPC signers**: threshold-signature schemes where no single party holds the
   full private key.
-- **Passkey / WebAuthn signers**: browser-based signing via FIDO2 credentials.
+- **Passkey / WebAuthn signers**: browser-based signing via FIDO2 credentials
+  (`kind: 'browser'`).
 - **Ledger / Trezor bridges**: hardware wallet bridges that present the
-  transaction on the device display and return the signed envelope.
+  transaction on the device display and return the signed envelope
+  (`kind: 'hardware'`).
+- **Mobile app / deep-link signers**: signing delegated to a companion mobile
+  app (`kind: 'mobile'`).
 
 None of these require changes to the `AccountAbstraction` interface. A custom
-`Signer` implementation just needs to satisfy the two-field interface.
+`Signer` (or `ExternalSignerAdapter`) implementation just needs to satisfy
+the interface — no adapter for any of the above ships in SDK core yet.

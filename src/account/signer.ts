@@ -86,6 +86,30 @@ export class LocalSigner implements Signer {
     void networkPassphrase;
     return transaction;
   }
+
+  /**
+   * Restricts JSON serialization to the public key.
+   *
+   * @security Without this override, `JSON.stringify(signer)` (and anything
+   *   that serializes a `SigningAccount` holding this signer) would recurse
+   *   into the wrapped `@stellar/stellar-sdk` `Keypair`, which stores the raw
+   *   secret key as plain enumerable Buffer fields (`_secretSeed`,
+   *   `_secretKey`) — leaking the secret through ordinary JSON serialization.
+   */
+  toJSON(): { publicKey: string } {
+    return { publicKey: this.publicKey };
+  }
+
+  /**
+   * Restricts Node's `console.log`/`util.inspect` output to the public key.
+   *
+   * @security Same rationale as {@link toJSON} — the default `util.inspect`
+   *   output for this instance would otherwise print the wrapped `Keypair`'s
+   *   raw secret key bytes.
+   */
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `LocalSigner { publicKey: '${this.publicKey}' }`;
+  }
 }
 
 /**

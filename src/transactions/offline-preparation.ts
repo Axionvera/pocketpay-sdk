@@ -48,8 +48,9 @@ import {
 } from '../types';
 import { validatePublicKey, validateSecretKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult } from '../utils';
 import { withTimeout } from '../network';
-import { ErrorCode, ERROR_CODES } from '../errors/codes';
+import { ErrorCategory, ErrorCode, ERROR_CODES } from '../errors';
 import { validateSequenceValue, isSequenceStale } from '../account/sequence';
+import { canSignTransaction, type AccountAbstraction, type Signer } from '../account';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────────
 
@@ -553,30 +554,40 @@ export function signTransaction(
 }
 
 /**
- * Signs an unsigned transaction using a Signer interface.
+ * Signs an unsigned transaction using a `Signer` implementation.
  *
  * This enables integration with hardware wallets and other external signers.
+ * Accepts the same `Signer` contract used by the account abstraction layer
+ * (`src/account`) — a local keypair, or any future external signer adapter.
  *
  * @param unsigned - Unsigned transaction
- * @param signer - Signer implementation
+ * @param signer - `Signer` implementation
  * @returns Signed transaction ready for submission
+ * @throws {PocketPayError} `TX_SIGNER_MISMATCH` if the signer's public key
+ *   does not match the transaction's source account.
  */
 export async function signTransactionWithSigner(
   unsigned: UnsignedTransaction,
-  signer: { publicKey: string; sign(tx: StellarSDK.Transaction, networkPassphrase: string): Promise<StellarSDK.Transaction> },
+  signer: Signer,
 ): Promise<SignedTransaction> {
   // Verify the signer matches the source public key
   if (signer.publicKey !== unsigned.sourcePublicKey) {
     throw new PocketPayError(
       'Signer public key does not match source public key',
-      'KEY_MISMATCH',
+      ErrorCode.TX_SIGNER_MISMATCH,
       {
+        category: ErrorCategory.Transaction,
+        safeMessage: ERROR_CODES[ErrorCode.TX_SIGNER_MISMATCH].safeMessage,
         validation: { field: 'signer', reason: 'mismatch' },
       },
     );
   }
 
-  const transaction = await signer.sign(unsigned.transaction, unsigned.networkPassphrase);
+  // The Signer contract accepts/returns Transaction | FeeBumpTransaction so
+  // it can also serve future fee-bump flows; this pipeline only ever hands it
+  // a plain Transaction, and well-behaved signers preserve that concrete type.
+  const signedTransaction = await signer.sign(unsigned.transaction, unsigned.networkPassphrase);
+  const transaction = signedTransaction as StellarSDK.Transaction;
   const hash = transaction.hash().toString('hex');
   const xdr = transaction.toEnvelope().toXDR('base64');
 
@@ -586,6 +597,65 @@ export async function signTransactionWithSigner(
     hash,
     xdr,
   };
+}
+
+/**
+ * Signs an unsigned transaction using an {@link AccountAbstraction}, checking
+ * signing **capability before** attempting to sign.
+ *
+ * This is the capability-checked entry point for the offline preparation
+ * pipeline: it verifies the account can sign (typed `TX_SIGNER_MISSING` if
+ * not — e.g. a read-only account) and that the attached signer matches the
+ * transaction's source account (typed `TX_SIGNER_MISMATCH` if not) before
+ * ever calling into the signer. Delegates to {@link signTransactionWithSigner}
+ * once both checks pass, so behaviour is identical to calling it directly
+ * with `account.signer`.
+ *
+ * @param unsigned - Unsigned transaction
+ * @param account - The account abstraction to sign with (read-only or signing)
+ * @returns Signed transaction ready for submission
+ * @throws {PocketPayError} `TX_SIGNER_MISSING` if `account` has no signer attached.
+ * @throws {PocketPayError} `TX_SIGNER_MISMATCH` if `account.publicKey` does not
+ *   match the transaction's source account.
+ *
+ * @example
+ * ```ts
+ * const readOnly = createReadOnlyAccount('GXXX...');
+ * await signWithAccount(unsigned, readOnly); // throws TX_SIGNER_MISSING
+ *
+ * const wallet = createLocalAccount('SXXX...');
+ * const signed = await signWithAccount(unsigned, wallet); // signs normally
+ * ```
+ */
+export async function signWithAccount(
+  unsigned: UnsignedTransaction,
+  account: AccountAbstraction,
+): Promise<SignedTransaction> {
+  if (!canSignTransaction(account)) {
+    throw new PocketPayError(
+      `Account ${account.publicKey} has no signer attached and cannot sign transactions.`,
+      ErrorCode.TX_SIGNER_MISSING,
+      {
+        category: ErrorCategory.Transaction,
+        safeMessage: ERROR_CODES[ErrorCode.TX_SIGNER_MISSING].safeMessage,
+        validation: { field: 'account', reason: 'no_signer_attached' },
+      },
+    );
+  }
+
+  if (account.publicKey !== unsigned.sourcePublicKey) {
+    throw new PocketPayError(
+      'Signer does not match the transaction source account.',
+      ErrorCode.TX_SIGNER_MISMATCH,
+      {
+        category: ErrorCategory.Transaction,
+        safeMessage: ERROR_CODES[ErrorCode.TX_SIGNER_MISMATCH].safeMessage,
+        validation: { field: 'account', reason: 'signer_mismatch' },
+      },
+    );
+  }
+
+  return signTransactionWithSigner(unsigned, account.signer);
 }
 
 // ─── Submission Functions ───────────────────────────────────────────────────────
@@ -714,6 +784,24 @@ export async function safeFetchNetworkState(
     () => fetchNetworkState(publicKey, config),
     'Failed to fetch network state',
     'NETWORK_STATE_ERROR',
+  );
+}
+
+/**
+ * Non-throwing wrapper for {@link signWithAccount}.
+ *
+ * Capability errors (`TX_SIGNER_MISSING`, `TX_SIGNER_MISMATCH`) are returned
+ * as a typed failure result rather than thrown, same as any other
+ * `PocketPayError` produced by the wrapped function.
+ */
+export async function safeSignWithAccount(
+  unsigned: UnsignedTransaction,
+  account: AccountAbstraction,
+): Promise<PocketPayResult<SignedTransaction>> {
+  return toResult(
+    () => signWithAccount(unsigned, account),
+    'Failed to sign transaction',
+    'SIGNING_ERROR',
   );
 }
 
