@@ -9,8 +9,11 @@
  * Types:
  *   - `AccountIdentity`     — public key identity; no secrets
  *   - `Signer`              — interface for any signing implementation
+ *   - `ExternalSignerAdapter` — extension point for hardware/mobile/browser signers (contract only)
  *   - `LocalSignerConfig`   — configuration for a local (in-memory) signer
- *   - `AccountAbstraction`  — identity + optional signer, the main handle
+ *   - `AccountAbstraction`  — `ReadOnlyAccount | SigningAccount` discriminated union
+ *   - `ReadOnlyAccount`     — identity only, no signer, `canSign: false`
+ *   - `SigningAccount`      — identity + signer, `canSign: true`
  *
  * Classes:
  *   - `LocalSigner`         — `Signer` implementation backed by a local keypair
@@ -20,15 +23,24 @@
  *   - `createLocalAccount(secretKey)`         — identity + LocalSigner
  *   - `createAccountWithSigner(identity, signer?)` — identity + custom signer
  *   - `createLocalSigner(secretKey)`          — standalone LocalSigner helper
+ *
+ * Capability check:
+ *   - `canSignTransaction(account)`           — type guard narrowing to `SigningAccount`
  */
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type {
   AccountIdentity,
   Signer,
+  ExternalSignerAdapter,
   LocalSignerConfig,
   AccountAbstraction,
+  ReadOnlyAccount,
+  SigningAccount,
 } from './types';
+
+// ─── Capability check ─────────────────────────────────────────────────────────
+export { canSignTransaction } from './types';
 
 // ─── Signer implementations ──────────────────────────────────────────────────
 export { LocalSigner, createLocalSigner } from './signer';
