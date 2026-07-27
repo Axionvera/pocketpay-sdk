@@ -52,6 +52,7 @@ npm install @axionvera/pocketpay-sdk
 - [Testnet Account Funding](./docs/testnet-funding.md) - Funding and activating Testnet accounts with Friendbot, confirming activation, and common unfunded-account errors
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [React Native Compatibility](./docs/react-native.md) - Integration guide for Expo and bare React Native: polyfills, Metro config, secure storage, and known limitations
+- [Local Mobile Consumption](./docs/local-mobile-consumption.md) - Safely test unpublished SDK changes in `pocketpay-mobile` with tarballs, links, local paths, or workspaces
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy` API
@@ -72,6 +73,16 @@ npm install @axionvera/pocketpay-sdk
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Dependency Review Standards](./docs/dependency-review.md) - Guidelines for evaluating, adding, and updating SDK dependencies
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
+
+## Local Development
+
+When developing the SDK and
+[`Axionvera/pocketpay-mobile`](https://github.com/Axionvera/pocketpay-mobile)
+side by side, follow the
+[local mobile consumption guide](./docs/local-mobile-consumption.md). It
+recommends testing a locally packed tarball so Metro sees the same package
+layout that npm users receive, and also documents faster symlink-based
+alternatives and their cleanup steps.
 
 ## Package Root Imports
 

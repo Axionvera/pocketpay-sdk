@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+.local-packages/
 
 # Environment variables
 .env
