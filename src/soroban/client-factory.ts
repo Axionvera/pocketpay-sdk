@@ -9,6 +9,8 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { resolveConfig, getNetworkPassphrase, validateContractId } from '../config';
 import { PocketPayError, SDKConfig } from '../types';
 import { withTimeout } from '../network';
+import { ErrorCode, ERROR_CODES } from '../errors/codes';
+import { UnsupportedFeatureError } from '../errors/unsupported';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────────
 
@@ -163,8 +165,12 @@ export class ContractClient {
         const error = this.mapContractError((simulated as any).error);
         throw new PocketPayError(
           `Simulation failed: ${error}`,
-          'CONTRACT_SIMULATION_ERROR',
-          { cause: new Error(error) }
+          ErrorCode.SOROBAN_SIMULATION_FAILED,
+          {
+            cause: new Error(error),
+            category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
+            safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
+          }
         );
       }
 
@@ -291,6 +297,11 @@ export class ContractClient {
 
   /**
    * Encodes parameters to ScVal format based on type specifications.
+   *
+   * `ScValType` advertises every member below as usable, but the underlying
+   * Stellar SDK rejects `vec` during encoding (`invalid type: vec`). Callers
+   * used to receive that bare message with no code or category; the capability
+   * is now reported through the published standard instead.
    */
   private encodeParams(params: Record<string, unknown>, paramTypes: ParamTypes): StellarSDK.xdr.ScVal[] {
     return Object.entries(paramTypes).map(([paramName, type]) => {
@@ -301,6 +312,15 @@ export class ContractClient {
           'MISSING_CONTRACT_PARAM',
           { validation: { field: paramName, reason: 'missing' } }
         );
+      }
+      if (type === 'vec') {
+        throw new UnsupportedFeatureError({
+          module: 'soroban',
+          operation: 'encodeParams',
+          capability: 'soroban.param-type.vec',
+          message:
+            `Parameter "${paramName}" declares the ScVal type "vec", which this SDK cannot encode.`,
+        });
       }
       return StellarSDK.nativeToScVal(value, { type });
     });

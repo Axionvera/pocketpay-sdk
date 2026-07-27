@@ -52,9 +52,11 @@ Every vault helper needs to know which deployed contract to call. The ID is
 resolved by `resolveContractId()` with this precedence:
 
 1. The `contractId` passed in the params object, **if present**.
-2. Otherwise, the `VAULT_CONTRACT_ID` environment variable.
-3. If neither is set, the call throws a `PocketPayError` with code
-   `MISSING_CONTRACT_ID`.
+2. Otherwise, `SDKConfig.contractId` from the config argument.
+3. Otherwise, the `VAULT_CONTRACT_ID` environment variable.
+4. Otherwise, the `STELLAR_CONTRACT_ID` environment variable.
+5. If none is set, the call throws a `CapabilityMismatchError` (a subclass of
+   `PocketPayError`) with code `VAULT_CONTRACT_NOT_CONFIGURED`.
 
 ```typescript
 // Option A — pass it explicitly
@@ -344,7 +346,7 @@ Vault-relevant error codes carried on `PocketPayError.code`:
 
 | Code                   | When it occurs                                            |
 | ---------------------- | -------------------------------------------------------- |
-| `MISSING_CONTRACT_ID`  | No `contractId` param and no `VAULT_CONTRACT_ID` env var. |
+| `VAULT_CONTRACT_NOT_CONFIGURED` | No contract ID from params, `SDKConfig.contractId`, or env. |
 | `INVALID_SECRET_KEY`   | `sourceSecret` is not a valid Stellar secret key.        |
 | `INVALID_PUBLIC_KEY`   | `publicKey` is not a valid Stellar public key.           |
 | `INVALID_AMOUNT`       | Amount is non-numeric or not greater than zero.          |

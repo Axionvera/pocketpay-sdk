@@ -22,6 +22,8 @@ import {
   toEnhancedResult,
 } from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
+import { ErrorCode } from '../errors/codes';
+import { CapabilityMismatchError } from '../errors/unsupported';
 import { NetworkClient, withTimeout } from '../network';
 
 /**
@@ -295,18 +297,17 @@ export async function fundTestnetAccount(
   validatePublicKey(publicKey);
   const cfg = resolveConfig(config);
   if (cfg.network !== 'testnet') {
-    throw new PocketPayError(
-      'fundTestnetAccount is only available on testnet. ' +
-      'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
-      'TESTNET_ONLY',
-      {
-        validation: {
-          field: 'network',
-          reason: 'not_testnet',
-          value: cfg.network
-        }
-      }
-    );
+    // Friendbot is a testnet-only service, so this is a capability that the
+    // caller's configuration gates, not a malformed request.
+    throw new CapabilityMismatchError({
+      code: ErrorCode.WALLET_TESTNET_ONLY,
+      module: 'wallet',
+      operation: 'fundTestnetAccount',
+      capability: 'wallet.testnet-funding',
+      message:
+        'fundTestnetAccount is only available on testnet. ' +
+        'Set STELLAR_NETWORK=testnet or pass { network: "testnet" } to resolveConfig.',
+    });
   }
   try {
     const client = new NetworkClient({

@@ -30,8 +30,13 @@ If you only set `STELLAR_NETWORK`, the SDK resolves the URLs automatically:
 Vault functions require a contract id.
 
 - If you pass `contractId` via the function params, that value is used.
-- Otherwise, the SDK falls back to `VAULT_CONTRACT_ID`.
-- If neither is provided, vault functions throw an error (`MISSING_CONTRACT_ID`).
+- Otherwise, the SDK reads `SDKConfig.contractId` from the config you pass to the
+  vault function.
+- Otherwise, the SDK falls back to the `VAULT_CONTRACT_ID` env var, then
+  `STELLAR_CONTRACT_ID`.
+- If none is provided, vault functions throw a `CapabilityMismatchError` with the
+  published code `VAULT_CONTRACT_NOT_CONFIGURED`. See
+  [Capability Error Standard](./capability_error_standard.md).
 
 ## Example `.env`
 

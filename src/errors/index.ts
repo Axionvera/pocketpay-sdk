@@ -24,6 +24,30 @@ export {
   isRetryableCode,
 };
 
+// ─── Unsupported features and capability gating ─────────────────────────────
+
+export {
+  UnsupportedFeatureError,
+  CapabilityMismatchError,
+  isUnsupportedFeatureError,
+  isCapabilityMismatchError,
+} from './unsupported';
+
+export type {
+  FeatureContext,
+  UnsupportedFeatureOptions,
+  CapabilityMismatchOptions,
+} from './unsupported';
+
+export {
+  SDK_CAPABILITIES,
+  getCapability,
+  listCapabilities,
+  assertCapability,
+} from './capabilities';
+
+export type { CapabilityStatus, CapabilitySpec } from './capabilities';
+
 
 /**
  * Classifies raw network or Horizon submission errors into a structured `PocketPayError`
