@@ -305,6 +305,7 @@ export {
   safeFetchNetworkState,
   safeSubmitSignedTransaction,
   safePrepareAndSignTransaction,
+  getTransactionSigningSummary,
 } from './offline-preparation';
 export type {
   OfflinePaymentOperation,
@@ -314,4 +315,5 @@ export type {
   UnsignedTransaction,
   SignedTransaction,
   SubmissionResult,
+  TransactionSigningSummary,
 } from './offline-preparation';
