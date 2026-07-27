@@ -22,6 +22,8 @@ export type {
   BalanceResult,
   SendXLMParams,
   SendAssetParams,
+  PaymentPreviewParams,
+  PaymentPreview,
   PaymentResult,
   TransactionSummary,
   TransactionRecord,
@@ -120,6 +122,7 @@ export {
   safeEnhancedSendXLM,
   sendAsset,
   safeSendAsset,
+  previewPayment,
   validateAssetSpec,
   checkDestinationTrustline,
   safeCheckDestinationTrustline,
@@ -155,7 +158,6 @@ export {
 } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
-export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
 export {
   ContractClient,
   createContractClient,
@@ -168,6 +170,7 @@ export {
   type ParamTypes,
   type ScValType,
   type ErrorMapping,
+} from './soroban';
 export {
   depositToVault,
   withdrawFromVault,

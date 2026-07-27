@@ -92,6 +92,27 @@ const TransactionDetail = ({ transaction }) => {
 };
 ```
 
+### previewPayment
+
+Previews a payment without signing or submitting a transaction. This helper performs synchronous validation on the input parameters (public keys, amount, memo, asset spec) and returns a typed preview object suitable for UI confirmation screens.
+
+```ts
+import { previewPayment } from 'stellar-pocketpay-sdk';
+
+const preview = await previewPayment({
+  sourceAccount: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+  destination: 'G1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  amount: '50.5',
+  asset: { code: 'USDC', issuer: 'GUSDCISSUER...' },
+  memo: 'Invoice #42'
+});
+
+console.log(`Sending ${preview.amount} ${preview.asset.code}`);
+console.log(`To: ${preview.destination}`);
+console.log(`Network: ${preview.network}`);
+console.log(`Estimated Fee: ${preview.estimatedFee} stroops`);
+```
+
 ### validateSendXLMParams
 
 Non-throwing input validation for `sendXLM`. Runs the same preflight checks `sendXLM` performs internally (secret key format, destination key format, amount, memo, self-payment) and returns a structured result rather than throwing on the first failure. Pure: no Horizon calls, no signing, no transaction submission.
