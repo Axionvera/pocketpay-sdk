@@ -625,6 +625,17 @@ export class PocketPayError extends Error {
   public readonly transactionHash?: string;
   /** Whether the operation is safe to retry */
   public readonly retryable?: boolean;
+  /**
+   * High-level error category (Wallet / Payment / Transaction / Network /
+   * Soroban / Vault / SDK). Added for the public error taxonomy standard;
+   * optional for backwards compatibility.
+   */
+  public readonly category?: string;
+  /**
+   * User-safe summary that never contains secrets. Added for the public error
+   * taxonomy standard; optional — falls back to `message` when absent.
+   */
+  public readonly safeMessage?: string;
 
   constructor(
     message: string,
@@ -633,10 +644,13 @@ export class PocketPayError extends Error {
       statusCode?: number;
       cause?: Error;
       validation?: ValidationMetadata;
+      category?: string;
+      safeMessage?: string;
     },
     arg4?: Error | string,
     arg5?: string | boolean,
-    arg6?: boolean
+    arg6?: boolean,
+    arg7?: { category?: string; safeMessage?: string }
   ) {
     super(message);
     this.name = 'PocketPayError';
@@ -646,6 +660,8 @@ export class PocketPayError extends Error {
       this.statusCode = arg3.statusCode;
       this.cause = arg3.cause;
       this.validation = arg3.validation;
+      this.category = arg3.category;
+      this.safeMessage = arg3.safeMessage;
     } else {
       this.statusCode = arg3 as number | undefined;
       if (typeof arg4 === 'object') {
@@ -661,6 +677,12 @@ export class PocketPayError extends Error {
       this.retryable = typeof arg6 === 'boolean' ? arg6 : false;
     } else if (typeof arg5 === 'boolean') {
       this.retryable = arg5;
+    }
+
+    // Allow callers to pass an explicit taxonomy object as the final arg.
+    if (arg7) {
+      if (arg7.category) this.category = arg7.category;
+      if (arg7.safeMessage) this.safeMessage = arg7.safeMessage;
     }
 
     Object.setPrototypeOf(this, PocketPayError.prototype);
