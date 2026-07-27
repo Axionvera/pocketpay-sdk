@@ -170,6 +170,178 @@ export interface SignedTransaction {
 }
 
 /**
+ * Summary of a transaction signing payload for user inspection.
+ * Contains all necessary information to review before signing.
+ */
+export interface TransactionSigningSummary {
+  /** Source account public key that will sign the transaction */
+  source: string;
+  /** Network passphrase (identifies which network this is for: mainnet, testnet, etc.) */
+  network: string;
+  /** Human-readable network name if recognized */
+  networkName?: string;
+  /** Base fee in stroops */
+  fee: string;
+  /** Human-readable fee in XLM (converted from stroops) */
+  feeInXlm: string;
+  /** Optional memo included with the transaction */
+  memo?: string;
+  /** List of operations included in the transaction */
+  operations: Array<{
+    /** Type of operation (only payment is currently supported) */
+    type: 'payment';
+    /** Destination account for the payment */
+    destination: string;
+    /** Amount being sent */
+    amount: string;
+    /** Asset code (XLM, USDC, etc.) */
+    assetCode: string;
+    /** Optional issuer for non-native assets */
+    assetIssuer?: string;
+    /** Human-readable summary of the operation */
+    description: string;
+  }>;
+  /** Timebounds for the transaction (when it becomes valid and expires) */
+  timebounds: {
+    minTime: number;
+    maxTime: number;
+    /** ISO string of min time */
+    validFrom: string;
+    /** ISO string of max time */
+    validUntil: string;
+  };
+  /** Total number of operations */
+  operationCount: number;
+  /** Transaction hash if available (only for built unsigned transactions) */
+  transactionHash?: string;
+  /** Whether the transaction is ready to be signed */
+  canSign: boolean;
+}
+
+/**
+ * Extracts a human-readable summary from a transaction signing payload
+ * to allow users to review and confirm what they are about to sign.
+ * 
+ * @param payload - A PreparedTransaction or UnsignedTransaction to inspect
+ * @returns A typed TransactionSigningSummary with all relevant information
+ * @throws {PocketPayError} If the payload type is not supported
+ */
+export function getTransactionSigningSummary(
+  payload: PreparedTransaction | UnsignedTransaction
+): TransactionSigningSummary {
+  // Extract common fields from either payload type
+  let sourcePublicKey: string;
+  let networkPassphrase: string;
+  let baseFee: string;
+  let memo: string | undefined;
+  let operations: OfflinePaymentOperation[];
+  let timebounds: { minTime: number; maxTime: number };
+  let transactionHash: string | undefined;
+  let canSign: boolean;
+
+  if ('transaction' in payload) {
+    // This is an UnsignedTransaction
+    sourcePublicKey = payload.sourcePublicKey;
+    networkPassphrase = payload.networkPassphrase;
+    baseFee = String(payload.transaction.fee);
+    memo = payload.transaction.memo?.value?.toString();
+    transactionHash = payload.hash;
+    canSign = true;
+    
+    // Extract operations from the Stellar SDK transaction
+    operations = payload.transaction.operations.map(op => {
+      if (op.type === 'payment') {
+        return {
+          destination: op.destination,
+          amount: op.amount,
+          asset: {
+            code: op.asset.code,
+            issuer: op.asset.issuer || undefined
+          }
+        };
+      }
+      throw new PocketPayError(
+        `Unsupported operation type in transaction: ${op.type}`,
+        'UNSUPPORTED_OPERATION',
+        { operationType: op.type }
+      );
+    });
+    
+    // Extract timebounds from the transaction
+    timebounds = {
+      minTime: payload.transaction.timeBounds?.minTime ? parseInt(payload.transaction.timeBounds.minTime) : 0,
+      maxTime: payload.transaction.timeBounds?.maxTime ? parseInt(payload.transaction.timeBounds.maxTime) : 0
+    };
+  } else {
+    // This is a PreparedTransaction
+    sourcePublicKey = payload.sourcePublicKey;
+    networkPassphrase = payload.networkPassphrase;
+    baseFee = payload.baseFee;
+    memo = payload.memo;
+    operations = payload.operations;
+    timebounds = payload.timebounds;
+    transactionHash = payload.transactionHash;
+    canSign = payload.readyToBuild;
+  }
+
+  // Resolve network name from passphrase
+  let networkName: string | undefined;
+  if (networkPassphrase === StellarSDK.Networks.PUBLIC) {
+    networkName = 'Stellar Mainnet';
+  } else if (networkPassphrase === StellarSDK.Networks.TESTNET) {
+    networkName = 'Stellar Testnet';
+  } else if (networkPassphrase === StellarSDK.Networks.FUTURENET) {
+    networkName = 'Stellar Futurenet';
+  } else if (networkPassphrase === StellarSDK.Networks.STANDALONE) {
+    networkName = 'Local Standalone Network';
+  } else {
+    networkName = 'Custom Network';
+  }
+
+  // Convert fee from stroops to XLM (1 XLM = 10^7 stroops)
+  const feeInStroops = parseInt(baseFee, 10);
+  const feeInXlm = (feeInStroops / 10000000).toFixed(7);
+
+  // Process operations into summary format
+  const summarizedOperations = operations.map(op => {
+    const isNative = !op.asset.issuer || op.asset.code.toUpperCase() === 'XLM';
+    const assetCode = isNative ? 'XLM' : op.asset.code;
+    const description = `Send ${op.amount} ${assetCode} to ${op.destination.substring(0, 8)}...`;
+    
+    return {
+      type: 'payment' as const,
+      destination: op.destination,
+      amount: op.amount,
+      assetCode,
+      assetIssuer: isNative ? undefined : op.asset.issuer,
+      description
+    };
+  });
+
+  // Format timebounds as ISO strings
+  const validFrom = new Date(timebounds.minTime * 1000).toISOString();
+  const validUntil = new Date(timebounds.maxTime * 1000).toISOString();
+
+  return {
+    source: sourcePublicKey,
+    network: networkPassphrase,
+    networkName,
+    fee: baseFee,
+    feeInXlm,
+    memo,
+    operations: summarizedOperations,
+    timebounds: {
+      ...timebounds,
+      validFrom,
+      validUntil
+    },
+    operationCount: summarizedOperations.length,
+    transactionHash,
+    canSign
+  };
+}
+
+/**
  * Transaction submission result.
  */
 export interface SubmissionResult {
