@@ -195,6 +195,15 @@ export {
   classifySubmissionOutcome,
   isSafeToRetry,
   requiresStatusCheck,
+  // Public error code & taxonomy standard (issue #260)
+  ErrorCategory,
+  ErrorCode,
+  ERROR_CODES,
+  isKnownErrorCode,
+  describeError,
+  getErrorCategory,
+  redactError,
+  isRetryableCode,
 } from './errors';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
