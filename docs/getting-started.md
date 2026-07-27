@@ -178,7 +178,9 @@ To send XLM from one account to another, use the `sendXLM` function. You will ne
 1. The **Secret Key** of the sending account to sign the transaction.
 2. The **Public Key** of the receiving account.
 3. The **Amount** of XLM to send (as a string to avoid floating-point inaccuracies).
-4. An optional **Memo** (maximum 28 bytes) to attach a short message or ID to the transaction.
+4. An optional **Memo** to attach a short message or ID to the transaction. A plain
+   string is a `text` memo (maximum 28 bytes); `id`, `hash` and `return` memos are
+   also supported — see [Memo Validation](./memo-validation.md).
 
 > [!NOTE]
 > The destination account must already exist on-chain (be funded) before a standard payment transaction can succeed.

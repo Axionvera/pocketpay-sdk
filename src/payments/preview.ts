@@ -1,7 +1,7 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { SDKConfig, PaymentPreviewParams, PaymentPreview } from '../types';
 import { resolveConfig } from '../config';
-import { validatePublicKey, validateAmount, validateMemo } from '../utils';
+import { validatePublicKey, validateAmount, validateMemoInput, normalizeMemo } from '../utils';
 import { validateAssetSpec } from './trustline';
 
 /**
@@ -26,7 +26,8 @@ export async function previewPayment(
   validatePublicKey(sourceAccount);
   validatePublicKey(destination);
   validateAmount(amount);
-  validateMemo(memo);
+  validateMemoInput(memo);
+  const normalizedMemo = normalizeMemo(memo);
 
   const finalAsset = asset || { code: 'XLM' };
   validateAssetSpec(finalAsset);
@@ -38,7 +39,8 @@ export async function previewPayment(
     destination,
     amount,
     asset: finalAsset,
-    memo,
+    memo: normalizedMemo ? String(normalizedMemo.value ?? '') : undefined,
+    memoType: normalizedMemo?.type,
     network: cfg.network,
     estimatedFee: StellarSDK.BASE_FEE.toString(), // Hardcoded to Stellar base fee (100 stroops)
   };

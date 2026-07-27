@@ -117,6 +117,41 @@ export type BalanceResult =
       publicKey: string;
     };
 
+// ─── Memo ───────────────────────────────────────────────────────────────────
+
+/**
+ * The memo types defined by the Stellar protocol.
+ *
+ *  - `none`   — no memo
+ *  - `text`   — up to 28 **bytes** of UTF-8
+ *  - `id`     — unsigned 64-bit integer
+ *  - `hash`   — 32 bytes, supplied as 64 hex characters
+ *  - `return` — 32 bytes, supplied as 64 hex characters
+ */
+export type MemoType = 'none' | 'text' | 'id' | 'hash' | 'return';
+
+/**
+ * A memo with an explicit type.
+ *
+ * Anywhere a memo is accepted you may pass a plain `string`, which is treated
+ * as a `text` memo — the behaviour every caller had before typed memos existed.
+ *
+ * @example
+ * ```ts
+ * await sendXLM({ ...params, memo: 'invoice #42' });                  // text
+ * await sendXLM({ ...params, memo: { type: 'id', value: '12345' } }); // id
+ * ```
+ */
+export interface MemoInput {
+  /** Which Stellar memo type to build. */
+  type: MemoType;
+  /**
+   * The payload. Required for every type except `none`. `id` accepts a
+   * decimal string, number, or bigint; `hash` and `return` take 64 hex chars.
+   */
+  value?: string | number | bigint;
+}
+
 // ─── Payments ───────────────────────────────────────────────────────────────
 
 /** Parameters for sending an XLM payment */
@@ -127,8 +162,8 @@ export interface SendXLMParams {
   destination: string;
   /** Amount of XLM to send (as string for precision, e.g. "10.5") */
   amount: string;
-  /** Optional memo text (max 28 bytes) */
-  memo?: string;
+  /** Optional memo: text (max 28 bytes) or a typed {@link MemoInput} */
+  memo?: string | MemoInput;
 }
 
 /**
@@ -175,8 +210,8 @@ export interface SendAssetParams {
    * For issued assets supply both `code` and `issuer`.
    */
   asset: StellarAssetSpec;
-  /** Optional memo text (max 28 bytes) */
-  memo?: string;
+  /** Optional memo: text (max 28 bytes) or a typed {@link MemoInput} */
+  memo?: string | MemoInput;
   /**
    * When `true`, a preflight trustline check is run against Horizon before
    * building the transaction. Defaults to `true` for issued assets;
@@ -198,8 +233,8 @@ export interface PaymentPreviewParams {
    * For issued assets supply both `code` and `issuer`.
    */
   asset?: StellarAssetSpec;
-  /** Optional memo text (max 28 bytes) */
-  memo?: string;
+  /** Optional memo: text (max 28 bytes) or a typed {@link MemoInput} */
+  memo?: string | MemoInput;
 }
 
 /** Typed preview of a payment */
@@ -212,8 +247,14 @@ export interface PaymentPreview {
   amount: string;
   /** Asset to be sent */
   asset: StellarAssetSpec;
-  /** Memo text if provided */
+  /** Memo payload if provided, rendered as a string */
   memo?: string;
+  /**
+   * Type of the memo that will be attached. Mirrors `TransactionSummary.memoType`
+   * on the read side, so previews and fetched transactions describe memos the
+   * same way. Absent when there is no memo.
+   */
+  memoType?: MemoType;
   /** Network the payment will be on */
   network: string;
   /** Estimated base fee in stroops */
