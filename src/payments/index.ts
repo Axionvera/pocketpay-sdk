@@ -6,7 +6,7 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase, resolveConfig } from '../config';
 import { SendXLMParams, SendAssetParams, PaymentResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, validateMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import { validateSecretKey, validatePublicKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
 import { withTimeout } from '../network';
 import { validateAssetSpec, verifyPaymentTrustlineOrThrow } from './trustline';
@@ -33,7 +33,7 @@ export async function sendXLM(
   validateSecretKey(sourceSecret);
   validatePublicKey(destination);
   validateAmount(amount);
-  validateMemo(memo);
+  validateMemoInput(memo);
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const sourcePublic = sourceKeypair.publicKey();
   if (sourcePublic === destination) {
@@ -66,8 +66,9 @@ export async function sendXLM(
         amount,
       })
     );
-    if (memo) {
-      builder.addMemo(StellarSDK.Memo.text(memo));
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      builder.addMemo(builtMemo);
     }
     builder.setTimeout(30);
     const transaction = builder.build();
@@ -304,7 +305,7 @@ export async function sendAsset(
   validateSecretKey(sourceSecret);
   validatePublicKey(destination);
   validateAmount(amount);
-  validateMemo(memo);
+  validateMemoInput(memo);
   validateAssetSpec(asset);
 
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
@@ -354,8 +355,9 @@ export async function sendAsset(
       }),
     );
 
-    if (memo) {
-      builder.addMemo(StellarSDK.Memo.text(memo));
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      builder.addMemo(builtMemo);
     }
 
     builder.setTimeout(30);

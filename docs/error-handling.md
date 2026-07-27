@@ -34,7 +34,11 @@ These errors are thrown locally before any network requests are made.
 *   `INVALID_SECRET_KEY`: The provided secret key is not a valid Stellar private key (must start with `S` and be 56 characters).
 *   `INVALID_AMOUNT`: The amount is not a positive number or is formatted incorrectly.
 *   `INVALID_AMOUNT_PRECISION`: The amount exceeds the maximum Stellar precision of 7 decimal places (e.g., `1.12345678`).
-*   `INVALID_MEMO`: The transaction memo text exceeds the Stellar limit of 28 bytes.
+*   `TX_INVALID_MEMO`: The transaction memo is invalid — a text memo over 28 bytes, an
+    `id` memo that is not an unsigned 64-bit integer, or a `hash`/`return` memo that is
+    not 64 hex characters. `validation.reason` says which rule was broken. Replaces the
+    former unregistered `INVALID_MEMO` string on the throwing path — see
+    [Memo Validation](./memo-validation.md).
 *   `SELF_PAYMENT`: The source account and destination account are identical.
 
 ### 2. Stellar Network & Horizon Errors
@@ -162,7 +166,7 @@ When building customer-facing interfaces, translate machine-readable SDK error c
 | `INVALID_SECRET_KEY` | "The secret key is invalid. Please verify and try again." |
 | `INVALID_AMOUNT` | "Please enter a positive numeric amount." |
 | `INVALID_AMOUNT_PRECISION`| "Amounts cannot have more than 7 decimal places." |
-| `INVALID_MEMO` | "Memo is too long. Please shorten it to 28 characters or fewer." |
+| `TX_INVALID_MEMO` | "The transaction memo is invalid." |
 | `SELF_PAYMENT` | "You cannot send payments to your own account." |
 | `ACCOUNT_NOT_FOUND` | "This account is inactive. Fund it with XLM first to activate it." |
 | `PAYMENT_FAILED` | "Transaction failed. Please ensure you have sufficient balance and network fees." |

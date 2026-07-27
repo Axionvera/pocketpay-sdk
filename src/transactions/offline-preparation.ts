@@ -46,7 +46,7 @@ import {
   SDKConfig,
   PocketPayResult,
 } from '../types';
-import { validatePublicKey, validateSecretKey, validateAmount, validateMemo, wrapError, toResult } from '../utils';
+import { validatePublicKey, validateSecretKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult } from '../utils';
 import { withTimeout } from '../network';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export function prepareTransactionOffline(
     validateAssetSpecOffline(op.asset);
   }
   
-  validateMemo(params.memo);
+  validateMemoInput(params.memo);
 
   const cfg = resolveConfig(config);
   const networkPassphrase = getNetworkPassphrase(cfg.network);
@@ -416,7 +416,8 @@ export function buildUnsignedTransaction(
 
   // Add memo if provided
   if (prepared.memo) {
-    builder.addMemo(StellarSDK.Memo.text(prepared.memo));
+    const preparedMemo = buildMemo(prepared.memo);
+    if (preparedMemo) builder.addMemo(preparedMemo);
   }
 
   const transaction = builder.build();

@@ -482,3 +482,14 @@ export {
 } from './explorer';
 export * from './assetHelpers';
 
+// ─── Memo ────────────────────────────────────────────────────────────────
+export {
+  validateMemoInput,
+  safeValidateMemo,
+  normalizeMemo,
+  buildMemo,
+  MEMO_TEXT_MAX_BYTES,
+  MEMO_HASH_HEX_LENGTH,
+  MEMO_ID_MAX,
+  SUPPORTED_MEMO_TYPES,
+} from './memo';
