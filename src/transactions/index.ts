@@ -13,6 +13,7 @@ import {
 import { validatePublicKey, wrapError, toResult } from '../utils';
 import { resolveConfig } from '../config';
 import { withTimeout } from '../network';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 import {
   filterTransactions,
   filterByDirection,
@@ -116,6 +117,13 @@ export async function getTransactions(
       memoType: tx.memo_type,
       pagingToken: tx.paging_token,
     }));
+
+    emitDiagnosticsEvent('transaction', 'transaction.history.fetched', {
+      publicKey,
+      count: records.length,
+      limit: clampedLimit,
+      order,
+    });
 
     return {
       records,

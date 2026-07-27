@@ -58,6 +58,7 @@ npm install @axionvera/pocketpay-sdk
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy`API
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
+- [SDK Diagnostics](./docs/diagnostics.md) - Opt-in redacted lifecycle hooks and support-safe reports
 - [Logging: Transaction Payloads & Debug Mode](./docs/logging-payloads-and-debug.md) - Safely logging signed transaction XDR, memos, and debug output
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
 - [Dependency Review](./docs/dependency-review.md) - How SDK dependencies are evaluated, added, updated, and justified

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in SDK diagnostics (`src/diagnostics/`): redacted lifecycle hooks, `buildDiagnosticsReport`, and support guide (`docs/diagnostics.md`) for configuration, network, transaction, wallet, and vault observability without leaking secrets
 - Initial SDK release with wallet management, XLM payments, and transaction history
 - Soroban savings-vault helpers (`depositToVault`, `withdrawFromVault`, `getVaultBalance`)
 - Network error handling with retry guidance

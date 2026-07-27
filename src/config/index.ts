@@ -13,6 +13,7 @@ import {
   PocketPayError,
 } from '../types';
 import { redactSensitive } from '../utils';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 // ─── Default URLs ───────────────────────────────────────────────────────────
 const HORIZON_URLS: Record<StellarNetwork, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
@@ -249,7 +250,18 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
     validateContractId(contractId);
   }
 
-  return { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
+  const resolved = { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
+
+  emitDiagnosticsEvent('config', 'config.resolved', {
+    network: resolved.network,
+    horizonUrl: resolved.horizonUrl,
+    sorobanRpcUrl: resolved.sorobanRpcUrl,
+    timeoutMs: resolved.timeout,
+    contractIdConfigured:
+      typeof resolved.contractId === 'string' && resolved.contractId.length > 0,
+  });
+
+  return resolved;
 }
 
 /**

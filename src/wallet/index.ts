@@ -25,6 +25,7 @@ import type { ResultWarning, RecoveryHint } from '../errors';
 import { ErrorCode } from '../errors/codes';
 import { CapabilityMismatchError } from '../errors/unsupported';
 import { NetworkClient, withTimeout } from '../network';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 
 /**
  * Creates a new random Stellar keypair.
@@ -52,7 +53,12 @@ import { NetworkClient, withTimeout } from '../network';
  */
 export function createWallet(): WalletKeypair {
   const kp = StellarSDK.Keypair.random();
-  return { publicKey: kp.publicKey(), secretKey: kp.secret() };
+  const wallet = { publicKey: kp.publicKey(), secretKey: kp.secret() };
+  emitDiagnosticsEvent('wallet', 'wallet.created', {
+    publicKey: wallet.publicKey,
+    hasSecretKey: true,
+  });
+  return wallet;
 }
 
 /**
@@ -71,7 +77,12 @@ export function importWallet(secretKey: string): WalletKeypair {
   const trimmed = secretKey.trim();
   try {
     const kp = StellarSDK.Keypair.fromSecret(trimmed);
-    return { publicKey: kp.publicKey(), secretKey: kp.secret() };
+    const wallet = { publicKey: kp.publicKey(), secretKey: kp.secret() };
+    emitDiagnosticsEvent('wallet', 'wallet.imported', {
+      publicKey: wallet.publicKey,
+      hasSecretKey: true,
+    });
+    return wallet;
   } catch (error) {
     if (error instanceof PocketPayError) {
       throw error;

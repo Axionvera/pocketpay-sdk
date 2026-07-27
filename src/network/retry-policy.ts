@@ -25,6 +25,7 @@ import { RetryPolicy, RetryPolicyExhaustedResult, SubmissionOutcome } from '../t
 import { PocketPayError } from '../types';
 import { classifySubmitError, classifySubmissionOutcome } from '../errors';
 import { submitTransactionIdempotently } from './idempotency';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,12 @@ export async function withRetryPolicy(
           attempts: attempt,
         };
         if (onAttempt) onAttempt(attempt, lastOutcome, 0);
+        emitDiagnosticsEvent('network', 'network.retry.attempt', {
+          attempt,
+          outcome: lastOutcome.kind,
+          delayMs: 0,
+          txHash: transaction.hash().toString('hex'),
+        });
         throw exhaustedError(exhausted);
       }
 
@@ -203,6 +210,12 @@ export async function withRetryPolicy(
           attempts: attempt,
         };
         if (onAttempt) onAttempt(attempt, lastOutcome, 0);
+        emitDiagnosticsEvent('network', 'network.retry.attempt', {
+          attempt,
+          outcome: lastOutcome.kind,
+          delayMs: 0,
+          txHash: transaction.hash().toString('hex'),
+        });
         throw exhaustedError(exhausted);
       }
 
@@ -216,6 +229,12 @@ export async function withRetryPolicy(
           attempts: attempt,
         };
         if (onAttempt) onAttempt(attempt, lastOutcome, 0);
+        emitDiagnosticsEvent('network', 'network.retry.attempt', {
+          attempt,
+          outcome: lastOutcome.kind,
+          delayMs: 0,
+          txHash: transaction.hash().toString('hex'),
+        });
         throw exhaustedError(exhausted);
       }
 
@@ -231,6 +250,12 @@ export async function withRetryPolicy(
       );
 
       if (onAttempt) onAttempt(attempt, retryableOutcome, delayMs);
+      emitDiagnosticsEvent('network', 'network.retry.attempt', {
+        attempt,
+        outcome: retryableOutcome.kind,
+        delayMs,
+        txHash: transaction.hash().toString('hex'),
+      });
       await sleep(delayMs);
     }
   }

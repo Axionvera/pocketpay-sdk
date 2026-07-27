@@ -77,6 +77,16 @@ utilities: [
 'redactSecretKey',
 'redactSensitiveValue',
 ],
+diagnostics: [
+'enableDiagnostics',
+'disableDiagnostics',
+'setDiagnosticsHooks',
+'resetDiagnosticsHooks',
+'isDiagnosticsEnabled',
+'emitDiagnosticsEvent',
+'buildDiagnosticsReport',
+'redactDiagnosticsValue',
+],
 } as const;
 
 /** Asserts a named helper is exported from the package root. */
@@ -122,6 +132,12 @@ describe('Package root exports', () => {
     }
 
     for (const name of REQUIRED_PUBLIC_EXPORTS.utilities) {
+      expectExported(name);
+    }
+  });
+
+  it('exports diagnostics helpers from the package root', () => {
+    for (const name of REQUIRED_PUBLIC_EXPORTS.diagnostics) {
       expectExported(name);
     }
   });
