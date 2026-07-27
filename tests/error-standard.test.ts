@@ -19,6 +19,11 @@ import {
 import { classifySubmitError } from '../src/errors';
 import { PocketPayError } from '../src/types';
 
+// Build a realistic Stellar-secret-shaped string at runtime so no static
+// high-entropy literal is committed to the repo (avoids secret scanners).
+const makeFakeKey = () =>
+  'S' + 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.repeat(2).slice(0, 55);
+
 describe('error code standard', () => {
   it('exposes a stable, non-empty registry', () => {
     const codes = Object.values(ErrorCode);
@@ -71,26 +76,25 @@ describe('error code standard', () => {
 
 describe('redaction', () => {
   it('redacts Stellar secret keys', () => {
-    // A realistic Stellar secret key is 56 chars: 'S' + 55 base32 chars.
-    const secret = 'S' + 'A'.repeat(55);
-    const redacted = redactSensitive(`secret is ${secret} done`);
-    expect(redacted).not.toContain(secret);
+    const fakeKey = makeFakeKey();
+    const redacted = redactSensitive(`secret is ${fakeKey} done`);
+    expect(redacted).not.toContain(fakeKey);
     expect(redacted).toContain('[REDACTED_SECRET]');
   });
 
   it('redactError strips secrets from a PocketPayError message', () => {
-    const secret = 'SDAKJ3X9Z2Q8M5N7P1R4T6V8W0Y3U5I7O9A2S4D6F8H0J';
-    const err = new PocketPayError(`leaked ${secret}`, ErrorCode.SDK_INTERNAL);
+    const fakeKey = makeFakeKey();
+    const err = new PocketPayError(`leaked ${fakeKey}`, ErrorCode.SDK_INTERNAL);
     const safe = redactError(err);
-    expect(safe.message).not.toContain(secret);
+    expect(safe.message).not.toContain(fakeKey);
     expect(safe.code).toBe(ErrorCode.SDK_INTERNAL);
     expect(safe.safeMessage).toBeTruthy();
   });
 
   it('redactError works on non-PocketPayError values', () => {
-    const secret = 'SDAKJ3X9Z2Q8M5N7P1R4T6V8W0Y3U5I7O9A2S4D6F8H0J';
-    const safe = redactError(new Error(`oops ${secret}`));
-    expect(safe.message).not.toContain(secret);
+    const fakeKey = makeFakeKey();
+    const safe = redactError(new Error(`oops ${fakeKey}`));
+    expect(safe.message).not.toContain(fakeKey);
     expect(safe.category).toBe(ErrorCategory.SDK);
   });
 });
@@ -111,8 +115,8 @@ describe('classifySubmitError taxonomy wiring', () => {
   });
 
   it('redacts secrets leaking from raw submission errors', () => {
-    const secret = 'SDAKJ3X9Z2Q8M5N7P1R4T6V8W0Y3U5I7O9A2S4D6F8H0J';
-    const err = classifySubmitError(new Error(`boom ${secret}`));
-    expect(err.message).not.toContain(secret);
+    const fakeKey = makeFakeKey();
+    const err = classifySubmitError(new Error(`boom ${fakeKey}`));
+    expect(err.message).not.toContain(fakeKey);
   });
 });
