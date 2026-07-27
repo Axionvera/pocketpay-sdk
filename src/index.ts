@@ -92,6 +92,17 @@ export {
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
 
+// ─── Account sequence safety ────────────────────────────────────────────────
+export {
+  SequenceProvider,
+  defaultSequenceProvider,
+  validateSequenceValue,
+  isSequenceStale,
+  DEFAULT_SEQUENCE_MAX_AGE_MS,
+} from './account';
+
+export type { SequenceSnapshot, SequenceProviderOptions } from './account';
+
 // ─── Wallet ─────────────────────────────────────────────────────────────────
 export {
   createWallet,
@@ -194,6 +205,8 @@ export {
   classifySubmitError,
   isRetryableError,
   isUnknownStatusError,
+  // Sequence safety (issue #277)
+  requiresRebuild,
   classifySubmissionOutcome,
   isSafeToRetry,
   requiresStatusCheck,

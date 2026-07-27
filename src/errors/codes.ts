@@ -58,6 +58,7 @@ export const ErrorCode = {
   TX_SIGNING_DENIED: 'TX_SIGNING_DENIED',
   TX_BUILD_FAILED: 'TX_BUILD_FAILED',
   TX_INVALID_MEMO: 'TX_INVALID_MEMO',
+  TX_BAD_SEQUENCE: 'TX_BAD_SEQUENCE',
 
   // ─── Network ──────────────────────────────────────────────────────────────
   NET_RATE_LIMITED: 'NET_RATE_LIMITED',
@@ -228,6 +229,14 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     retryable: false,
     safeMessage: 'Failed to build the transaction.',
     developerHint: 'Check operation params, sequence number, and asset specs.',
+  },
+  [ErrorCode.TX_BAD_SEQUENCE]: {
+    category: ErrorCategory.Transaction,
+    retryable: false,
+    safeMessage: 'The transaction used an out-of-date account sequence number.',
+    developerHint:
+      'Resubmitting the same envelope can never succeed. Refresh the account sequence and ' +
+      'rebuild the transaction; see requiresRebuild().',
   },
   [ErrorCode.TX_INVALID_MEMO]: {
     category: ErrorCategory.Transaction,
