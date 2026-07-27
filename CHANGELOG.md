@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial SDK release with wallet management, XLM payments, and transaction history
 - Soroban savings-vault helpers (`depositToVault`, `withdrawFromVault`, `getVaultBalance`)
 - Network error handling with retry guidance
-- Comprehensive documentation (getting started, error handling, logging, security, release checklist)
+- Comprehensive documentation covering getting started, error handling, logging, security, and release preparation
 - GitHub Actions CI pipeline
 - Contribution guidelines
+- Added a complete SDK release-readiness and migration system for maintainers, including release gates, public API review, security review, changelog policy, deprecation guidance, and a reusable migration-note template
 
 [Unreleased]: https://github.com/Axionvera/pocketpay-sdk/compare/main...HEAD
