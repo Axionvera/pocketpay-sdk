@@ -207,7 +207,7 @@ All validation runs synchronously before any network call:
 | `sourceSecret` | Valid Stellar secret key (`S...`) | `INVALID_SECRET_KEY` |
 | `destination` | Valid Stellar public key (`G...`) | `INVALID_PUBLIC_KEY` |
 | `amount` | Positive decimal string (`> 0`) | `INVALID_AMOUNT` |
-| `memo` | ≤ 28 bytes (if provided) | `INVALID_MEMO` |
+| `memo` | Text ≤ 28 bytes, or a typed memo (`id`/`hash`/`return`) | `TX_INVALID_MEMO` |
 | `asset.code` | `XLM` / `native` for native; 1–12 alphanum for issued | `INVALID_ASSET_CODE` |
 | `asset.issuer` | Required & valid `G...` for issued assets | `MISSING_ASSET_ISSUER` / `INVALID_PUBLIC_KEY` |
 | Source ≠ Destination | Cannot send to yourself | `SELF_PAYMENT` |
@@ -224,7 +224,7 @@ All errors thrown by `sendAsset` (and surfaced by `safeSendAsset`) are
 | `INVALID_SECRET_KEY` | Malformed source secret key | Fix the key format |
 | `INVALID_PUBLIC_KEY` | Malformed destination or issuer key | Fix the key format |
 | `INVALID_AMOUNT` | Amount ≤ 0 or non-numeric | Use a positive decimal string |
-| `INVALID_MEMO` | Memo exceeds 28 bytes | Shorten the memo |
+| `TX_INVALID_MEMO` | Memo breaks its type's format rule | See [Memo Validation](./memo-validation.md) |
 | `INVALID_ASSET_CODE` | Asset code too long or contains symbols | 1–12 alphanumeric chars |
 | `MISSING_ASSET_ISSUER` | Issued asset without issuer public key | Provide the issuer key |
 | `INVALID_ASSET` | Native asset has a spurious issuer | Remove the `issuer` field |

@@ -57,6 +57,7 @@ export const ErrorCode = {
   TX_UNSIGNED: 'TX_UNSIGNED',
   TX_SIGNING_DENIED: 'TX_SIGNING_DENIED',
   TX_BUILD_FAILED: 'TX_BUILD_FAILED',
+  TX_INVALID_MEMO: 'TX_INVALID_MEMO',
 
   // ─── Network ──────────────────────────────────────────────────────────────
   NET_RATE_LIMITED: 'NET_RATE_LIMITED',
@@ -227,6 +228,14 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     retryable: false,
     safeMessage: 'Failed to build the transaction.',
     developerHint: 'Check operation params, sequence number, and asset specs.',
+  },
+  [ErrorCode.TX_INVALID_MEMO]: {
+    category: ErrorCategory.Transaction,
+    retryable: false,
+    safeMessage: 'The transaction memo is invalid.',
+    developerHint:
+      'Text memos are limited to 28 bytes; id memos are unsigned 64-bit integers; ' +
+      'hash and return memos are 64 hex characters.',
   },
 
   [ErrorCode.NET_RATE_LIMITED]: {

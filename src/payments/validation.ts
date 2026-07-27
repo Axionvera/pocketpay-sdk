@@ -16,7 +16,7 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { PocketPayError, SendXLMParams } from '../types';
 import {
   validateAmount,
-  validateMemo,
+  validateMemoInput,
   validatePublicKey,
   validateSecretKey,
 } from '../utils';
@@ -115,7 +115,7 @@ export function validateSendXLMParams(
 
   // 4. Memo length (optional field; missing memo is always valid).
   try {
-    validateMemo(params.memo);
+    validateMemoInput(params.memo);
   } catch (err) {
     errors.push(toValidationError(err, 'memo', 'INVALID_MEMO'));
   }
