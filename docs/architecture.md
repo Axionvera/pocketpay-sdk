@@ -87,6 +87,31 @@ not import wallet/payments/soroban implementation details beyond types already
 available through config and the capability registry. Hooks are off by default.
 See [diagnostics.md](./diagnostics.md).
 
+### errors
+
+Error classification and redaction, used by every other module. Owns
+`PocketPayError`, the error taxonomy (`ErrorCategory`, `ErrorCode`), the
+capability registry (`SDK_CAPABILITIES`, `assertCapability`) used to gate
+unsupported features, and submission-outcome classification
+(`classifySubmitError`, `classifySubmissionOutcome`) that turns a raw
+Horizon/network failure into a typed, retry-aware result. `redactSensitive`
+and `redactError` here are the SDK's primary defence against leaking a
+secret key or signed XDR into a thrown error's message — route new error
+construction through this module rather than building error messages by
+hand in a feature module.
+
+### account
+
+Identity and signing abstraction, separate from `wallet`. Owns
+`AccountIdentity` (public key only), the `Signer` interface, `LocalSigner`
+(a `Signer` backed by an in-memory keypair), the `ExternalSignerAdapter`
+extension point for hardware/mobile/browser signers this SDK doesn't
+implement itself, and sequence-freshness helpers (`isSequenceStale`,
+`validateSequenceValue`) used for offline transaction preparation. Only
+`transactions` has adopted this abstraction so far, for its offline-signing
+flow; `wallet`, `payments`, and `soroban` still manage keys inline and are
+expected to migrate to it over time rather than duplicate signing logic.
+
 ### utils
 
 Cross-cutting helpers used by every feature module. Two groups live here. First,
@@ -136,6 +161,14 @@ contract and submit them through the Soroban RPC endpoint from config. This is
 the only module that talks to Soroban, and it depends on a deployed contract
 from pocketpay-contracts plus a configured `VAULT_CONTRACT_ID`.
 
+### vault
+
+A thin, discoverable public alias over `soroban`: `depositToVault`,
+`withdrawFromVault`, `getVaultBalance`, and the Soroban result mappers are
+re-exported here unchanged, alongside the vault-specific types. It holds no
+implementation of its own — new vault behaviour is built in `soroban` and
+re-exported here if it should be part of the public vault surface.
+
 ## How data flows
 
 A typical call runs through the same layers in order:
@@ -159,34 +192,34 @@ order and land in the module that owns its concern.
 ## Adding new behaviour
 
 - New shared shape → **types**.
+- New error code, classification rule, or capability gate → **errors**.
 - New endpoint, setting, or validation of config input → **config**.
 - New validator, converter, or result helper → **utils**.
-- New account or balance operation → **wallet**.
+- New signing capability or identity concern (not tied to one feature) → **account**.
+- New keypair or balance operation → **wallet**.
 - New way to move value → **payments**.
 - New history query → **transactions**.
-- New contract call → **soroban**.
+- New contract call → **soroban**, then re-export from **vault** if it should be public.
 
 Keep the public surface behind the package root, and reuse the validate →
 resolve → execute → wrap flow rather than reaching around it.
 
 ## Module Hierarchy & Import Direction Rules
 
-To maintain a clean, maintainable architecture and prevent circular dependency cycles as the SDK expands, internal module imports MUST adhere to a strict Directed Acyclic Graph (DAG) hierarchy:
+Internal module imports follow a layered, mostly-acyclic hierarchy: `types`
+at the bottom, cross-cutting infrastructure (`errors`, `utils`, `config`,
+`diagnostics`, `network`, `account`) above it, feature modules
+(`wallet`, `payments`, `transactions`, `soroban`) above that, `vault` as a
+thin re-export facade over `soroban`, and `src/index.ts` re-exporting the
+public surface from all of them.
 
-```
-Layer 0:  types
-           │
-Layer 1:  network ─── config ─── utils
-           │            │          │
-Layer 2:  wallet ─── payments ─── transactions ─── soroban
-           │            │          │               │
-Layer 3:               src/index.ts (Package Root)
-```
-
-1. **Layer 0 (`types`)**: Shared data structures, interfaces, and error classes. Has zero internal module dependencies.
-2. **Layer 1 (`network`, `config`, `utils`)**: Infrastructure, config resolution, conversion, and result envelope formatting. May import Layer 0 types. Lower-level layers MUST NEVER import higher-level feature modules (`wallet`, `payments`, `transactions`, `soroban`).
-3. **Layer 2 (`wallet`, `payments`, `transactions`, `soroban`)**: High-level domain logic. Feature modules may import from Layer 0 (`types`) and Layer 1 (`network`, `config`, `utils`). Feature modules should avoid cross-importing each other.
-4. **Layer 3 (`src/index.ts`)**: Package root entry point. Re-exports public API surfaces from Layers 0-2.
+For the complete, per-module dependency table — including the one
+module-level exception (`transactions` depending on `account`) and the
+`config`/`diagnostics` mutual reference that looks circular but isn't at the
+file level — see
+[the SDK Package Boundary & Dependency Direction Map](./dependency_direction_map.md),
+which is verified directly against `src/`'s actual imports rather than
+hand-maintained here.
 
 ### Circular Dependency Check
 
