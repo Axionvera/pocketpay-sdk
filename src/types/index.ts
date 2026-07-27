@@ -652,6 +652,29 @@ export interface ValidationMetadata {
   value?: string | number;
 }
 
+/**
+ * Lifecycle stage at which an SDK timeout elapsed.
+ *
+ *  - `preparation`  — reading account state or simulating; nothing was sent.
+ *  - `submission`   — the transaction may or may not have reached the network.
+ *  - `confirmation` — it was sent; its final status is still unknown.
+ *  - `unknown`      — the stage could not be determined.
+ *
+ * `submission` and `confirmation` leave the outcome undetermined, so they are
+ * reported as `TX_STATUS_UNKNOWN` rather than a retryable timeout.
+ */
+export type TimeoutStage = 'preparation' | 'submission' | 'confirmation' | 'unknown';
+
+/** Context describing where and when a timeout elapsed. */
+export interface TimeoutMetadata {
+  /** Lifecycle stage the timeout interrupted. */
+  stage: TimeoutStage;
+  /** The operation label passed to `withTimeout`. */
+  operation: string;
+  /** The timeout budget that elapsed, in milliseconds. */
+  timeoutMs: number;
+}
+
 /** Custom SDK error with additional context */
 export class PocketPayError extends Error {
   /** Machine-readable error code */
@@ -677,6 +700,11 @@ export class PocketPayError extends Error {
    * taxonomy standard; optional — falls back to `message` when absent.
    */
   public readonly safeMessage?: string;
+  /**
+   * Where a timeout elapsed, when this error is one. Lets consumers pick a
+   * recovery action without parsing the message.
+   */
+  public readonly timeout?: TimeoutMetadata;
 
   constructor(
     message: string,
@@ -687,6 +715,7 @@ export class PocketPayError extends Error {
       validation?: ValidationMetadata;
       category?: string;
       safeMessage?: string;
+      timeout?: TimeoutMetadata;
     },
     arg4?: Error | string,
     arg5?: string | boolean,
@@ -703,6 +732,7 @@ export class PocketPayError extends Error {
       this.validation = arg3.validation;
       this.category = arg3.category;
       this.safeMessage = arg3.safeMessage;
+      this.timeout = arg3.timeout;
     } else {
       this.statusCode = arg3 as number | undefined;
       if (typeof arg4 === 'object') {

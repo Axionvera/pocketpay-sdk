@@ -22,6 +22,8 @@ export type {
   BalanceResult,
   MemoType,
   MemoInput,
+  TimeoutStage,
+  TimeoutMetadata,
   SendXLMParams,
   SendAssetParams,
   PaymentPreviewParams,

@@ -180,6 +180,20 @@ export async function enhancedSendXLM(
       });
     }
 
+    // A submission or confirmation timeout leaves the payment's outcome
+    // undetermined — it may already be on-chain. Advising a plain retry here
+    // risks paying twice, so those surface as TX_STATUS_UNKNOWN and get a
+    // check-status hint instead.
+    if (pocketErr.code === 'TX_STATUS_UNKNOWN') {
+      recoveryHints.push({
+        action: 'check_status',
+        message:
+          'The payment was sent but its result is unknown. Check the transaction status ' +
+          'before sending again — resubmitting may pay twice.',
+        retryable: false,
+      });
+    }
+
     if (pocketErr.code === 'REQUEST_TIMEOUT' || pocketErr.code === 'SEND_ERROR') {
       recoveryHints.push({
         action: 'retry',

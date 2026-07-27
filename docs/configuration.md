@@ -65,6 +65,9 @@ config, such as `getBalance`, `getTransactions`, `getPayments`, `sendXLM`, and
 
 When a request times out, the SDK throws a `PocketPayError` with code
 `REQUEST_TIMEOUT` and a message that includes the operation and timeout duration.
+Timeouts also carry `error.timeout.stage`; submission and confirmation timeouts
+report `TX_STATUS_UNKNOWN` instead, because the transaction's outcome is
+undetermined. See [Timeout Classification](./timeout-classification.md).
 
 ## Early Configuration Validation
 

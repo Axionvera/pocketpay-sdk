@@ -1,12 +1,64 @@
 import { PocketPayError } from '../types';
+import type { TimeoutStage } from '../types';
 import { wrapError } from '../utils';
+import { ErrorCode, ERROR_CODES } from '../errors/codes';
 
 const FALLBACK_TIMEOUT_MS = 30_000;
 
-function timeoutError(operation: string, timeoutMs: number): PocketPayError {
+/**
+ * Infers the lifecycle stage from the operation label a caller already passes.
+ *
+ * Every timeout in the SDK flows through {@link withTimeout}, whose first
+ * argument names the operation. That name was only ever interpolated into the
+ * message, so the stage the caller already knew was discarded. Call sites may
+ * also state the stage explicitly, which always wins.
+ */
+export function inferTimeoutStage(operation: string): TimeoutStage {
+  const label = operation.toLowerCase();
+  if (label.includes('submission')) return 'submission';
+  if (label.includes('status request') || label.includes('confirmation')) return 'confirmation';
+  if (
+    label.includes('account lookup') ||
+    label.includes('simulation') ||
+    label.includes('preparation')
+  ) {
+    return 'preparation';
+  }
+  return 'unknown';
+}
+
+/**
+ * Builds the timeout error for an operation, carrying its stage.
+ *
+ * Submission and confirmation timeouts leave the transaction's outcome
+ * genuinely unknown — it may already be on-chain — so they are reported as
+ * `TX_STATUS_UNKNOWN`, which `isUnknownStatusError()` recognises. Every other
+ * stage keeps the long-standing `REQUEST_TIMEOUT` code so existing consumers
+ * are unaffected.
+ *
+ * Note these are deliberately **not** mapped to `NET_TIMEOUT`: that code is
+ * `retryable: true`, and blindly resubmitting a payment whose outcome is
+ * unknown risks paying twice.
+ */
+function timeoutError(
+  operation: string,
+  timeoutMs: number,
+  stage: TimeoutStage = inferTimeoutStage(operation),
+): PocketPayError {
+  const outcomeUnknown = stage === 'submission' || stage === 'confirmation';
+  const code = outcomeUnknown ? ErrorCode.TX_STATUS_UNKNOWN : 'REQUEST_TIMEOUT';
+  const spec = outcomeUnknown
+    ? ERROR_CODES[ErrorCode.TX_STATUS_UNKNOWN]
+    : ERROR_CODES[ErrorCode.REQUEST_TIMEOUT];
+
   return new PocketPayError(
     `${operation} timed out after ${timeoutMs}ms`,
-    'REQUEST_TIMEOUT',
+    code,
+    {
+      category: spec.category,
+      safeMessage: spec.safeMessage,
+      timeout: { stage, operation, timeoutMs },
+    },
   );
 }
 
@@ -17,13 +69,14 @@ export function withTimeout<T>(
   operation: string,
   timeoutMs: number | undefined,
   request: Promise<T>,
+  stage?: TimeoutStage,
 ): Promise<T> {
   const effectiveTimeoutMs = timeoutMs ?? FALLBACK_TIMEOUT_MS;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(
-      () => reject(timeoutError(operation, effectiveTimeoutMs)),
+      () => reject(timeoutError(operation, effectiveTimeoutMs, stage)),
       effectiveTimeoutMs,
     );
   });
