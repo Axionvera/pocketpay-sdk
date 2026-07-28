@@ -1057,3 +1057,4 @@ export interface RetryPolicyExhaustedResult {
   attempts: number;
 }
 export * from './asset';
+export * from './receipt';
