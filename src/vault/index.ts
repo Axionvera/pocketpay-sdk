@@ -2,6 +2,9 @@
  * Stellar PocketPay SDK — Vault Module
  *
  * Dedicated vault module providing helpers and result mappers for Soroban savings vault interactions.
+ * 
+ * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md)
+ * for risks related to contract ID spoofing and malicious payload injection.
  */
 
 export {

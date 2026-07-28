@@ -1,7 +1,11 @@
 /**
- * Stellar PocketPay SDK â€” Wallet Module
+ * Stellar PocketPay SDK — Wallet Module
  *
  * Create, import, and manage Stellar keypairs. Query balances. Fund testnet accounts.
+ * 
+ * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md)
+ * for mitigation strategies regarding memory scraping, insecure key generation,
+ * and accidental secret export.
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
