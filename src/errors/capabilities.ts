@@ -66,6 +66,14 @@ export const SDK_CAPABILITIES: Record<string, CapabilitySpec> = {
     description:
       'Soroban savings-vault calls (deposit, withdraw, get_balance) against a deployed contract.',
   },
+  'vault.lock': {
+    status: 'planned',
+    module: 'vault',
+    description:
+      'Time-locked vault positions: lock creation, lock listing and matured-lock ' +
+      'withdrawal. The deployed savings-vault contract exposes deposit, withdraw ' +
+      'and get_balance only, so no SDK path can perform these today.',
+  },
   'soroban.contract-client': {
     status: 'config-gated',
     module: 'soroban',
