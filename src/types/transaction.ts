@@ -64,7 +64,7 @@ export interface TransactionSummary {
   counterparty?: string;
   
   /** Transaction memo (if any) */
-  memo?: string;
+  memo?: string | undefined;
   
   /** Transaction status */
   status?: TransactionStatus | 'pending' | 'completed' | 'failed' | 'unknown';

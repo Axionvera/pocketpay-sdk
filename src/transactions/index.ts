@@ -136,7 +136,7 @@ export async function getTransactions(
     return {
       records,
       count: records.length,
-      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
+      nextCursor: records.length ? records[records.length - 1]?.pagingToken : undefined,
     };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {
@@ -224,7 +224,7 @@ export async function getPayments(
     return {
       records,
       count: records.length,
-      nextCursor: records.length ? records[records.length - 1].pagingToken : undefined,
+      nextCursor: records.length ? records[records.length - 1]?.pagingToken : undefined,
     };
   } catch (error) {
     if ((error as any)?.response?.status === 404) {

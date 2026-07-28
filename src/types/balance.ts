@@ -119,7 +119,7 @@ export interface MultiAssetBalance {
   /** Overall account status ('funded' | 'unfunded' | 'unavailable' | 'unknown') */
   accountState: AccountBalanceState;
   /** Native XLM balance entry (undefined if account is unfunded or unavailable) */
-  native?: NativeAssetBalanceItem;
+  native?: NativeAssetBalanceItem | undefined;
   /** Array of issued asset balance entries */
   issuedAssets: IssuedAssetBalanceItem[];
   /** Array of unknown/unparseable balance entries (if any) */
