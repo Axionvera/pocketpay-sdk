@@ -145,6 +145,36 @@ describe('Soroban Invocation Result Mapper', () => {
       });
     });
 
+    it('maps ContractInvokeResult value and preserves its error code', () => {
+      expect(
+        mapSorobanInvocationResult({
+          success: true,
+          status: 'success',
+          value: 'typed-value',
+          hash: 'typed-hash',
+        }),
+      ).toMatchObject({
+        success: true,
+        status: 'success',
+        result: 'typed-value',
+        hash: 'typed-hash',
+      });
+
+      expect(
+        mapSorobanInvocationResult({
+          success: false,
+          status: 'failed',
+          error: 'Contract rejected the invocation',
+          errorCode: 'CONTRACT_REJECTED',
+        }),
+      ).toMatchObject({
+        success: false,
+        status: 'failed',
+        error: 'Contract rejected the invocation',
+        errorCode: 'CONTRACT_REJECTED',
+      });
+    });
+
     it('maps pending transaction status', () => {
       const pendingTx = { status: 'PENDING', hash: 'txPending' };
       const mapped = mapSorobanInvocationResult(pendingTx);

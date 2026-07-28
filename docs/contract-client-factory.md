@@ -75,12 +75,28 @@ import { createContractClient } from 'stellar-pocketpay-sdk';
 
 const client = createContractClient({
   contractId: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
+  methods: {
+    get_balance: {
+      kind: 'readOnly',
+      paramTypes: { user: 'address' },
+    },
+    deposit: {
+      kind: 'invoke',
+      paramTypes: { user: 'address', amount: 'i128' },
+    },
+  },
   config: {
     network: 'testnet',
     sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
   },
 });
 ```
+
+The optional `methods` schema narrows method names in TypeScript and validates
+them at runtime. A method missing from the schema, or a read-only method routed
+through `invoke`, throws `UnsupportedFeatureError` before account lookup,
+simulation, or signing. Omit `methods` only when building a deliberately dynamic
+client whose contract interface is not known in advance.
 
 ### Using the Vault Client (Specialized)
 
@@ -253,9 +269,11 @@ Result type for state-changing operations:
 ```typescript
 interface ContractInvokeResult<T = unknown> {
   success: boolean;      // Whether the invocation succeeded
+  status: 'success' | 'failed' | 'simulation_error' | 'error' | 'pending';
   hash?: string;         // Transaction hash (if submitted)
   value?: T;             // Parsed return value
   error?: string;        // Error message if failed
+  errorCode?: string | number; // Stable SDK or contract-specific failure code
 }
 ```
 

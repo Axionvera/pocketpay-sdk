@@ -45,6 +45,8 @@ export {
   type ParamTypes,
   type ScValType,
   type ErrorMapping,
+  type ContractMethodDefinition,
+  type ContractMethodSchema,
 } from './client-factory';
 
 /**
@@ -351,4 +353,3 @@ export async function getVaultBalance(
     throw wrapError(error, 'Failed to query vault balance', 'VAULT_BALANCE_ERROR');
   }
 }
-
