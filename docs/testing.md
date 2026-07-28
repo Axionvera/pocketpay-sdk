@@ -47,6 +47,9 @@ occasionally non-deterministic. Keep them out of the critical path: the default
   file and gate it behind `RUN_INTEGRATION` as shown in the existing
   integration example.
 
+For module-by-module expectations (wallet, payments, transactions, vault,
+config, utils), see the [SDK Module Test Matrix](./module-test-matrix.md).
+
 ## Scripts
 
 | Command                        | What it runs                                  |
