@@ -196,6 +196,22 @@ export type {
   ReceiptAction,
 } from './types';
 
+// ─── Transaction lifecycle orchestrator (issue #305) ─────────────────────────
+export {
+  submitGuarded,
+  reconcileSubmission,
+  requiresStatusResolution,
+} from './transactions';
+
+export type { GuardedSubmitOptions, SubmittableTransaction } from './transactions';
+
+export type {
+  LifecycleStage,
+  LifecycleState,
+  LifecycleResult,
+  LifecycleFailure,
+} from './types';
+
 // ─── Transactions ───────────────────────────────────────────────────────────
 export {
   getTransactions,

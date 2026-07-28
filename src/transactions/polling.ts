@@ -27,10 +27,14 @@ export async function pollTransaction(
       
       const record: TransactionRecord = {
         hash: tx.hash,
-        ledger: tx.ledger,
+        // `tx.ledger` is Horizon's link-follow helper, not the ledger number —
+        // the numeric sequence is exposed as `ledger_attr`.
+        ledger: tx.ledger_attr,
         createdAt: tx.created_at,
         sourceAccount: tx.source_account,
-        fee: tx.fee_charged,
+        // Horizon types `fee_charged` as `string | number`; the SDK's record
+        // keeps fees as strings so stroop values never lose precision.
+        fee: String(tx.fee_charged),
         operationCount: tx.operation_count,
         successful: tx.successful,
         memo: tx.memo || undefined,
