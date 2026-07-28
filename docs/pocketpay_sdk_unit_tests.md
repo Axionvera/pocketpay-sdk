@@ -14,4 +14,7 @@ Payment error-path coverage (issue #373) lives in:
 
 Shared Horizon error fixtures for payment tests are in `tests/fixtures/payments.ts`.
 
+Pre-PR verification helper tests live in `tests/verify-acceptance.test.ts`.
+
 See [Error Handling — Payment Helper Error Reference](./error-handling.md#payment-helper-error-reference) for the documented failure modes.
+See [Pre-PR Verification](./pre-pr-verification.md) for the `npm run verify:pr` workflow.
