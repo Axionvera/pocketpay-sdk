@@ -63,7 +63,8 @@ npm install @axionvera/pocketpay-sdk
 - [SDK Diagnostics](./docs/diagnostics.md) - Opt-in redacted lifecycle hooks and support-safe reports
 - [Logging: Transaction Payloads & Debug Mode](./docs/logging-payloads-and-debug.md) - Safely logging signed transaction XDR, memos, and debug output
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
-- [SDK Security Threat Model](./docs/security_threat_model.md) - Trust boundaries, wallet risks, and mitigation strategies for the SDK environment
+- [SDK Security Threat Model](./docs/security_threat_model.md) - Trust boundaries, secret handling, transaction submission risks, mitigation strategies, and consumer responsibilities
+- [Signing Boundaries](./docs/signing-boundaries.md) - Detailed rules on secret boundaries, capability checking, and transaction signing limits
 - [Dependency Review](./docs/dependency-review.md) - How SDK dependencies are evaluated, added, updated, and justified
 - [Wallet Recovery Limitations](./docs/wallet-recovery-limitations.md) - What happens when keys are lost, what the SDK does not provide, and your application's responsibilities
 - [Wallet Secret Export Policy](./docs/wallet-secret-export.md) - Supported local-key access, unsupported export behaviour, security risks, and consumer responsibilities
