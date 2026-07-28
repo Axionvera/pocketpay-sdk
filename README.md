@@ -78,7 +78,8 @@ npm install @axionvera/pocketpay-sdk
 - [Migration Note Template](./docs/migration-note-template.md) - Reusable template for documenting breaking, configuration, runtime, and security-sensitive migrations
 - [Changelog Policy](./docs/changelog-policy.md) - Rules for changelog categories, Semantic Versioning, breaking changes, security entries, and migration links
 - [SDK Security Readiness Review](./docs/sdk_security_readiness_review.md) - Security review gates for secrets, signing, transactions, validation, networking, logging, dependencies, and public APIs
-- [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
+- [Transaction Lifecycle ADR](./docs/adr/0005-transaction-lifecycle.md) - Safety boundaries for preparation, signing, submission, confirmation, retries, and future transaction work
+- [Architecture Decision Records](./docs/adr/) - Index of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
 - [Dependency Review Standards](./docs/dependency-review.md) - Guidelines for evaluating, adding, and updating SDK dependencies
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
