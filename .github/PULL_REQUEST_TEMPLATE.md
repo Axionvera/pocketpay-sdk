@@ -48,6 +48,12 @@
 - [ ] Criterion 2:
 - [ ] Criterion 3:
 
+## Contributor Self-Review
+
+<!-- Complete the self-review form before requesting review.
+     See .github/checklists/contributor-self-review.template.md -->
+- [ ] Self-review form completed and attached
+
 ## Reviewer Notes
 
 <!-- Anything a reviewer should know: design decisions, trade-offs, follow-ups,

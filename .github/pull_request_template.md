@@ -16,6 +16,7 @@ Closes #
 - [ ] If the issue has a checklist file, I ran `npm run verify:pr -- --checklist .github/checklists/issue-<number>.md`
 - [ ] All automated checks passed (lint, circular deps, unit tests, build)
 - [ ] I confirmed each acceptance criterion above is satisfied
+- [ ] I completed the [Contributor Self-Review Form](../.github/checklists/contributor-self-review.template.md)
 
 ## Test plan
 
