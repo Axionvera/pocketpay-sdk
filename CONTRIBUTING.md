@@ -67,6 +67,9 @@ npm run test:watch
 # Type-check without emitting files
 npm run lint
 
+# Pre-PR verification (tests, build, docs/CI reminders, acceptance criteria checklist)
+npm run verify:pr
+
 # Start the dev watcher
 npm run dev
 ```
@@ -120,6 +123,16 @@ Run the suite before opening a PR:
 npm test
 ```
 
+For a structured pre-PR pass that also checks build output, surfaces docs/CI
+reminders from your git diff, and prints issue acceptance criteria, run:
+
+```bash
+npm run verify:pr
+```
+
+See [Pre-PR Verification](./docs/pre-pr-verification.md) for checklist
+generation and `--issue` / `--checklist` options.
+
 All tests must pass. ✅
 
 ---
@@ -160,6 +173,7 @@ The PocketPay SDK handles sensitive cryptographic keys and financial transaction
 
 Before opening a PR, run through this list:
 
+- [ ] `npm run verify:pr` passes (or `npm run lint` + `npm test` at minimum)
 - [ ] `npm run lint` passes with no errors
 - [ ] `npm test` passes with no failures
 - [ ] New behaviour is covered by tests
