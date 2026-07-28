@@ -112,6 +112,17 @@ check** → **unit tests** (`vitest run`) → **coverage** (`vitest run --covera
 when to run it, and failure-handling guidance. This mirrors what the repo's
 automation checks when a PR is opened.
 
+## Pull Request Expectations
+
+Every PR uses the
+[PR template](./.github/PULL_REQUEST_TEMPLATE.md), which requires you to state
+the related issue, implementation scope, **tests added** (or why tests don't
+apply), the **`npm run verify`** output you ran locally, CI status, and
+acceptance-criteria coverage. A merged PR is not automatically payment-approved;
+reward eligibility is assessed separately. See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for the full checklist.
+
+
 ## Package Root Imports
 
 Everything the SDK exposes is available from the package root — this is the
