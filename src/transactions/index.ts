@@ -319,3 +319,13 @@ export type {
   SubmissionResult,
   TransactionSigningSummary,
 } from './offline-preparation';
+
+// ─── Authorisation requirements ──────────────────────────────────────────────
+export {
+  mapAuthRequirements,
+  identifyPresentSigners,
+  assertAuthFullyMapped,
+  toAuthAccountState,
+} from './auth';
+
+export type { MapAuthRequirementsOptions } from './auth';

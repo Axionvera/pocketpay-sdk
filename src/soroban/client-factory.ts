@@ -146,6 +146,49 @@ export class ContractClient {
    * @returns Parsed return value from the contract
    * @throws PocketPayError if the call fails
    */
+  /**
+   * Simulates a contract call and returns the authorisation entries it requires.
+   *
+   * `simulateTransaction` reports these in `result.auth`, naming the addresses
+   * that must approve the invocation. Until now the SDK read only
+   * `result.retval` here and let `assembleTransaction` consume the entries
+   * internally, so it acted on requirements it never surfaced. Pass the result
+   * to `mapAuthRequirements` to fold them into a full authorisation summary.
+   *
+   * @param options - The same options as {@link ContractClient.readOnly}
+   * @returns The authorisation entries, empty when the call needs none
+   */
+  public async getAuthorizationEntries(
+    options: ReadOnlyCallOptions,
+  ): Promise<StellarSDK.xdr.SorobanAuthorizationEntry[]> {
+    const { method, params, paramTypes, sourcePublicKey } = options;
+
+    const account = await this.getAccount(sourcePublicKey);
+    const tx = this.buildTransaction(account, method, params, paramTypes);
+
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      this.config.timeout,
+      this.sorobanServer.simulateTransaction(tx),
+    );
+
+    if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
+      const error = this.mapContractError((simulated as any).error);
+      throw new PocketPayError(
+        `Simulation failed: ${error}`,
+        ErrorCode.SOROBAN_SIMULATION_FAILED,
+        {
+          cause: new Error(error),
+          category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
+          safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
+        },
+      );
+    }
+
+    const success = simulated as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
+    return success.result?.auth ? [...success.result.auth] : [];
+  }
+
   public async readOnly<T = unknown>(options: ReadOnlyCallOptions): Promise<T> {
     const { method, params, paramTypes, resultParser, sourcePublicKey } = options;
 

@@ -94,6 +94,23 @@ export {
 // ─── Error Enrichment Types ────────────────────────────────────────────────
 export type { ResultWarning, RecoveryHint } from './errors';
 
+// ─── Transaction authorisation requirements (issue #248) ────────────────────
+export {
+  mapAuthRequirements,
+  identifyPresentSigners,
+  assertAuthFullyMapped,
+  toAuthAccountState,
+} from './transactions';
+
+export type {
+  AuthRequirement,
+  AuthRequirementSummary,
+  AuthRequirementKind,
+  AuthThresholdLevel,
+  AuthSigner,
+  AuthAccountState,
+} from './types';
+
 // ─── Account sequence safety ────────────────────────────────────────────────
 export {
   SequenceProvider,
