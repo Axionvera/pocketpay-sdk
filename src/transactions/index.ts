@@ -329,3 +329,17 @@ export {
 } from './auth';
 
 export type { MapAuthRequirementsOptions } from './auth';
+
+// ─── Signed transaction inspection ───────────────────────────────────────────
+export {
+  inspectSignedTransaction,
+  safeInspectSignedTransaction,
+  matchSignersByHint,
+} from './inspect';
+
+export type {
+  SignedTransactionSummary,
+  OperationSummary,
+  SignatureSummary,
+  InspectableTransaction,
+} from './inspect';

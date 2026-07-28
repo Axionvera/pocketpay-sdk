@@ -96,10 +96,20 @@ export type { ResultWarning, RecoveryHint } from './errors';
 
 // ─── Transaction authorisation requirements (issue #248) ────────────────────
 export {
+  inspectSignedTransaction,
+  safeInspectSignedTransaction,
+  matchSignersByHint,
   mapAuthRequirements,
   identifyPresentSigners,
   assertAuthFullyMapped,
   toAuthAccountState,
+} from './transactions';
+
+export type {
+  SignedTransactionSummary,
+  OperationSummary,
+  SignatureSummary,
+  InspectableTransaction,
 } from './transactions';
 
 export type {
