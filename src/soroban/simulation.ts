@@ -82,12 +82,13 @@ export async function simulateContractCall(
 
     // Ensure it's a success response
     if (StellarSDK.rpc.Api.isSimulationSuccess(simulationResponse)) {
+      const respAny = simulationResponse as any;
       return {
         success: true,
         rawSimulation: simulationResponse,
         cost: {
-          cpuInstructions: simulationResponse.cost?.cpuIns,
-          ramBytes: simulationResponse.cost?.memBytes,
+          cpuInstructions: respAny.cost?.cpuIns,
+          ramBytes: respAny.cost?.memBytes,
           minResourceFee: simulationResponse.minResourceFee,
         }
       };
@@ -103,7 +104,7 @@ export async function simulateContractCall(
     if (error instanceof PocketPayError) throw error;
     
     // Attempt to map typical Soroban errors
-    const mapped = mapSorobanContractError(error, contractId, operation);
+    const mapped = mapSorobanContractError(error);
     throw wrapError(mapped, 'Simulation failed due to network or configuration issue', 'SIMULATION_ERROR');
   }
 }
