@@ -45,9 +45,10 @@ import {
   PocketPayError,
   SDKConfig,
   PocketPayResult,
+  FeeEstimate,
 } from '../types';
 import { validatePublicKey, validateSecretKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult } from '../utils';
-import { withTimeout } from '../network';
+import { withTimeout, fetchFeeEstimate } from '../network';
 import { submitWithGuard } from './guarded-submit';
 import { ErrorCategory, ErrorCode, ERROR_CODES } from '../errors';
 import { validateSequenceValue, isSequenceStale } from '../account/sequence';
@@ -106,6 +107,8 @@ export interface NetworkState {
   fetchedAt?: number;
   /** Current base fee from network (optional - can use default) */
   currentFee?: string;
+  /** Detailed fee estimation containing high/standard/low tiers */
+  feeEstimate?: FeeEstimate;
   /** Account balance information (optional - for validation) */
   balance?: {
     /** Native XLM balance */
@@ -497,16 +500,20 @@ export async function fetchNetworkState(
   const server = getHorizonServer(config);
 
   try {
-    const account = await withTimeout(
-      'Horizon account lookup for transaction preparation',
-      cfg.timeout,
-      server.loadAccount(publicKey),
-    ) as any;
+    const [account, feeEstimate] = await Promise.all([
+      withTimeout(
+        'Horizon account lookup for transaction preparation',
+        cfg.timeout,
+        server.loadAccount(publicKey),
+      ) as any,
+      fetchFeeEstimate(config)
+    ]);
 
     return {
       sequence: account.sequence,
       fetchedAt: Date.now(),
-      currentFee: String(StellarSDK.BASE_FEE), // Could fetch actual fee from network
+      currentFee: feeEstimate.baseFee,
+      feeEstimate,
       balance: {
         native: account.balances?.find((b: any) => b.asset_type === 'native')?.balance || '0',
         minimum: '2.5', // Minimum reserve on Stellar

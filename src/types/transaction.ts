@@ -133,3 +133,28 @@ export interface TransactionMapperOptions {
   /** Whether to format amounts with proper decimals */
   formatAmounts?: boolean;
 }
+
+/**
+ * Represents an estimated fee for a transaction, derived from recent network statistics.
+ * All fee values are in stroops (1 XLM = 10,000,000 stroops).
+ */
+export interface FeeEstimate {
+  /** The estimated fee for a high probability of fast inclusion (e.g., p95) */
+  high: string;
+  /** The estimated fee for standard/average inclusion (e.g., p50) */
+  standard: string;
+  /** The estimated fee for low priority inclusion (e.g., p10) */
+  low: string;
+  /** The absolute minimum base fee required by the network (usually 100 stroops) */
+  baseFee: string;
+  /** 
+   * True if the network is experiencing high capacity usage (surge pricing).
+   * Consumers should warn users or recommend the 'high' fee tier.
+   */
+  surgePricing: boolean;
+  /** 
+   * True if the fee stats could not be fetched and the SDK is falling back
+   * to default minimums. Uncertainty is high.
+   */
+  isFallback: boolean;
+}
