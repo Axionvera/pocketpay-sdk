@@ -298,6 +298,7 @@ export async function safeGetPayments(
 
 export * from './mapper';
 export * from './fixtures';
+export * from './test-fixtures';
 
 // ─── Offline Transaction Preparation ───────────────────────────────────────────
 export {
