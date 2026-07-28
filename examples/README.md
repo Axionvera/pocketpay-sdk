@@ -20,6 +20,29 @@ POSIX syntax; in PowerShell, set the vault contract ID first with
 
 ## Examples
 
+### End-to-end app integration blueprint
+
+- **Path:** [`examples/app-integration-blueprint.ts`](./app-integration-blueprint.ts)
+- **Guide:** [`docs/app_integration_blueprint.md`](../docs/app_integration_blueprint.md)
+- **Demonstrates:** Validating configuration, enabling redacted diagnostics,
+  creating and securely handing off wallet secrets, checking account signing
+  capability, loading balances and history, previewing and submitting a
+  payment, handling typed errors and recovery hints, and optionally exercising
+  Soroban vault deposit, balance, and withdrawal flows.
+- **Run:** `STELLAR_NETWORK=testnet npx tsx examples/app-integration-blueprint.ts`
+- **Optional vault run:** Set a trusted `VAULT_CONTRACT_ID` and
+  `RUN_VAULT_DEMO=true` before running the same command.
+- **Expected output:** Public wallet addresses, Testnet funding confirmations,
+  a payment preview and confirmed transaction hash, refreshed balance/history
+  summaries, redacted diagnostics metadata, and—when explicitly enabled—vault
+  operation results.
+- **Network:** **Required — Testnet Friendbot and Horizon.** The optional vault
+  section also requires Soroban RPC and a deployed Testnet savings-vault
+  contract.
+- **Security:** The example never prints a secret key. Its in-memory secret
+  store is demonstration-only and must be replaced with an OS keychain,
+  Android Keystore, HSM, or another reviewed encrypted store.
+
 ### Create and fund a wallet
 
 - **Path:** [`examples/create-wallet.ts`](./create-wallet.ts)
@@ -100,3 +123,5 @@ POSIX syntax; in PowerShell, set the vault contract ID first with
 Network responses and generated account data vary between runs, so the output
 descriptions above summarize the shape of a successful run rather than exact
 values.
+
+==================================================

@@ -52,6 +52,7 @@ npm install @axionvera/pocketpay-sdk
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Pre-PR Verification](./docs/pre-pr-verification.md) - Run `npm run verify:pr` before opening a pull request to confirm tests, docs, CI, and issue acceptance criteria
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
+- [End-to-End App Integration Blueprint](./docs/app_integration_blueprint.md) - App-level flow combining config, diagnostics, wallet, account, payments, transactions, Soroban, vault, security, and typed error handling
 - [Testnet Account Funding](./docs/testnet-funding.md) - Funding and activating Testnet accounts with Friendbot, confirming activation, and common unfunded-account errors
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [React Native Compatibility](./docs/react-native.md) - Integration guide for Expo and bare React Native: polyfills, Metro config, secure storage, and known limitations
@@ -184,3 +185,5 @@ compatibility.
 
 import { PocketPay } from '@axionvera/pocketpay-sdk';
 const sdk = new PocketPay({ network: 'testnet' });
+
+==================================================
