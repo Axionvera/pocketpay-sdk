@@ -351,6 +351,7 @@ export async function sendAsset(
     await verifyPaymentTrustlineOrThrow(destination, asset, { amount, config });
   }
 
+  let transaction: StellarSDK.Transaction | undefined;
   try {
     const cfg = resolveConfig(config);
     const server = getHorizonServer(config);
@@ -383,7 +384,7 @@ export async function sendAsset(
     }
 
     builder.setTimeout(30);
-    const transaction = builder.build();
+    transaction = builder.build();
     transaction.sign(sourceKeypair);
 
     const result = await withTimeout(

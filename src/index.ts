@@ -352,6 +352,19 @@ export type {
   CapabilitySpec,
 } from './errors';
 
+// ─── Network & Idempotency ──────────────────────────────────────────────────
+export {
+  submitTransactionIdempotently,
+  pollTransactionStatus,
+} from './network';
+
+// ─── Errors ─────────────────────────────────────────────────────────────────
+export {
+  classifySubmitError,
+  isRetryableError,
+  isUnknownStatusError,
+} from './errors';
+
 // ─── Config ─────────────────────────────────────────────────────────────────
 export {
   resolveConfig,

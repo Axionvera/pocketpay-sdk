@@ -444,6 +444,31 @@ export interface FilterTransactionsOptions {
   counterparty?: string;
 }
 
+// ─── Transaction Polling ───────────────────────────────────────────────────
+
+/** Status of a polled transaction */
+export type TransactionPollStatus = 'success' | 'failure' | 'timeout' | 'unknown';
+
+/** Configuration for polling a transaction */
+export interface TransactionPollConfig {
+  /** How often to poll in milliseconds (default: 2000) */
+  interval?: number;
+  /** Maximum time to wait in milliseconds (default: 30000) */
+  timeout?: number;
+}
+
+/** Result of a transaction poll */
+export interface TransactionPollResult {
+  /** Final status of the transaction */
+  status: TransactionPollStatus;
+  /** Transaction hash */
+  hash: string;
+  /** Transaction record if it was found */
+  transaction?: TransactionRecord;
+  /** Error details if applicable */
+  error?: string;
+}
+
 // ─── Soroban / Vault ────────────────────────────────────────────────────────
 
 /** Parameters for a vault deposit */
