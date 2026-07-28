@@ -208,6 +208,7 @@ export const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
   experimentalSorobanEvents: false,
   experimentalMultiAssetVault: false,
   experimentalAsyncSigner: false,
+  experimentalVaultLocks: false,
 };
 
 /**

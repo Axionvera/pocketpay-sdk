@@ -19,12 +19,30 @@ This SDK uses a **Feature Flag Framework** to gate experimental, in-flight, or o
 
 ## Registered Experimental Feature Flags
 
-| Feature Flag Key | Module | Purpose | Default State |
+Every registered flag defaults to `false`. A flag that gates a code path is
+listed as **Active**; one kept for a planned capability that no code consults
+yet is listed as **Reserved**, so the table never implies a capability the SDK
+does not have.
+
+| Feature Flag Key | Module | Status | Purpose |
 |---|---|---|---|
-| `experimentalVault` | `vault` | Batch operations and experimental Soroban savings vault helpers (`executeExperimentalVaultBatch`). | Disabled (`false`) |
-| `experimentalSorobanEvents` | `soroban` | Soroban contract event polling (`querySorobanEvents`). | Disabled (`false`) |
-| `experimentalMultiAssetVault` | `vault` | Experimental multi-asset vault deposit/withdraw support. | Disabled (`false`) |
-| `experimentalAsyncSigner` | `account` | Experimental remote / async signer interface. | Disabled (`false`) |
+| `experimentalVault` | `vault` | Active | Batch operations and experimental Soroban savings vault helpers (`executeExperimentalVaultBatch`). |
+| `experimentalSorobanEvents` | `soroban` | Active | Soroban contract event polling (`querySorobanEvents`). |
+| `experimentalVaultLocks` | `vault` | Active | Vault lock intents — lock creation, lock listing and matured-lock withdrawal. Enabling it does **not** make them work: the capability is registered as `planned` and the actions return `UnsupportedFeatureError`. See [Vault capabilities](./vault-capabilities.md). |
+| `experimentalMultiAssetVault` | `vault` | **Reserved** | Multi-asset vault deposit/withdraw support. No code path consults this flag today. |
+| `experimentalAsyncSigner` | `account` | **Reserved** | Remote / async signer interface. No code path consults this flag today. |
+
+### Registry completeness
+
+A flag that gates code but is missing from `DEFAULT_FEATURE_FLAGS` still
+resolves to `false`, so nothing breaks — but no consumer can discover it and
+`config.resolved` diagnostics will not report its state. That drift is silent by
+construction, and it happened: `experimentalVaultLocks` is passed as a variable
+rather than a literal, so it never appeared in a search of call sites.
+
+`tests/feature-flag-registry.test.ts` now scans `src/` for `experimental*` flag
+keys and fails when one is unregistered or undocumented. Adding a flag without
+registering it is a test failure rather than a silent omission.
 
 ---
 
