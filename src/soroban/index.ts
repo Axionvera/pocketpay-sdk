@@ -6,6 +6,9 @@
  *
  * NOTE: This module requires a deployed Soroban vault contract.
  * The contract ID should be provided via params or VAULT_CONTRACT_ID env var.
+ *
+ * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md)
+ * for risks related to contract ID spoofing and malicious payload injection.
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';

@@ -2,6 +2,10 @@
  * Stellar PocketPay SDK — Transactions Module
  *
  * Query transaction history and payment operations for a Stellar account.
+ * 
+ * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md) 
+ * for mitigation strategies regarding transaction malleability, replay attacks, 
+ * and strict sequence number handling.
  */
 
 import { getHorizonServer } from '../config';

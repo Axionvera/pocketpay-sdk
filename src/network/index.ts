@@ -1,3 +1,10 @@
+/**
+ * Stellar PocketPay SDK — Network Module
+ * 
+ * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md) 
+ * for mitigation strategies regarding TLS downgrades, endpoint spoofing, 
+ * and safe retry policies to prevent duplicate submissions.
+ */
 import { PocketPayError } from '../types';
 import type { TimeoutStage } from '../types';
 import { wrapError } from '../utils';

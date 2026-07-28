@@ -145,6 +145,17 @@ Keep commits focused — one logical change per commit makes reviews easier.
 
 ---
 
+## Contributor Security Checklist
+
+The PocketPay SDK handles sensitive cryptographic keys and financial transactions. If your PR modifies files in `src/wallet/`, `src/transactions/`, `src/network/`, `src/soroban/`, or `src/vault/`, you must adhere to the following:
+
+- **Dependency Auditing**: Ensure no new dependencies are introduced without strict review (see [Dependency Review Standards](./docs/dependency-review.md)). Avoid arbitrary supply chain risks.
+- **Secure Memory Management**: Do not log, export, or leak secret keys, seed phrases, or sensitive payloads into variables that could be captured by stack traces or error boundaries.
+- **Secure RNG**: If generating entropy, use cryptographically secure random number generators (CSPRNG) exclusively.
+- **Error Handling**: Sanitize all error outputs before they are thrown to the host application to prevent secret leakage.
+
+---
+
 ## Pull Request Checklist
 
 Before opening a PR, run through this list:
@@ -156,6 +167,7 @@ Before opening a PR, run through this list:
 - [ ] The PR description explains **what** changed and **why**
 - [ ] The PR references the related issue (e.g. `Closes #6`)
 - [ ] No `.env` or secret values are committed
+- [ ] **I have reviewed the [Contributor Security Checklist](#contributor-security-checklist) and verified my code introduces no secret leakage or insecure dependencies.**
 
 ---
 
