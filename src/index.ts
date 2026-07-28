@@ -242,6 +242,8 @@ export {
   type ParamTypes,
   type ScValType,
   type ErrorMapping,
+  type ContractMethodDefinition,
+  type ContractMethodSchema,
 } from './soroban';
 export {
   depositToVault,
@@ -417,4 +419,3 @@ export {
   // Security helpers
   redactSensitive,
 } from './utils';
-

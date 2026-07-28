@@ -7,21 +7,49 @@
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { resolveConfig, getNetworkPassphrase, validateContractId } from '../config';
-import { PocketPayError, SDKConfig } from '../types';
+import {
+  PocketPayError,
+  SDKConfig,
+  SorobanInvocationStatus,
+} from '../types';
 import { withTimeout } from '../network';
 import { ErrorCode, ERROR_CODES } from '../errors/codes';
 import { UnsupportedFeatureError } from '../errors/unsupported';
+import {
+  toStroops,
+  validateAmount,
+  validatePublicKey,
+  validateSecretKey,
+} from '../utils';
+import { mapSorobanContractError } from './mapper';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────────
 
 /**
  * Configuration for creating a contract client.
  */
-export interface ContractClientConfig {
+export interface ContractMethodDefinition {
+  /** Whether the method is simulation-only or may change contract state. */
+  kind: 'readOnly' | 'invoke';
+  /** Soroban parameter encodings, in contract argument order. */
+  paramTypes: ParamTypes;
+}
+
+/**
+ * Runtime method schema used to reject unsupported or misrouted calls before
+ * account lookup, simulation, or signing. Omit it for fully dynamic contracts.
+ */
+export type ContractMethodSchema = Record<string, ContractMethodDefinition>;
+
+export interface ContractClientConfig<
+  TMethods extends ContractMethodSchema = ContractMethodSchema,
+> {
   /** The Soroban contract ID (C...) */
   contractId: string;
   /** Optional SDK configuration overrides */
   config?: Partial<SDKConfig>;
+  /** Optional runtime schema of methods supported by this client. */
+  methods?: TMethods;
 }
 
 /**
@@ -30,12 +58,16 @@ export interface ContractClientConfig {
 export interface ContractInvokeResult<T = unknown> {
   /** Whether the invocation succeeded */
   success: boolean;
+  /** Stable SDK status for the invocation. */
+  status: SorobanInvocationStatus;
   /** Transaction hash (if submitted on-chain) */
   hash?: string;
   /** Parsed return value from the contract (if available) */
   value?: T;
   /** Error message if failed */
   error?: string;
+  /** Contract-specific or SDK error code if failed. */
+  errorCode?: string | number;
 }
 
 /**
@@ -70,13 +102,16 @@ export interface ParamTypes {
 /**
  * Parameters for a read-only contract call.
  */
-export interface ReadOnlyCallOptions<TParams = Record<string, unknown>> {
+export interface ReadOnlyCallOptions<
+  TParams = Record<string, unknown>,
+  TMethod extends string = string,
+> {
   /** The contract method name to call */
-  method: string;
+  method: TMethod;
   /** Parameters to pass to the method */
   params: TParams;
-  /** Type specification for each parameter */
-  paramTypes: ParamTypes;
+  /** Type specification for each parameter (defaults to the method schema) */
+  paramTypes?: ParamTypes;
   /** Optional parser for the return value (defaults to scValToNative) */
   resultParser?: (scVal: StellarSDK.xdr.ScVal) => unknown;
   /** Source account for building the transaction (required for read calls) */
@@ -86,13 +121,16 @@ export interface ReadOnlyCallOptions<TParams = Record<string, unknown>> {
 /**
  * Parameters for a state-changing contract call.
  */
-export interface InvokeCallOptions<TParams = Record<string, unknown>> {
+export interface InvokeCallOptions<
+  TParams = Record<string, unknown>,
+  TMethod extends string = string,
+> {
   /** The contract method name to call */
-  method: string;
+  method: TMethod;
   /** Parameters to pass to the method */
   params: TParams;
-  /** Type specification for each parameter */
-  paramTypes: ParamTypes;
+  /** Type specification for each parameter (defaults to the method schema) */
+  paramTypes?: ParamTypes;
   /** Secret key of the account signing the transaction */
   signWith: string;
   /** Optional parser for the return value (defaults to scValToNative) */
@@ -107,6 +145,20 @@ export interface ErrorMapping {
   [contractError: string]: string;
 }
 
+type MethodNameForKind<
+  TMethods extends ContractMethodSchema,
+  TKind extends ContractMethodDefinition['kind'],
+> = string extends keyof TMethods
+  ? string
+  : Extract<
+      {
+        [TName in keyof TMethods]: TMethods[TName]['kind'] extends TKind
+          ? TName
+          : never;
+      }[keyof TMethods],
+      string
+    >;
+
 // ─── Contract Client Class ───────────────────────────────────────────────────────
 
 /**
@@ -115,16 +167,19 @@ export interface ErrorMapping {
  * Provides methods for read-only (simulated) calls and state-changing
  * (signed/submitted) calls with consistent error handling.
  */
-export class ContractClient {
+export class ContractClient<
+  TMethods extends ContractMethodSchema = ContractMethodSchema,
+> {
   private readonly contractId: string;
   private readonly config: SDKConfig;
   private readonly sorobanServer: StellarSDK.rpc.Server;
   private readonly networkPassphrase: string;
   private readonly contract: StellarSDK.Contract;
   private readonly errorMapping: ErrorMapping;
+  private readonly methods?: TMethods;
 
   constructor(
-    config: ContractClientConfig,
+    config: ContractClientConfig<TMethods>,
     errorMapping: ErrorMapping = {}
   ) {
     validateContractId(config.contractId);
@@ -134,6 +189,7 @@ export class ContractClient {
     this.networkPassphrase = getNetworkPassphrase(this.config.network);
     this.contract = new StellarSDK.Contract(this.contractId);
     this.errorMapping = errorMapping;
+    this.methods = config.methods;
   }
 
   /**
@@ -159,9 +215,18 @@ export class ContractClient {
    * @returns The authorisation entries, empty when the call needs none
    */
   public async getAuthorizationEntries(
-    options: ReadOnlyCallOptions,
+    options: ReadOnlyCallOptions<
+      Record<string, unknown>,
+      MethodNameForKind<TMethods, 'readOnly'>
+    >,
   ): Promise<StellarSDK.xdr.SorobanAuthorizationEntry[]> {
-    const { method, params, paramTypes, sourcePublicKey } = options;
+    const { method, params, sourcePublicKey } = options;
+    this.assertSupportedMethod(method, 'readOnly');
+    const paramTypes = this.resolveParamTypes(
+      method,
+      params,
+      options.paramTypes,
+    );
 
     const account = await this.getAccount(sourcePublicKey);
     const tx = this.buildTransaction(account, method, params, paramTypes);
@@ -173,12 +238,14 @@ export class ContractClient {
     );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      const error = this.mapContractError((simulated as any).error);
+      const mappedError = this.mapContractError((simulated as any).error);
       throw new PocketPayError(
-        `Simulation failed: ${error}`,
-        ErrorCode.SOROBAN_SIMULATION_FAILED,
+        `Simulation failed: ${mappedError.error}`,
+        String(
+          mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
+        ),
         {
-          cause: new Error(error),
+          cause: new Error(mappedError.error),
           category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
           safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
         },
@@ -189,10 +256,22 @@ export class ContractClient {
     return success.result?.auth ? [...success.result.auth] : [];
   }
 
-  public async readOnly<T = unknown>(options: ReadOnlyCallOptions): Promise<T> {
-    const { method, params, paramTypes, resultParser, sourcePublicKey } = options;
+  public async readOnly<T = unknown>(
+    options: ReadOnlyCallOptions<
+      Record<string, unknown>,
+      MethodNameForKind<TMethods, 'readOnly'>
+    >,
+  ): Promise<T> {
+    const { method, params, resultParser, sourcePublicKey } = options;
 
     try {
+      this.assertSupportedMethod(method, 'readOnly');
+      const paramTypes = this.resolveParamTypes(
+        method,
+        params,
+        options.paramTypes,
+      );
+
       // Build transaction with the contract call
       const account = await this.getAccount(sourcePublicKey);
       const tx = this.buildTransaction(account, method, params, paramTypes);
@@ -205,12 +284,14 @@ export class ContractClient {
       );
 
       if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-        const error = this.mapContractError((simulated as any).error);
+        const mappedError = this.mapContractError((simulated as any).error);
         throw new PocketPayError(
-          `Simulation failed: ${error}`,
-          ErrorCode.SOROBAN_SIMULATION_FAILED,
+          `Simulation failed: ${mappedError.error}`,
+          String(
+            mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
+          ),
           {
-            cause: new Error(error),
+            cause: new Error(mappedError.error),
             category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
             safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
           }
@@ -241,10 +322,22 @@ export class ContractClient {
    * @returns Contract invocation result with transaction details
    * @throws PocketPayError if the call fails
    */
-  public async invoke<T = unknown>(options: InvokeCallOptions): Promise<ContractInvokeResult<T>> {
-    const { method, params, paramTypes, signWith, resultParser } = options;
+  public async invoke<T = unknown>(
+    options: InvokeCallOptions<
+      Record<string, unknown>,
+      MethodNameForKind<TMethods, 'invoke'>
+    >,
+  ): Promise<ContractInvokeResult<T>> {
+    const { method, params, signWith, resultParser } = options;
 
     try {
+      this.assertSupportedMethod(method, 'invoke');
+      const paramTypes = this.resolveParamTypes(
+        method,
+        params,
+        options.paramTypes,
+      );
+
       const keypair = StellarSDK.Keypair.fromSecret(signWith);
       const publicKey = keypair.publicKey();
       const account = await this.getAccount(publicKey);
@@ -260,10 +353,13 @@ export class ContractClient {
       );
 
       if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-        const error = this.mapContractError((simulated as any).error);
+        const mappedError = this.mapContractError((simulated as any).error);
         return {
           success: false,
-          error: `Simulation failed: ${error}`,
+          status: 'simulation_error',
+          error: `Simulation failed: ${mappedError.error}`,
+          errorCode:
+            mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
         };
       }
 
@@ -279,7 +375,12 @@ export class ContractClient {
       );
 
       if (sendResult.status === 'ERROR') {
-        return { success: false, error: `Send error: ${sendResult.errorResult}` };
+        return {
+          success: false,
+          status: 'failed',
+          error: `Send error: ${sendResult.errorResult}`,
+          errorCode: 'SUBMISSION_ERROR',
+        };
       }
 
       // Poll for transaction status
@@ -295,12 +396,18 @@ export class ContractClient {
 
         return {
           success: true,
+          status: 'success',
           hash: sendResult.hash,
           value,
         };
       }
 
-      return { success: false, error: `Transaction status: ${getResult.status}` };
+      return {
+        success: false,
+        status: 'failed',
+        error: `Transaction status: ${getResult.status}`,
+        errorCode: `TX_STATUS_${getResult.status}`,
+      };
     } catch (error) {
       if (error instanceof PocketPayError) throw error;
       throw this.wrapError(error, `Invoke call to ${method} failed`, 'CONTRACT_INVOKE_ERROR');
@@ -370,6 +477,58 @@ export class ContractClient {
   }
 
   /**
+   * Rejects methods that are absent from the configured schema, as well as
+   * attempts to route a read-only method through the signing path (or vice
+   * versa). Dynamic clients without a schema continue to accept any non-empty
+   * method name.
+   */
+  private assertSupportedMethod(
+    method: string,
+    expectedKind: ContractMethodDefinition['kind'],
+  ): void {
+    const definition = this.methods?.[method];
+    const unsupported = method.trim().length === 0 || (this.methods && !definition);
+    const wrongKind = definition && definition.kind !== expectedKind;
+
+    if (unsupported || wrongKind) {
+      const reason = wrongKind
+        ? `Method "${method}" is declared as ${definition.kind}, not ${expectedKind}.`
+        : `Method "${method}" is not supported by this contract client.`;
+      throw new UnsupportedFeatureError({
+        module: 'soroban',
+        operation: method || '<empty>',
+        capability: `soroban.contract-method.${expectedKind}`,
+        message: reason,
+      });
+    }
+  }
+
+  /**
+   * Uses call-local encodings when supplied, otherwise the factory schema.
+   * Parameterized dynamic calls must provide encodings explicitly.
+   */
+  private resolveParamTypes(
+    method: string,
+    params: Record<string, unknown>,
+    supplied?: ParamTypes,
+  ): ParamTypes {
+    const resolved = supplied ?? this.methods?.[method]?.paramTypes;
+    if (!resolved && Object.keys(params).length > 0) {
+      throw new PocketPayError(
+        `Parameter types are required for contract method "${method}".`,
+        'MISSING_CONTRACT_PARAM_TYPES',
+        {
+          validation: {
+            field: 'paramTypes',
+            reason: 'missing',
+          },
+        },
+      );
+    }
+    return resolved ?? {};
+  }
+
+  /**
    * Polls for transaction status until it resolves.
    */
   private async pollTransactionStatus(hash: string): Promise<StellarSDK.rpc.Api.GetSuccessfulTransactionResponse | StellarSDK.rpc.Api.GetFailedTransactionResponse> {
@@ -394,13 +553,16 @@ export class ContractClient {
   /**
    * Maps contract-specific errors to SDK error codes.
    */
-  private mapContractError(error: string): string {
+  private mapContractError(
+    error: unknown,
+  ): { error: string; errorCode?: string | number } {
+    const mapped = mapSorobanContractError(error);
     for (const [contractError, sdkCode] of Object.entries(this.errorMapping)) {
-      if (error.includes(contractError)) {
-        return `${sdkCode}: ${error}`;
+      if (mapped.error.toLowerCase().includes(contractError.toLowerCase())) {
+        return { error: mapped.error, errorCode: sdkCode };
       }
     }
-    return error;
+    return mapped;
   }
 
   /**
@@ -435,10 +597,12 @@ export class ContractClient {
  * @param errorMapping - Optional error mapping for contract-specific errors
  * @returns A new ContractClient instance
  */
-export function createContractClient(
-  config: ContractClientConfig,
+export function createContractClient<
+  TMethods extends ContractMethodSchema = ContractMethodSchema,
+>(
+  config: ContractClientConfig<TMethods>,
   errorMapping?: ErrorMapping
-): ContractClient {
+): ContractClient<TMethods> {
   return new ContractClient(config, errorMapping);
 }
 
@@ -450,41 +614,62 @@ export function createContractClient(
  * Provides typed methods for vault-specific operations with built-in
  * parameter encoding and result parsing.
  */
-export class VaultClient extends ContractClient {
+const VAULT_METHODS = {
+  deposit: {
+    kind: 'invoke',
+    paramTypes: { user: 'address', amount: 'i128' },
+  },
+  withdraw: {
+    kind: 'invoke',
+    paramTypes: { user: 'address', amount: 'i128' },
+  },
+  get_balance: {
+    kind: 'readOnly',
+    paramTypes: { user: 'address' },
+  },
+} as const satisfies ContractMethodSchema;
+
+export class VaultClient extends ContractClient<typeof VAULT_METHODS> {
   constructor(config: ContractClientConfig) {
     const errorMapping: ErrorMapping = {
       'insufficient balance': 'VAULT_INSUFFICIENT_BALANCE',
       'unauthorized': 'VAULT_UNAUTHORIZED',
       'invalid amount': 'VAULT_INVALID_AMOUNT',
     };
-    super(config, errorMapping);
+    super({ ...config, methods: VAULT_METHODS }, errorMapping);
   }
 
   /**
    * Deposits XLM into the vault.
    */
-  async deposit(user: string, amount: string): Promise<ContractInvokeResult<void>> {
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
-    
+  async deposit(sourceSecret: string, amount: string): Promise<ContractInvokeResult<void>> {
+    validateSecretKey(sourceSecret);
+    validateAmount(amount);
+    const user = StellarSDK.Keypair.fromSecret(sourceSecret).publicKey();
+    const amountInStroops = toStroops(amount);
+
     return this.invoke({
       method: 'deposit',
       params: { user, amount: amountInStroops },
       paramTypes: { user: 'address', amount: 'i128' },
-      signWith: user,
+      signWith: sourceSecret,
     });
   }
 
   /**
    * Withdraws XLM from the vault.
    */
-  async withdraw(user: string, amount: string): Promise<ContractInvokeResult<void>> {
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
-    
+  async withdraw(sourceSecret: string, amount: string): Promise<ContractInvokeResult<void>> {
+    validateSecretKey(sourceSecret);
+    validateAmount(amount);
+    const user = StellarSDK.Keypair.fromSecret(sourceSecret).publicKey();
+    const amountInStroops = toStroops(amount);
+
     return this.invoke({
       method: 'withdraw',
       params: { user, amount: amountInStroops },
       paramTypes: { user: 'address', amount: 'i128' },
-      signWith: user,
+      signWith: sourceSecret,
     });
   }
 
@@ -492,6 +677,7 @@ export class VaultClient extends ContractClient {
    * Gets the available balance for a user.
    */
   async getBalance(user: string): Promise<string> {
+    validatePublicKey(user);
     const balance = await this.readOnly<bigint>({
       method: 'get_balance',
       params: { user },

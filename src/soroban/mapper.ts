@@ -147,7 +147,7 @@ export function mapSorobanInvocationResult<T = unknown>(
         success: false,
         status: resp.error?.includes?.('Simulation') ? 'simulation_error' : 'failed',
         error: mappedErr.error,
-        errorCode: mappedErr.errorCode,
+        errorCode: resp.errorCode ?? mappedErr.errorCode,
         hash: resp.hash,
         rawResponse,
       };
@@ -171,7 +171,12 @@ export function mapSorobanInvocationResult<T = unknown>(
 
     // Case 7: Successful transaction completion status or SDK VaultResult shape
     if (resp.status === 'SUCCESS' || resp.success === true) {
-      let resultVal: any = resp.result !== undefined ? resp.result : resp.balance;
+      let resultVal: any =
+        resp.value !== undefined
+          ? resp.value
+          : resp.result !== undefined
+            ? resp.result
+            : resp.balance;
       if (resp.retval) {
         try {
           resultVal = StellarSDK.scValToNative(resp.retval);
