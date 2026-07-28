@@ -244,6 +244,8 @@ const result = await sendXLM(params);
 
 Branch on `err.code`, not on `err.message`. Codes are part of the SDK's public contract; messages are not.
 
+For a full table of `sendXLM` failure modes (validation, network, and submission errors), see [Payment Helper Error Reference](./error-handling.md#payment-helper-error-reference) in the Error Handling Guide. Issued-asset errors for `sendAsset` are documented in [Issued Asset Payments — Error Reference](./issued-asset-payments.md#8-error-reference).
+
 ---
 
 ## Complete Example Script

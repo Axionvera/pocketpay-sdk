@@ -1,6 +1,12 @@
 export { fundedAccount, unfundedAccount, accountNotFound } from './accounts';
 export { transactionList, failedTransaction, transactionNotFound } from './transactions';
-export { paymentList, paymentNotFound } from './payments';
+export {
+  paymentList,
+  paymentNotFound,
+  makeHorizon404Error,
+  makeHorizonResultCodeError,
+  neverSettlingPromise,
+} from './payments';
 export {
   successfulPaymentSummary,
   failedPaymentSummary,
