@@ -360,3 +360,18 @@ export {
 } from './orchestrator';
 
 export type { GuardedSubmitOptions, SubmittableTransaction } from './orchestrator';
+
+// ─── Transaction build validation pipeline (issue #249) ──────────────────────
+export {
+  validateTransactionBuild,
+  assertTransactionBuildValid,
+  VALIDATION_ORDER,
+} from './build-validation';
+
+export type {
+  ValidationStage,
+  TransactionValidationIssue,
+  TransactionValidationResult,
+  TransactionBuildInput,
+  TransactionValidationOptions,
+} from './build-validation';

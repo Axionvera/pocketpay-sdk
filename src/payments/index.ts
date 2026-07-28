@@ -6,10 +6,11 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getNetworkPassphrase, resolveConfig } from '../config';
 import { SendXLMParams, SendAssetParams, PaymentResult, PocketPayError, SDKConfig, PocketPayResult, EnhancedPocketPayResult } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
+import { buildMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
 import { withTimeout } from '../network';
 import { submitWithGuard } from '../transactions/guarded-submit';
+import { assertTransactionBuildValid } from '../transactions/build-validation';
 import { validateAssetSpec, verifyPaymentTrustlineOrThrow } from './trustline';
 
 /**
@@ -31,21 +32,21 @@ export async function sendXLM(
 ): Promise<PaymentResult> {
   const { sourceSecret, destination, amount, memo } = params;
   // ─── Preflight validation (before any network call) ─────────────────────────
-  validateSecretKey(sourceSecret);
-  validatePublicKey(destination);
-  validateAmount(amount);
-  validateMemoInput(memo);
+  // Runs through the shared build-validation pipeline (issue #249) rather than
+  // hand-chaining the same four validators here and again in `sendAsset`. The
+  // pipeline rethrows the originating PocketPayError untouched, so every
+  // published code below is unchanged. `network` is excluded because this
+  // function resolves config itself inside the try block, and moving that would
+  // change when a configuration error surfaces relative to the handler below.
+  assertTransactionBuildValid(
+    { sourceSecret, destination, amount, memo },
+    {
+      stages: ['sourceAccount', 'destination', 'amount', 'memo'],
+      selfPaymentMessage: 'Cannot send XLM to yourself',
+    },
+  );
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const sourcePublic = sourceKeypair.publicKey();
-  if (sourcePublic === destination) {
-    throw new PocketPayError('Cannot send XLM to yourself', 'SELF_PAYMENT', {
-      validation: {
-        field: 'destination',
-        reason: 'same_as_source',
-        value: destination
-      }
-    });
-  }
   try {
     const cfg = resolveConfig(config);
     const server = getHorizonServer(config);
@@ -326,24 +327,20 @@ export async function sendAsset(
   const { sourceSecret, destination, amount, asset, memo, skipTrustlineCheck } = params;
 
   // ─── Preflight validation (synchronous, no network) ──────────────────────
-  validateSecretKey(sourceSecret);
-  validatePublicKey(destination);
-  validateAmount(amount);
-  validateMemoInput(memo);
-  validateAssetSpec(asset);
+  // Same shared pipeline as `sendXLM` (issue #249). This path is where the
+  // duplication was most visible: the identical four validators, plus the asset
+  // check. Only the self-payment wording differs between the two flows, so that
+  // sentence is passed in rather than the check being repeated.
+  assertTransactionBuildValid(
+    { sourceSecret, destination, amount, asset, memo },
+    {
+      stages: ['sourceAccount', 'destination', 'amount', 'asset', 'memo'],
+      selfPaymentMessage: 'Cannot send asset to yourself',
+    },
+  );
 
   const sourceKeypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const sourcePublic = sourceKeypair.publicKey();
-
-  if (sourcePublic === destination) {
-    throw new PocketPayError('Cannot send asset to yourself', 'SELF_PAYMENT', {
-      validation: {
-        field: 'destination',
-        reason: 'same_as_source',
-        value: destination,
-      },
-    });
-  }
 
   const isNative =
     asset.code.toUpperCase() === 'XLM' || asset.code.toLowerCase() === 'native';
