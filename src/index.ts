@@ -214,6 +214,21 @@ export type {
   LifecycleFailure,
 } from './types';
 
+// ─── Transaction build validation pipeline (issue #249) ─────────────────────
+export {
+  validateTransactionBuild,
+  assertTransactionBuildValid,
+  VALIDATION_ORDER,
+} from './transactions';
+
+export type {
+  ValidationStage,
+  TransactionValidationIssue,
+  TransactionValidationResult,
+  TransactionBuildInput,
+  TransactionValidationOptions,
+} from './transactions';
+
 // ─── Transactions ───────────────────────────────────────────────────────────
 export {
   getTransactions,
