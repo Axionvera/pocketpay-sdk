@@ -18,6 +18,7 @@ These errors are temporary. Retry with exponential backoff (start at 1s, double 
 | 503 Service Unavailable | Horizon overloaded | Retry with backoff |
 | 504 Gateway Timeout | Upstream timeout | Retry with backoff |
 | ECONNRESET / ETIMEDOUT | Network interruption | Retry with backoff |
+| REQUEST_TIMEOUT | SDK timeout during preparation or a plain read | Retry with backoff or increase `timeout` |
 | 500 Internal Server Error | Transient Horizon issue | Retry once, then fail |
 
 ### Friendbot
@@ -27,6 +28,7 @@ These errors are temporary. Retry with exponential backoff (start at 1s, double 
 | 429 Too Many Requests | Friendbot rate limit per address | Wait then retry |
 | 503 Service Unavailable | Friendbot overloaded | Retry with backoff |
 | ECONNREFUSED | Friendbot not reachable | Retry with backoff |
+| REQUEST_TIMEOUT | SDK timeout during preparation or a plain read | Retry with backoff or increase `timeout` |
 
 ### Soroban RPC
 
@@ -35,6 +37,7 @@ These errors are temporary. Retry with exponential backoff (start at 1s, double 
 | 429 Too Many Requests | RPC rate limited | Retry after Retry-After |
 | 503 Service Unavailable | RPC overloaded | Retry with backoff |
 | ECONNRESET / ETIMEDOUT | Network interruption | Retry with backoff |
+| REQUEST_TIMEOUT | SDK timeout during preparation or a plain read | Retry with backoff or increase `timeout` |
 | sendTransaction timeout | Transaction not yet confirmed | Poll getTransaction with backoff |
 
 ## Non-Retryable Errors
@@ -68,6 +71,7 @@ These errors indicate a problem the user or developer must fix. Do not retry.
 | tx_too_late | No | Rebuild with updated ledger bounds |
 | tx_bad_auth | No | Check signatures |
 | Timeout waiting for result | Yes | Poll transaction status |
+| TX_STATUS_UNKNOWN | **No** | SDK timeout during submission or confirmation — the outcome is undetermined. Poll before resending; see [Timeout Classification](./timeout-classification.md) |
 
 ## Example: Retry with Backoff
 
@@ -95,6 +99,7 @@ async function retryWithBackoff<T>(
 
 function isRetryable(error: any): boolean {
   if (error.status === 429 || error.status === 503 || error.status === 504) return true;
+  if (error.code === 'REQUEST_TIMEOUT') return true;
   if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') return true;
   return false;
 }

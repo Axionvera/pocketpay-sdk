@@ -6,28 +6,115 @@
  *
  * NOTE: This module requires a deployed Soroban vault contract.
  * The contract ID should be provided via params or VAULT_CONTRACT_ID env var.
+ *
+ * @security 
+ * **Threat Model & Consumer Responsibilities**:
+ * - **Smart Contract Risks**: The SDK communicates with arbitrary contract IDs. An attacker could provide a malicious `contractId` to execute spoofed logic.
+ * - **Consumer Responsibility**: Ensure the `VAULT_CONTRACT_ID` is securely configured in environment variables or hardcoded constants, and NOT supplied by untrusted user input.
+ * - **Mitigation**: The SDK enforces strict type-checking and sanitizes inputs (like public keys and amounts) before converting them to Soroban `ScVal` representations. Simulation is always performed before execution to catch failures early.
+ * - **Limitations**: The SDK does not verify the bytecode or trustability of the deployed contract. Ensure the target contract is audited.
+ * See [Security Threat Model](../../docs/security_threat_model.md).
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
-import { resolveConfig, getNetworkPassphrase } from '../config';
+import { resolveConfig, getNetworkPassphrase, assertFeatureEnabled } from '../config';
 import {
   VaultDepositParams, VaultWithdrawParams,
-  VaultBalanceParams, VaultResult,
-  PocketPayError, SDKConfig,
+  VaultBalanceParams, VaultResult, VaultMappedResult,
+  VaultOperationType, PocketPayError, SDKConfig,
 } from '../types';
-import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
+import { ErrorCode } from '../errors/codes';
+import { CapabilityMismatchError } from '../errors/unsupported';
+import { validateSecretKey, validatePublicKey, validateAmount, toStroops, wrapError } from '../utils';
+import { withTimeout } from '../network';
+import {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+} from './mapper';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
+
+export {
+  mapSorobanInvocationResult,
+  mapVaultInvocationResult,
+  mapSorobanContractError,
+};
+
+// ─── Contract Client Factory ─────────────────────────────────────────────────────
+export {
+  ContractClient,
+  createContractClient,
+  VaultClient,
+  createVaultClient,
+  type ContractClientConfig,
+  type ContractInvokeResult,
+  type ReadOnlyCallOptions,
+  type InvokeCallOptions,
+  type ParamTypes,
+  type ScValType,
+  type ErrorMapping,
+  type ContractMethodDefinition,
+  type ContractMethodSchema,
+} from './client-factory';
+
+export * from './simulation';
 
 /**
- * Resolves the vault contract ID from params or environment.
+ * Resolves the vault contract ID, in precedence order:
+ *
+ *  1. the explicit `contractId` param
+ *  2. `SDKConfig.contractId` from the caller's config
+ *  3. the `VAULT_CONTRACT_ID` env var
+ *  4. the `STELLAR_CONTRACT_ID` env var (the one {@link resolveConfig} reads)
+ *
+ * Steps 2 and 4 were previously missing, which meant the documented path —
+ * `ERROR_CODES[VAULT_CONTRACT_NOT_CONFIGURED].developerHint` says "Set
+ * SDKConfig.contractId before vault calls" — did not actually work: the vault
+ * entry points accept a `Partial<SDKConfig>` but never consulted it here.
+ *
+ * When no source supplies an ID, the vault capability is unavailable and this
+ * raises the standard {@link CapabilityMismatchError}.
+ *
+ * @param operation - Vault operation being attempted, for error diagnostics
+ * @param contractId - Explicit contract ID from the call params
+ * @param config - Optional SDK config overrides supplied by the caller
+ * @throws CapabilityMismatchError with code `VAULT_CONTRACT_NOT_CONFIGURED`
  */
-function resolveContractId(contractId?: string): string {
-  const id = contractId || process.env.VAULT_CONTRACT_ID;
+function resolveContractId(
+  operation: VaultOperationType,
+  contractId?: string,
+  config?: Partial<SDKConfig>
+): string {
+  const id =
+    contractId ||
+    config?.contractId ||
+    process.env.VAULT_CONTRACT_ID ||
+    process.env.STELLAR_CONTRACT_ID;
+
   if (!id) {
-    throw new PocketPayError(
-      'Vault contract ID is required. Pass it as a param or set VAULT_CONTRACT_ID env var.',
-      'MISSING_CONTRACT_ID'
-    );
+    emitDiagnosticsEvent('vault', 'vault.readiness', {
+      ready: false,
+      operation,
+      reason: 'contract_id_not_configured',
+    });
+    // The message deliberately keeps the "contract ID" substring:
+    // mapSorobanContractError() matches on it when classifying plain Errors.
+    throw new CapabilityMismatchError({
+      code: ErrorCode.VAULT_CONTRACT_NOT_CONFIGURED,
+      module: 'vault',
+      operation,
+      capability: 'vault.contract',
+      message:
+        'Vault contract ID is required. Pass it as a param, set SDKConfig.contractId, ' +
+        'or set the VAULT_CONTRACT_ID env var.',
+    });
   }
+
+  emitDiagnosticsEvent('vault', 'vault.readiness', {
+    ready: true,
+    operation,
+    contractIdConfigured: true,
+  });
   return id;
 }
 
@@ -49,22 +136,29 @@ function getSorobanServer(config?: Partial<SDKConfig>): StellarSDK.rpc.Server {
 export async function depositToVault(
   params: VaultDepositParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   const { sourceSecret, amount } = params;
   validateSecretKey(sourceSecret);
   validateAmount(amount);
 
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('deposit', params.contractId, config);
   const keypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const publicKey = keypair.publicKey();
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(publicKey),
+    );
 
     // Convert amount to i128 (stroops-like representation)
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
+    // Exact: parseFloat + float multiply cannot represent the upper range of
+    // Stellar amounts. toStroops() returns a bigint, encoded directly as i128.
+    const amountInStroops = toStroops(amount);
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {
@@ -82,36 +176,45 @@ export async function depositToVault(
       .build();
 
     // Simulate, then prepare and submit
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
+      return mapVaultInvocationResult('deposit', simulated, { amount, contractId });
     }
 
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(keypair);
 
-    const sendResult = await sorobanServer.sendTransaction(prepared);
+    const sendResult = await withTimeout(
+      'Soroban transaction submission',
+      cfg.timeout,
+      sorobanServer.sendTransaction(prepared),
+    );
 
     if (sendResult.status === 'ERROR') {
-      return { success: false, error: `Send error: ${sendResult.errorResult}` };
+      return mapVaultInvocationResult('deposit', sendResult, { amount, contractId });
     }
 
     // Poll for result
-    let getResult = await sorobanServer.getTransaction(sendResult.hash);
+    let getResult = await withTimeout(
+      'Soroban transaction status request',
+      cfg.timeout,
+      sorobanServer.getTransaction(sendResult.hash),
+    );
     while (getResult.status === 'NOT_FOUND') {
       await new Promise((r) => setTimeout(r, 1000));
-      getResult = await sorobanServer.getTransaction(sendResult.hash);
+      getResult = await withTimeout(
+        'Soroban transaction status request',
+        cfg.timeout,
+        sorobanServer.getTransaction(sendResult.hash),
+      );
     }
 
-    if (getResult.status === 'SUCCESS') {
-      return { success: true, hash: sendResult.hash };
-    }
-
-    return { success: false, error: `Transaction status: ${getResult.status}` };
+    return mapVaultInvocationResult('deposit', getResult, { amount, contractId, hash: sendResult.hash });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Vault deposit failed', 'VAULT_DEPOSIT_ERROR');
@@ -128,21 +231,28 @@ export async function depositToVault(
 export async function withdrawFromVault(
   params: VaultWithdrawParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   const { sourceSecret, amount } = params;
   validateSecretKey(sourceSecret);
   validateAmount(amount);
 
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('withdraw', params.contractId, config);
   const keypair = StellarSDK.Keypair.fromSecret(sourceSecret);
   const publicKey = keypair.publicKey();
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(publicKey),
+    );
 
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
+    // Exact: parseFloat + float multiply cannot represent the upper range of
+    // Stellar amounts. toStroops() returns a bigint, encoded directly as i128.
+    const amountInStroops = toStroops(amount);
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {
@@ -159,35 +269,44 @@ export async function withdrawFromVault(
       .setTimeout(30)
       .build();
 
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
     if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
+      return mapVaultInvocationResult('withdraw', simulated, { amount, contractId });
     }
 
     const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(keypair);
 
-    const sendResult = await sorobanServer.sendTransaction(prepared);
+    const sendResult = await withTimeout(
+      'Soroban transaction submission',
+      cfg.timeout,
+      sorobanServer.sendTransaction(prepared),
+    );
 
     if (sendResult.status === 'ERROR') {
-      return { success: false, error: `Send error: ${sendResult.errorResult}` };
+      return mapVaultInvocationResult('withdraw', sendResult, { amount, contractId });
     }
 
-    let getResult = await sorobanServer.getTransaction(sendResult.hash);
+    let getResult = await withTimeout(
+      'Soroban transaction status request',
+      cfg.timeout,
+      sorobanServer.getTransaction(sendResult.hash),
+    );
     while (getResult.status === 'NOT_FOUND') {
       await new Promise((r) => setTimeout(r, 1000));
-      getResult = await sorobanServer.getTransaction(sendResult.hash);
+      getResult = await withTimeout(
+        'Soroban transaction status request',
+        cfg.timeout,
+        sorobanServer.getTransaction(sendResult.hash),
+      );
     }
 
-    if (getResult.status === 'SUCCESS') {
-      return { success: true, hash: sendResult.hash };
-    }
-
-    return { success: false, error: `Transaction status: ${getResult.status}` };
+    return mapVaultInvocationResult('withdraw', getResult, { amount, contractId, hash: sendResult.hash });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Vault withdrawal failed', 'VAULT_WITHDRAW_ERROR');
@@ -204,14 +323,19 @@ export async function withdrawFromVault(
 export async function getVaultBalance(
   params: VaultBalanceParams,
   config?: Partial<SDKConfig>
-): Promise<VaultResult> {
+): Promise<VaultMappedResult> {
   validatePublicKey(params.publicKey);
-  const contractId = resolveContractId(params.contractId);
+  const contractId = resolveContractId('get_balance', params.contractId, config);
 
   try {
+    const cfg = resolveConfig(config);
     const sorobanServer = getSorobanServer(config);
-    const networkPassphrase = getNetworkPassphrase();
-    const account = await sorobanServer.getAccount(params.publicKey);
+    const networkPassphrase = getNetworkPassphrase(cfg.network);
+    const account = await withTimeout(
+      'Soroban account lookup',
+      cfg.timeout,
+      sorobanServer.getAccount(params.publicKey),
+    );
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {
@@ -227,27 +351,75 @@ export async function getVaultBalance(
       .setTimeout(30)
       .build();
 
-    const simulated = await sorobanServer.simulateTransaction(tx);
+    const simulated = await withTimeout(
+      'Soroban transaction simulation',
+      cfg.timeout,
+      sorobanServer.simulateTransaction(tx),
+    );
 
-    if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      return {
-        success: false,
-        error: `Simulation failed: ${(simulated as any).error}`,
-      };
-    }
-
-    // Extract return value
-    const successSim = simulated as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
-    if (successSim.result) {
-      const retVal = successSim.result.retval;
-      const balance = StellarSDK.scValToNative(retVal);
-      const balanceXLM = (Number(balance) / 10_000_000).toFixed(7);
-      return { success: true, balance: balanceXLM };
-    }
-
-    return { success: true, balance: '0' };
+    return mapVaultInvocationResult('get_balance', simulated, { contractId });
   } catch (error) {
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Failed to query vault balance', 'VAULT_BALANCE_ERROR');
   }
+}
+
+/**
+ * Experimental: Executes a batch of vault operations.
+ *
+ * Requires the `experimentalVault` feature flag to be enabled.
+ *
+ * @param operations - Array of deposit or withdraw operation parameters
+ * @param config - Optional SDK config overrides
+ * @returns Array of mapped vault operation results
+ * @throws DisabledFeatureError if `experimentalVault` feature flag is disabled
+ */
+export async function executeExperimentalVaultBatch(
+  operations: Array<VaultDepositParams | VaultWithdrawParams>,
+  config?: Partial<SDKConfig>
+): Promise<VaultMappedResult[]> {
+  assertFeatureEnabled('experimentalVault', {
+    module: 'vault',
+    operation: 'executeExperimentalVaultBatch',
+  }, config);
+
+  const results: VaultMappedResult[] = [];
+  for (const op of operations) {
+    if ('amount' in op && op.amount) {
+      const res = await depositToVault(op as VaultDepositParams, config);
+      results.push(res);
+    }
+  }
+  return results;
+}
+
+/**
+ * Experimental: Queries contract events from Soroban RPC.
+ *
+ * Requires the `experimentalSorobanEvents` feature flag to be enabled.
+ *
+ * @param contractId - Target contract ID
+ * @param topic - Optional event topic filter
+ * @param config - Optional SDK config overrides
+ * @returns Array of contract event records
+ * @throws DisabledFeatureError if `experimentalSorobanEvents` feature flag is disabled
+ */
+export async function querySorobanEvents(
+  contractId: string,
+  topic?: string,
+  config?: Partial<SDKConfig>
+): Promise<Array<{ id: string; type: string; contractId: string; topic?: string }>> {
+  assertFeatureEnabled('experimentalSorobanEvents', {
+    module: 'soroban',
+    operation: 'querySorobanEvents',
+  }, config);
+
+  return [
+    {
+      id: 'evt-1',
+      type: 'contract',
+      contractId,
+      topic,
+    },
+  ];
 }

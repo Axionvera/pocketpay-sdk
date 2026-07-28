@@ -2,6 +2,7 @@ import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer } from '../config';
 import { PocketPayError, SDKConfig } from '../types';
 import { classifySubmitError } from '../errors';
+import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 
 export interface IdempotencyOptions {
   /** Maximum number of poll attempts (default: 10) */
@@ -29,14 +30,33 @@ export async function submitTransactionIdempotently(
   const txHash = transaction.hash().toString('hex');
   const server = getHorizonServer(config);
 
+  emitDiagnosticsEvent('transaction', 'transaction.submit.started', {
+    txHash,
+    operationCount:
+      'operations' in transaction ? transaction.operations.length : undefined,
+  });
+
   try {
     const result = await server.submitTransaction(transaction);
+    emitDiagnosticsEvent('transaction', 'transaction.submit.succeeded', {
+      txHash: (result as { hash?: string })?.hash ?? txHash,
+      ledger: (result as { ledger?: number })?.ledger,
+    });
     return result;
   } catch (error) {
     const classified = classifySubmitError(error, txHash);
 
+    emitDiagnosticsEvent('transaction', 'transaction.submit.failed', {
+      txHash,
+      code: classified.code,
+      retryable: classified.retryable,
+    });
+
     // If the status is unknown (timeout/network error), we poll for the status instead of throwing immediately.
     if (classified.code === 'TX_STATUS_UNKNOWN') {
+      emitDiagnosticsEvent('transaction', 'transaction.submit.polling', {
+        txHash,
+      });
       return await pollTransactionStatus(transaction, options, config);
     }
 
