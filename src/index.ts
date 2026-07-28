@@ -170,6 +170,9 @@ export {
   safeCheckDestinationTrustline,
   verifyPaymentTrustlineOrThrow,
   validateSendXLMParams,
+  buildPaymentReceipt,
+  buildReceiptFromSubmission,
+  buildReceiptFromSoroban,
 } from './payments';
 
 export type {
@@ -178,6 +181,15 @@ export type {
   ValidationErrorField,
   SendXLMValidationResult,
 } from './payments';
+
+export type { PaymentReceiptOptions } from './payments';
+
+export type {
+  PaymentReceipt,
+  ReceiptFailure,
+  ReceiptSource,
+  ReceiptAction,
+} from './types';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
 export {

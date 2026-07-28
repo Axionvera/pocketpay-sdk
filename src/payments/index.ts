@@ -268,6 +268,14 @@ export type {
   SendXLMValidationResult,
 } from './validation';
 
+// ─── Payment Receipts ───────────────────────────────────────────────────────
+export {
+  buildPaymentReceipt,
+  buildReceiptFromSubmission,
+  buildReceiptFromSoroban,
+} from './receipt';
+export type { PaymentReceiptOptions } from './receipt';
+
 // ─── Issued Asset Payments ──────────────────────────────────────────────────
 
 /**
