@@ -58,6 +58,7 @@ npm install @axionvera/pocketpay-sdk
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy`API
+- [Account Sequence & Concurrency Safety](./docs/sequence-safety.md) - Account sequence number handling, caching, stale sequence error classification, and in-process concurrency safety with SequenceProvider
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [SDK Diagnostics](./docs/diagnostics.md) - Opt-in redacted lifecycle hooks and support-safe reports

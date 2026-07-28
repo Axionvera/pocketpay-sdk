@@ -155,6 +155,34 @@ Imports a wallet and returns an enhanced result with warnings and recovery hints
 - **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
 
 ### `safeEnhancedImportWallet(secretKey)`
-Non-throwing wrapper for `enhancedImportWallet`.
+Imports a wallet and returns an enhanced result with warnings and recovery hints without throwing.
 - **Returns**: `EnhancedPocketPayResult<WalletKeypair>`.
+
+## Account Sequence & Concurrency API
+
+### `SequenceProvider`
+
+Caches account sequence numbers with freshness tracking and serializes transaction intents per account.
+
+```ts
+import { SequenceProvider } from 'stellar-pocketpay-sdk';
+
+const sequences = new SequenceProvider({ maxAgeMs: 15_000 });
+```
+
+- **`get(publicKey: string): Promise<SequenceSnapshot>`**: Returns cached sequence if fresh, otherwise fetches from Horizon.
+- **`refresh(publicKey: string): Promise<SequenceSnapshot>`**: Bypasses cache and fetches fresh sequence from Horizon.
+- **`invalidate(publicKey?: string): void`**: Evicts cached snapshot for an account, or all accounts if omitted.
+- **`peek(publicKey: string): SequenceSnapshot | undefined`**: Returns cached snapshot without network calls.
+- **`loadAccount(publicKey: string): Promise<StellarSDK.Account>`**: Builds a `StellarSDK.Account` ready for transaction building.
+- **`withSequence<T>(publicKey: string, task: () => Promise<T>): Promise<T>`**: Serializes build and submit tasks sequentially for a given account within the process.
+
+### `validateSequenceValue(sequence: unknown): boolean`
+
+Validates that a candidate sequence number is a valid unsigned decimal integer. Throws `PocketPayError` with `ErrorCode.TX_BAD_SEQUENCE` on invalid values.
+
+### `requiresRebuild(error: unknown): boolean`
+
+Returns `true` if an error corresponds to a stale sequence (`ErrorCode.TX_BAD_SEQUENCE`), indicating that the transaction envelope must be rebuilt with a fresh sequence number rather than blindly resubmitted.
+
 
