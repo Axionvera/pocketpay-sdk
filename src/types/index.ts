@@ -1120,3 +1120,4 @@ export interface RetryPolicyExhaustedResult {
 }
 export * from './asset';
 export * from './receipt';
+export * from './lifecycle';

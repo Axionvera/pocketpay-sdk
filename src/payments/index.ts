@@ -9,6 +9,7 @@ import { SendXLMParams, SendAssetParams, PaymentResult, PocketPayError, SDKConfi
 import { validateSecretKey, validatePublicKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult, toEnhancedSuccessResult, toEnhancedFailureResult, toEnhancedResult } from '../utils';
 import type { ResultWarning, RecoveryHint } from '../errors';
 import { withTimeout } from '../network';
+import { submitWithGuard } from '../transactions/guarded-submit';
 import { validateAssetSpec, verifyPaymentTrustlineOrThrow } from './trustline';
 
 /**
@@ -73,11 +74,12 @@ export async function sendXLM(
     builder.setTimeout(30);
     const transaction = builder.build();
     transaction.sign(sourceKeypair);
-    const result = await withTimeout(
-      'Horizon transaction submission',
-      cfg.timeout,
-      server.submitTransaction(transaction),
-    );
+    // Submission goes through the duplicate-submission guard (issue #305).
+    // A bare `server.submitTransaction` treats a timeout as a failure, but the
+    // signed envelope may already be on-chain, and "resubmit to be sure" is how
+    // a payment gets made twice. The guard polls instead; a definitive
+    // rejection still arrives here unchanged, so the mapping below is intact.
+    const result = await submitWithGuard(transaction, {}, config);
     const resultObj = result as any;
     return {
       success: true,
@@ -387,11 +389,8 @@ export async function sendAsset(
     transaction = builder.build();
     transaction.sign(sourceKeypair);
 
-    const result = await withTimeout(
-      'Horizon transaction submission',
-      cfg.timeout,
-      server.submitTransaction(transaction),
-    );
+    // Guarded submission (issue #305) — same rationale as sendXLM above.
+    const result = await submitWithGuard(transaction, {}, config);
 
     const resultObj = result as any;
     return {

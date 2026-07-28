@@ -48,6 +48,7 @@ import {
 } from '../types';
 import { validatePublicKey, validateSecretKey, validateAmount, validateMemoInput, buildMemo, wrapError, toResult } from '../utils';
 import { withTimeout } from '../network';
+import { submitWithGuard } from './guarded-submit';
 import { ErrorCategory, ErrorCode, ERROR_CODES } from '../errors';
 import { validateSequenceValue, isSequenceStale } from '../account/sequence';
 import { canSignTransaction, type AccountAbstraction, type Signer } from '../account';
@@ -849,11 +850,13 @@ export async function submitSignedTransaction(
   const server = getHorizonServer(config);
 
   try {
-    const result = await withTimeout(
-      'Horizon transaction submission',
-      cfg.timeout,
-      server.submitTransaction(signed.transaction),
-    );
+    // Guarded submission (issue #305). The staged pipeline submitted straight
+    // to Horizon, so a timeout here surfaced as a failure even though the
+    // signed envelope may already have reached the network. Routing through
+    // `submitTransactionIdempotently` polls instead. The deadline covers the
+    // default polling budget (10 attempts × 2000 ms) so the timeout wrapper
+    // cannot abort the polling that makes this safe.
+    const result = await submitWithGuard(signed.transaction, {}, config);
 
     const resultObj = result as any;
     return {

@@ -351,3 +351,12 @@ export type {
   SignatureSummary,
   InspectableTransaction,
 } from './inspect';
+
+// ─── Transaction lifecycle orchestrator (issue #305) ─────────────────────────
+export {
+  submitGuarded,
+  reconcileSubmission,
+  requiresStatusResolution,
+} from './orchestrator';
+
+export type { GuardedSubmitOptions, SubmittableTransaction } from './orchestrator';
