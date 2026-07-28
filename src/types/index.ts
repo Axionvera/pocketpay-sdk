@@ -2,6 +2,7 @@ import { TransactionSummary, TransactionDirection, TransactionStatus } from './t
 export * from './transaction';
 export * from './balance';
 export * from './auth';
+export * from './simulation';
 
 /**
  * Stellar PocketPay SDK — Type Definitions

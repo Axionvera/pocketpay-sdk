@@ -52,6 +52,8 @@ export {
   type ContractMethodSchema,
 } from './client-factory';
 
+export * from './simulation';
+
 /**
  * Resolves the vault contract ID, in precedence order:
  *
