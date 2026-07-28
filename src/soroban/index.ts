@@ -7,8 +7,13 @@
  * NOTE: This module requires a deployed Soroban vault contract.
  * The contract ID should be provided via params or VAULT_CONTRACT_ID env var.
  *
- * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md)
- * for risks related to contract ID spoofing and malicious payload injection.
+ * @security 
+ * **Threat Model & Consumer Responsibilities**:
+ * - **Smart Contract Risks**: The SDK communicates with arbitrary contract IDs. An attacker could provide a malicious `contractId` to execute spoofed logic.
+ * - **Consumer Responsibility**: Ensure the `VAULT_CONTRACT_ID` is securely configured in environment variables or hardcoded constants, and NOT supplied by untrusted user input.
+ * - **Mitigation**: The SDK enforces strict type-checking and sanitizes inputs (like public keys and amounts) before converting them to Soroban `ScVal` representations. Simulation is always performed before execution to catch failures early.
+ * - **Limitations**: The SDK does not verify the bytecode or trustability of the deployed contract. Ensure the target contract is audited.
+ * See [Security Threat Model](../../docs/security_threat_model.md).
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
