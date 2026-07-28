@@ -119,6 +119,7 @@ Tests live in `tests/` and use [Vitest](https://vitest.dev/). We use fixtures in
 - **Write tests for any behaviour change or new feature.** Bug fixes should include a regression test.
 - Keep tests isolated — avoid relying on live network calls. Mock external requests where needed.
 - Use the existing fixture helpers (`tests/fixtures/accounts.ts`, `transactions.ts`, etc.) rather than hardcoding data.
+- Follow the [SDK Module Test Matrix](./docs/module-test-matrix.md) for required unit, fixture, error-path, and integration coverage per module (wallet, payments, transactions, vault, config, utils).
 
 Run the suite before opening a PR:
 

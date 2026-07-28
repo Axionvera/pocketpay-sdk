@@ -50,6 +50,7 @@ npm install @axionvera/pocketpay-sdk
 - [SDK Package Boundary & Dependency Direction Map](./docs/dependency_direction_map.md) - Which module may import which, security-sensitive boundaries, and correct vs. incorrect import examples
 - [SDK Roadmap](./docs/roadmap.md) - Directional plans and contributor opportunities across the SDK
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
+- [SDK Module Test Matrix](./docs/module-test-matrix.md) - Required unit, fixture, error-path, and integration tests per major module
 - [Pre-PR Verification](./docs/pre-pr-verification.md) - Run `npm run verify:pr` before opening a pull request to confirm tests, docs, CI, and issue acceptance criteria
 - [Pre-submission Verification](./docs/pre-submission-verification.md) - Run `npm run presubmit` before submitting a PR (lint, tests, coverage, build)
 - [Contribution Quality Gate](./docs/contribution-quality-gate.md) - Maintainer checklist and examples of incomplete vs acceptable issue work before approval

@@ -2,6 +2,9 @@
 
 Unit tests live in `tests/` and mirror the `src/` module layout.
 
+For the full module-level expectations (unit, fixtures, error paths, and
+integration), see the [SDK Module Test Matrix](./module-test-matrix.md).
+
 ## Payment helpers
 
 Payment error-path coverage (issue #373) lives in:
