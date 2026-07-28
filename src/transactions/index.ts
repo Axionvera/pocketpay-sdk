@@ -117,3 +117,5 @@ export async function getPayments(
     throw wrapError(error, 'Failed to fetch payments', 'PAYMENTS_FETCH_ERROR');
   }
 }
+
+export * from './polling';

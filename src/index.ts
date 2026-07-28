@@ -27,6 +27,9 @@ export type {
   VaultBalanceParams,
   VaultResult,
   FundResult,
+  TransactionPollConfig,
+  TransactionPollResult,
+  TransactionPollStatus,
 } from './types';
 
 export { PocketPayError } from './types';
@@ -44,7 +47,7 @@ export {
 export { sendXLM } from './payments';
 
 // ─── Transactions ───────────────────────────────────────────────────────────
-export { getTransactions, getPayments } from './transactions';
+export { getTransactions, getPayments, pollTransaction } from './transactions';
 
 // ─── Soroban Vault ──────────────────────────────────────────────────────────
 export { depositToVault, withdrawFromVault, getVaultBalance } from './soroban';
