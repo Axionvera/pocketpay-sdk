@@ -22,9 +22,10 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "check:circular": "tsx scripts/check-circular-deps.ts",
-    "verify": "npm run lint && npm run check:circular && npm run test && npm run build",
+    "verify": "npm run lint && npm run check:circular && npm run test && npm run test:coverage && npm run build",
     "prepack": "npm run build",
     "prepublishOnly": "npm run build",
     "test:smoke": "npm run build && tsx scripts/smoke-test.ts"
@@ -55,6 +56,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
+    "@vitest/coverage-v8": "^3.1.4",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"

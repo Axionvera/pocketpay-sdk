@@ -95,6 +95,21 @@ recommends testing a locally packed tarball so Metro sees the same package
 layout that npm users receive, and also documents faster symlink-based
 alternatives and their cleanup steps.
 
+## Local Verification
+
+Run the full pre-push gate locally so CI stays green:
+
+```bash
+npm run verify
+```
+
+`npm run verify` runs, in order: **lint** (`tsc --noEmit`) → **circular-dependency
+check** → **unit tests** (`vitest run`) → **coverage** (`vitest run --coverage`)
+→ **build** (`tsc`). It stops at the first failure. See
+[Local Verification Workflow](./docs/local-verification.md) for step details,
+when to run it, and failure-handling guidance. This mirrors what the repo's
+automation checks when a PR is opened.
+
 ## Package Root Imports
 
 Everything the SDK exposes is available from the package root — this is the
