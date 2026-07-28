@@ -200,6 +200,22 @@ The self-review covers:
 
 ---
 
+## Contribution Quality Gate
+
+Maintainers use the [Contribution Quality Gate](./docs/contribution-quality-gate.md) before approving issue PRs. It is a repeatable checklist covering:
+
+- Meaningful implementation (completeness, not just patch size)
+- Tests (including failure paths)
+- CI status
+- Documentation
+- Issue acceptance criteria
+
+The checkbox form lives at [`.github/checklists/contribution-quality-gate.md`](.github/checklists/contribution-quality-gate.md). The guide includes examples of **incomplete** vs **acceptable** work.
+
+Contributors should read that guide before opening a PR. Maintainers should not approve until the checklist passes. A merged PR is still **not** automatic payment approval.
+
+---
+
 ## Reporting Issues
 
 Found a bug or have a feature idea? [Open an issue](https://github.com/Stellar-PocketPay/stellar-pocketpay-sdk/issues) and fill in as much detail as you can:

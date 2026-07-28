@@ -54,6 +54,16 @@
      See .github/checklists/contributor-self-review.template.md -->
 - [ ] Self-review form completed and attached
 
+## Contribution Quality Gate
+
+<!-- Contributors: confirm your PR is ready for the maintainer quality gate.
+     Maintainers: run the checklist before approving.
+     See docs/contribution-quality-gate.md and
+     .github/checklists/contribution-quality-gate.md -->
+- [ ] I reviewed the [Contribution Quality Gate](../docs/contribution-quality-gate.md) and believe this PR meets it
+- [ ] Implementation is complete (not a stub / docs-only when behaviour was required)
+- [ ] Tests, CI, docs, and acceptance criteria sections above are filled
+
 ## Reviewer Notes
 
 <!-- Anything a reviewer should know: design decisions, trade-offs, follow-ups,
@@ -63,4 +73,6 @@
 <!--
   Reminder: a merged PR is NOT automatically payment-approved. Reward
   eligibility is assessed separately (see the campaign's contribution terms).
+  Maintainers: do not approve until the Contribution Quality Gate checklist
+  passes (.github/checklists/contribution-quality-gate.md).
 -->

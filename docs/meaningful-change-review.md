@@ -136,3 +136,7 @@ public contract changed.
 If the answer to the first question is "just code/comments," the PR is not
 meaningful yet — request the missing behaviour, tests, or criteria coverage
 before approving. Merging it does not by itself approve payment.
+
+For the full maintainer **pass / hold** checklist (implementation, tests, CI,
+docs, acceptance criteria) and more incomplete vs acceptable examples, see
+[Contribution Quality Gate](./contribution-quality-gate.md).
