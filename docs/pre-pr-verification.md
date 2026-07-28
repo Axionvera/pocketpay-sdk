@@ -130,6 +130,7 @@ PocketPay SDK — Pre-PR Acceptance Verification
 ## Related docs
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — contributor setup and PR checklist
+- [Pre-submission Verification](./pre-submission-verification.md) — `npm run presubmit` CI-parity gate before opening a PR
 - [Contribution Quality Gate](./contribution-quality-gate.md) — maintainer pass/hold checklist before approval
 - [testing.md](./testing.md) — unit vs integration test lanes
 - [release-checklist.md](./release-checklist.md) — maintainer release gates (`npm run verify`)

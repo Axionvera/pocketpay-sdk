@@ -55,5 +55,6 @@ occasionally non-deterministic. Keep them out of the critical path: the default
 | `npm run test:unit`            | Unit suite (explicit alias of `npm test`)     |
 | `npm run test:watch`           | Unit suite in watch mode                       |
 | `npm run test:integration`     | Integration suite (opt-in, needs the env flag)|
-| `npm run verify`               | Lint, circular-deps check, unit tests, and build |
+| `npm run verify`               | Lint, circular-deps check, unit tests, coverage, and build |
+| `npm run presubmit`            | Pre-submission command (same checks + step banners / failure hints) |
 | `npm run verify:pr`            | Pre-PR script: automated checks + docs/CI/criteria reminders |

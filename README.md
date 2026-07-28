@@ -51,6 +51,7 @@ npm install @axionvera/pocketpay-sdk
 - [SDK Roadmap](./docs/roadmap.md) - Directional plans and contributor opportunities across the SDK
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Pre-PR Verification](./docs/pre-pr-verification.md) - Run `npm run verify:pr` before opening a pull request to confirm tests, docs, CI, and issue acceptance criteria
+- [Pre-submission Verification](./docs/pre-submission-verification.md) - Run `npm run presubmit` before submitting a PR (lint, tests, coverage, build)
 - [Contribution Quality Gate](./docs/contribution-quality-gate.md) - Maintainer checklist and examples of incomplete vs acceptable issue work before approval
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
 - [End-to-End App Integration Blueprint](./docs/app_integration_blueprint.md) - App-level flow combining config, diagnostics, wallet, account, payments, transactions, Soroban, vault, security, and typed error handling
@@ -101,25 +102,31 @@ alternatives and their cleanup steps.
 
 ## Local Verification
 
-Run the full pre-push gate locally so CI stays green:
+Before submitting a pull request, run the pre-submission command:
 
 ```bash
-npm run verify
+npm run presubmit
 ```
 
-`npm run verify` runs, in order: **lint** (`tsc --noEmit`) → **circular-dependency
-check** → **unit tests** (`vitest run`) → **coverage** (`vitest run --coverage`)
-→ **build** (`tsc`). It stops at the first failure. See
-[Local Verification Workflow](./docs/local-verification.md) for step details,
-when to run it, and failure-handling guidance. This mirrors what the repo's
-automation checks when a PR is opened.
+This is the contributor-facing pre-submission command. It runs the same
+CI-parity pipeline as `npm run verify`: **lint** → **circular-dependency check**
+→ **unit tests** → **coverage** → **build**, stops at the first failure, and
+prints fix guidance.
+
+See [Pre-submission Verification](./docs/pre-submission-verification.md) for
+usage and failure guidance. Details of each pipeline step also live in
+[Local Verification Workflow](./docs/local-verification.md).
+
+```bash
+npm run verify   # same checks without step banners
+```
 
 ## Pull Request Expectations
 
 Every PR uses the
 [PR template](./.github/PULL_REQUEST_TEMPLATE.md), which requires you to state
 the related issue, implementation scope, **tests added** (or why tests don't
-apply), the **`npm run verify`** output you ran locally, CI status, and
+apply), the **`npm run verify` / `npm run presubmit`** output you ran locally, CI status, and
 acceptance-criteria coverage. A merged PR is not automatically payment-approved;
 reward eligibility is assessed separately. See [CONTRIBUTING.md](./CONTRIBUTING.md)
 for the full checklist.

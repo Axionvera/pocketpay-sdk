@@ -25,12 +25,13 @@
 
 ## Commands Run (local verification)
 
-<!-- Run `npm run verify` and paste the result. This is the single gate that
-     mirrors CI: lint -> circular check -> tests -> coverage -> build. -->
-- [ ] `npm run verify` passed locally
+<!-- Run `npm run presubmit` (or `npm run verify`) and paste the result.
+     This is the single local gate that mirrors CI:
+     lint -> circular check -> tests -> coverage -> build. -->
+- [ ] `npm run presubmit` passed locally (or `npm run verify`)
 
 ```
-<paste `npm run verify` output summary here>
+<paste `npm run presubmit` / `npm run verify` output summary here>
 ```
 
 ## CI Status

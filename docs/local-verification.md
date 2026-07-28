@@ -21,6 +21,10 @@ npm run verify
 
 All steps must pass locally before opening or updating a PR.
 
+> **Contributor shortcut:** `npm run presubmit` runs this same pipeline with
+> labeled steps and failure hints. Prefer it before submitting a PR — see
+> [Pre-submission Verification](./pre-submission-verification.md).
+
 ## When to run it
 
 - After finishing a change, **before** `git push`.
