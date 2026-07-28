@@ -34,6 +34,7 @@ export type FeatureFlagKey =
   | 'experimentalSorobanEvents'
   | 'experimentalMultiAssetVault'
   | 'experimentalAsyncSigner'
+  | 'experimentalVaultLocks'
   | (string & {});
 
 /** Map of feature flag keys to boolean enablement status. */
