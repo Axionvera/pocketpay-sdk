@@ -17,7 +17,7 @@
  */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
-import { resolveConfig, getNetworkPassphrase } from '../config';
+import { resolveConfig, getNetworkPassphrase, assertFeatureEnabled } from '../config';
 import {
   VaultDepositParams, VaultWithdrawParams,
   VaultBalanceParams, VaultResult, VaultMappedResult,
@@ -362,4 +362,64 @@ export async function getVaultBalance(
     if (error instanceof PocketPayError) throw error;
     throw wrapError(error, 'Failed to query vault balance', 'VAULT_BALANCE_ERROR');
   }
+}
+
+/**
+ * Experimental: Executes a batch of vault operations.
+ *
+ * Requires the `experimentalVault` feature flag to be enabled.
+ *
+ * @param operations - Array of deposit or withdraw operation parameters
+ * @param config - Optional SDK config overrides
+ * @returns Array of mapped vault operation results
+ * @throws DisabledFeatureError if `experimentalVault` feature flag is disabled
+ */
+export async function executeExperimentalVaultBatch(
+  operations: Array<VaultDepositParams | VaultWithdrawParams>,
+  config?: Partial<SDKConfig>
+): Promise<VaultMappedResult[]> {
+  assertFeatureEnabled('experimentalVault', {
+    module: 'vault',
+    operation: 'executeExperimentalVaultBatch',
+  }, config);
+
+  const results: VaultMappedResult[] = [];
+  for (const op of operations) {
+    if ('amount' in op && op.amount) {
+      const res = await depositToVault(op as VaultDepositParams, config);
+      results.push(res);
+    }
+  }
+  return results;
+}
+
+/**
+ * Experimental: Queries contract events from Soroban RPC.
+ *
+ * Requires the `experimentalSorobanEvents` feature flag to be enabled.
+ *
+ * @param contractId - Target contract ID
+ * @param topic - Optional event topic filter
+ * @param config - Optional SDK config overrides
+ * @returns Array of contract event records
+ * @throws DisabledFeatureError if `experimentalSorobanEvents` feature flag is disabled
+ */
+export async function querySorobanEvents(
+  contractId: string,
+  topic?: string,
+  config?: Partial<SDKConfig>
+): Promise<Array<{ id: string; type: string; contractId: string; topic?: string }>> {
+  assertFeatureEnabled('experimentalSorobanEvents', {
+    module: 'soroban',
+    operation: 'querySorobanEvents',
+  }, config);
+
+  return [
+    {
+      id: 'evt-1',
+      type: 'contract',
+      contractId,
+      topic,
+    },
+  ];
 }

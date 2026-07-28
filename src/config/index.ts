@@ -7,11 +7,16 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import {
   SDKConfig,
+  ResolvedSDKConfig,
   StellarNetwork,
   ConfigValidationIssue,
   ConfigValidationResult,
+  ConfigSource,
+  ConfigSourceMetadata,
+  FeatureFlagsConfig,
   PocketPayError,
 } from '../types';
+import { DisabledFeatureError, FeatureContext } from '../errors';
 import { redactSensitive } from '../utils';
 import { emitDiagnosticsEvent } from '../diagnostics/hooks';
 // ─── Default URLs ───────────────────────────────────────────────────────────
@@ -193,6 +198,113 @@ export function validateContractId(contractId: string): void {
     );
   }
 }
+// ─── Feature Flags ───────────────────────────────────────────────────────────
+
+/**
+ * Default experimental feature flags. All experimental features are disabled by default.
+ */
+export const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
+  experimentalVault: false,
+  experimentalSorobanEvents: false,
+  experimentalMultiAssetVault: false,
+  experimentalAsyncSigner: false,
+};
+
+/**
+ * Resolves feature flags from explicit overrides, environment variables, and defaults.
+ *
+ * Precedence: explicit override > env var (`POCKETPAY_FEATURE_<FLAG>`, `STELLAR_FEATURE_<FLAG>`, `POCKETPAY_FEATURE_FLAGS`) > default (false)
+ *
+ * @param overrides - Optional feature flags passed in SDKConfig
+ * @returns Object containing resolved flags map and source metadata map
+ */
+export function resolveFeatureFlags(overrides?: FeatureFlagsConfig): {
+  flags: Record<string, boolean>;
+  sources: Record<string, ConfigSource>;
+} {
+  const flags: Record<string, boolean> = { ...DEFAULT_FEATURE_FLAGS };
+  const sources: Record<string, ConfigSource> = {};
+
+  for (const key of Object.keys(flags)) {
+    sources[key] = 'default';
+  }
+
+  // Comma-separated list in POCKETPAY_FEATURE_FLAGS or STELLAR_FEATURE_FLAGS
+  const envFlagsList = process.env.POCKETPAY_FEATURE_FLAGS ?? process.env.STELLAR_FEATURE_FLAGS;
+  if (envFlagsList) {
+    const list = envFlagsList.split(',').map((s) => s.trim()).filter(Boolean);
+    for (const key of list) {
+      flags[key] = true;
+      sources[key] = 'env';
+    }
+  }
+
+  // Individual env vars e.g. POCKETPAY_FEATURE_EXPERIMENTAL_VAULT=true or STELLAR_FEATURE_EXPERIMENTAL_VAULT=true
+  const knownKeys = new Set([...Object.keys(flags), ...(overrides ? Object.keys(overrides) : [])]);
+
+  for (const key of knownKeys) {
+    const snakeKey = key.replace(/([A-Z])/g, '_$1').toUpperCase();
+    const envVal =
+      process.env[`POCKETPAY_FEATURE_${snakeKey}`] ??
+      process.env[`STELLAR_FEATURE_${snakeKey}`] ??
+      process.env[`POCKETPAY_${snakeKey}`];
+
+    if (envVal !== undefined) {
+      const boolVal = envVal.toLowerCase() === 'true' || envVal === '1';
+      flags[key] = boolVal;
+      sources[key] = 'env';
+    }
+  }
+
+  // Overrides in config
+  if (overrides) {
+    for (const [key, val] of Object.entries(overrides)) {
+      if (typeof val === 'boolean') {
+        flags[key] = val;
+        sources[key] = 'override';
+      }
+    }
+  }
+
+  return { flags, sources };
+}
+
+/**
+ * Checks whether an experimental feature flag is currently enabled.
+ *
+ * @param flag - Feature flag key (e.g. 'experimentalVault')
+ * @param config - Optional SDK configuration overrides
+ * @returns `true` if enabled
+ */
+export function isFeatureEnabled(flag: string, config?: Partial<SDKConfig>): boolean {
+  const resolved = resolveConfig(config);
+  return Boolean(resolved.featureFlags[flag]);
+}
+
+/**
+ * Asserts that an experimental feature flag is enabled. Throws {@link DisabledFeatureError} if disabled.
+ *
+ * @param flag - Feature flag key
+ * @param context - Feature context describing module and operation
+ * @param config - Optional SDK configuration overrides
+ * @throws DisabledFeatureError if the feature flag is disabled
+ */
+export function assertFeatureEnabled(
+  flag: string,
+  context: FeatureContext,
+  config?: Partial<SDKConfig>
+): void {
+  if (!isFeatureEnabled(flag, config)) {
+    throw new DisabledFeatureError({
+      featureFlag: flag,
+      module: context.module,
+      operation: context.operation,
+      capability: context.capability,
+      message: `Experimental feature '${flag}' is disabled. Enable it in SDKConfig.featureFlags or environment variables to use ${context.module}.${context.operation}.`,
+    });
+  }
+}
+
 // ─── Resolve Config ─────────────────────────────────────────────────────────
 /**
  * Resolves the SDK configuration by merging environment variables with defaults.
@@ -204,10 +316,17 @@ export function validateContractId(contractId: string): void {
  * by a default.
  *
  * @param overrides - Optional partial config to override defaults
- * @returns Fully resolved and validated SDK configuration
+ * @returns Fully resolved and validated SDK configuration with config source metadata
  * @throws PocketPayError if any configuration value is invalid
  */
-export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
+export function resolveConfig(overrides?: Partial<SDKConfig>): ResolvedSDKConfig {
+  const networkSource: ConfigSource =
+    overrides?.network !== undefined
+      ? 'override'
+      : process.env.STELLAR_NETWORK !== undefined
+      ? 'env'
+      : 'default';
+
   // Network: an explicitly-provided value (including null) must be validated
   // as-is; only undefined falls through to env var, then the testnet default.
   const network: unknown =
@@ -215,6 +334,13 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
       ? overrides.network
       : process.env.STELLAR_NETWORK ?? 'testnet';
   validateNetwork(network);
+
+  const horizonUrlSource: ConfigSource =
+    overrides?.horizonUrl !== undefined
+      ? 'override'
+      : process.env.STELLAR_HORIZON_URL !== undefined
+      ? 'env'
+      : 'default';
 
   // Horizon URL: an explicitly-provided value (including '') is validated
   // as-is; only undefined falls through to env var, then the network default.
@@ -224,12 +350,26 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
       : process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[network];
   validateHorizonUrl(horizonUrl);
 
+  const sorobanRpcUrlSource: ConfigSource =
+    overrides?.sorobanRpcUrl !== undefined
+      ? 'override'
+      : process.env.STELLAR_SOROBAN_RPC_URL !== undefined
+      ? 'env'
+      : 'default';
+
   // Soroban RPC URL: same explicit-value semantics as Horizon URL.
   const sorobanRpcUrl =
     overrides?.sorobanRpcUrl !== undefined
       ? overrides.sorobanRpcUrl
       : process.env.STELLAR_SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[network];
   validateSorobanRpcUrl(sorobanRpcUrl);
+
+  const timeoutSource: ConfigSource =
+    overrides?.timeout !== undefined
+      ? 'override'
+      : process.env.STELLAR_TIMEOUT !== undefined
+      ? 'env'
+      : 'default';
 
   // Timeout: explicit override > env var > SDK default.
   const timeout =
@@ -238,6 +378,13 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
       ? parseInt(process.env.STELLAR_TIMEOUT, 10)
       : DEFAULT_TIMEOUT_MS);
   validateTimeout(timeout);
+
+  let contractIdSource: ConfigSource | undefined = undefined;
+  if (overrides?.contractId !== undefined) {
+    contractIdSource = 'override';
+  } else if (process.env.STELLAR_CONTRACT_ID !== undefined || process.env.VAULT_CONTRACT_ID !== undefined) {
+    contractIdSource = 'env';
+  }
 
   // Contract ID: preserve an explicitly-provided value (including '').
   // An empty string is a valid "no contract configured" sentinel and is
@@ -250,7 +397,26 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
     validateContractId(contractId);
   }
 
-  const resolved = { network, horizonUrl, sorobanRpcUrl, timeout, contractId };
+  const resolvedFlags = resolveFeatureFlags(overrides?.featureFlags);
+
+  const sources: ConfigSourceMetadata = {
+    network: networkSource,
+    horizonUrl: horizonUrlSource,
+    sorobanRpcUrl: sorobanRpcUrlSource,
+    timeout: timeoutSource,
+    ...(contractIdSource ? { contractId: contractIdSource } : {}),
+    featureFlags: resolvedFlags.sources,
+  };
+
+  const resolved: ResolvedSDKConfig = {
+    network,
+    horizonUrl,
+    sorobanRpcUrl,
+    timeout,
+    contractId,
+    featureFlags: resolvedFlags.flags,
+    sources,
+  };
 
   emitDiagnosticsEvent('config', 'config.resolved', {
     network: resolved.network,
@@ -259,6 +425,8 @@ export function resolveConfig(overrides?: Partial<SDKConfig>): SDKConfig {
     timeoutMs: resolved.timeout,
     contractIdConfigured:
       typeof resolved.contractId === 'string' && resolved.contractId.length > 0,
+    sources: resolved.sources,
+    featureFlags: resolved.featureFlags,
   });
 
   return resolved;
@@ -311,12 +479,13 @@ export function validatePocketPayConfig(
 
   let network: StellarNetwork = 'testnet';
   if (rawNetwork !== 'testnet' && rawNetwork !== 'mainnet') {
+    const safeVal = sanitizeValue(rawNetwork);
     issues.push({
       severity: 'error',
       field: 'network',
       code: 'INVALID_NETWORK',
-      message: `Unsupported network: "${rawNetwork}". Supported networks: testnet, mainnet`,
-      value: sanitizeValue(rawNetwork),
+      message: `Unsupported network: "${safeVal}". Supported networks: testnet, mainnet`,
+      value: safeVal,
     });
   } else {
     network = rawNetwork;
@@ -563,15 +732,9 @@ export function validatePocketPayConfig(
   const warnings = issues.filter((i) => i.severity === 'warning');
   const valid = errors.length === 0;
 
-  let resolvedConfig: SDKConfig | undefined = undefined;
+  let resolvedConfig: ResolvedSDKConfig | undefined = undefined;
   if (valid) {
-    resolvedConfig = {
-      network,
-      horizonUrl: rawHorizonUrl as string,
-      sorobanRpcUrl: rawSorobanRpcUrl as string,
-      timeout: rawTimeout as number,
-      contractId: (rawContractId as string) || undefined,
-    };
+    resolvedConfig = resolveConfig(overrides as Partial<SDKConfig>);
   }
 
   return {

@@ -29,14 +29,17 @@ export {
 export {
   UnsupportedFeatureError,
   CapabilityMismatchError,
+  DisabledFeatureError,
   isUnsupportedFeatureError,
   isCapabilityMismatchError,
+  isDisabledFeatureError,
 } from './unsupported';
 
 export type {
   FeatureContext,
   UnsupportedFeatureOptions,
   CapabilityMismatchOptions,
+  DisabledFeatureOptions,
 } from './unsupported';
 
 export {

@@ -11,6 +11,8 @@ export {
   depositToVault,
   withdrawFromVault,
   getVaultBalance,
+  executeExperimentalVaultBatch,
+  querySorobanEvents,
   mapSorobanInvocationResult,
   mapVaultInvocationResult,
   mapSorobanContractError,
