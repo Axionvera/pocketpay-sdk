@@ -173,6 +173,84 @@ When building customer-facing interfaces, translate machine-readable SDK error c
 
 ---
 
+## Payment Helper Error Reference
+
+Both `sendXLM` and `sendAsset` throw `PocketPayError` on failure. Branch on
+`error.code` — not `error.message` — and inspect `error.validation` for
+field-level detail when present.
+
+### Preflight validation (no network call)
+
+These errors are thrown synchronously before any Horizon request:
+
+| Code | Cause | `validation.field` | Typical recovery |
+| :--- | :--- | :--- | :--- |
+| `INVALID_SECRET_KEY` | Malformed source secret key | `secretKey` | Fix the key format (`S...`, 56 chars) |
+| `INVALID_PUBLIC_KEY` | Malformed destination key | `publicKey` | Fix the key format (`G...`, 56 chars) |
+| `INVALID_AMOUNT` | Amount ≤ 0 or non-decimal string | `amount` | Use a positive decimal string |
+| `INVALID_AMOUNT_PRECISION` | More than 7 decimal places | `amount` | Reduce precision |
+| `TX_INVALID_MEMO` | Memo breaks its type's format rule | `memo` | See [Memo Validation](./memo-validation.md) |
+| `SELF_PAYMENT` | Source equals destination | `destination` | Choose a different recipient |
+
+`sendAsset` adds asset-spec validation before the trustline check:
+
+| Code | Cause | Typical recovery |
+| :--- | :--- | :--- |
+| `INVALID_ASSET_CODE` | Asset code empty or invalid format | Use 1–12 alphanumeric characters |
+| `MISSING_ASSET_ISSUER` | Issued asset without issuer | Provide the issuer public key |
+| `INVALID_ASSET` | Native XLM with a spurious issuer | Remove the `issuer` field |
+
+See [Issued Asset Payments — Validation Rules](./issued-asset-payments.md#7-validation-rules) for the full asset table.
+
+### Trustline preflight (`sendAsset` issued assets only)
+
+| Code | Cause | Typical recovery |
+| :--- | :--- | :--- |
+| `UNFUNDED_DESTINATION` | Destination account not on-chain | Fund the recipient account first |
+| `MISSING_TRUSTLINE` | No trustline for the asset | Recipient must submit `ChangeTrust` |
+| `TRUSTLINE_NOT_AUTHORIZED` | Trustline pending issuer approval | Issuer must authorize the trustline |
+| `TRUSTLINE_LIMIT_EXCEEDED` | Payment exceeds trustline capacity | Reduce amount or raise the limit |
+
+See [Trustline Validation](./trustline-validation.md) for status details.
+
+### Network and submission errors
+
+| Code | Cause | Typical recovery |
+| :--- | :--- | :--- |
+| `ACCOUNT_NOT_FOUND` | Source account not funded / not on-chain | Fund the source account |
+| `PAYMENT_FAILED` | Horizon returned a transaction result code | Check `error.message` for the tx code |
+| `REQUEST_TIMEOUT` | Horizon request timed out during preparation | Retry after a delay |
+| `TX_STATUS_UNKNOWN` | Submission timed out — outcome unknown | Poll status before retrying |
+| `SEND_ERROR` | Unexpected network or Horizon error | Retry or check connectivity |
+
+For timeout stage classification (`preparation` vs `submission`), see
+[Timeout Classification](./timeout-classification.md).
+
+### Non-throwing wrappers
+
+`safeSendXLM`, `safeSendAsset`, and `validateSendXLMParams` surface the same
+codes without throwing:
+
+```typescript
+import { safeSendXLM, validateSendXLMParams } from '@axionvera/pocketpay-sdk';
+
+// Collect all field errors before submitting
+const check = validateSendXLMParams(params);
+if (!check.ok) {
+  for (const err of check.errors) {
+    console.error(err.code, err.field, err.reason);
+  }
+}
+
+// Or use the safe wrapper
+const result = await safeSendXLM(params);
+if (!result.ok) {
+  console.error(result.error.code); // e.g. 'INVALID_AMOUNT'
+}
+```
+
+---
+
 ## Security & Privacy: Do Not Log Secrets!
 
 > [!CAUTION]

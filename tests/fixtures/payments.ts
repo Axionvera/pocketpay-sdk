@@ -34,3 +34,35 @@ export const paymentNotFound = {
   status: 404,
   detail: 'The resource at the url requested was not found.',
 };
+
+/** Builds an HTTP-style error that Horizon SDK throws for 404 responses. */
+export function makeHorizon404Error(publicKey?: string) {
+  const err = new Error(`Account not found: ${publicKey ?? 'unknown'}`) as any;
+  err.response = { status: 404 };
+  return err;
+}
+
+/** Builds a Horizon transaction-failure error with result codes (submission path). */
+export function makeHorizonResultCodeError(
+  transactionCode: string,
+  operationCodes: string[] = [],
+) {
+  const err = new Error('Transaction failed') as any;
+  err.response = {
+    status: 400,
+    data: {
+      extras: {
+        result_codes: {
+          transaction: transactionCode,
+          operations: operationCodes,
+        },
+      },
+    },
+  };
+  return err;
+}
+
+/** A promise that never settles — used to trigger SDK timeout handling in tests. */
+export function neverSettlingPromise<T = never>(): Promise<T> {
+  return new Promise(() => undefined);
+}
