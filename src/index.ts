@@ -82,7 +82,9 @@ export type {
   SubmissionOutcome,
   RetryPolicy,
   RetryPolicyExhaustedResult,
+  FeeEstimate,
 } from './types';
+
 
 export {
   PocketPayError,
@@ -311,6 +313,7 @@ export {
   submitTransactionIdempotently,
   pollTransactionStatus,
   withRetryPolicy,
+  fetchFeeEstimate,
 } from './network';
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
