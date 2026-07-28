@@ -182,6 +182,21 @@ Before opening a PR, run through this list:
 - [ ] The PR references the related issue (e.g. `Closes #6`)
 - [ ] No `.env` or secret values are committed
 - [ ] **I have reviewed the [Contributor Security Checklist](#contributor-security-checklist) and verified my code introduces no secret leakage or insecure dependencies.**
+- [ ] **I have completed the [Contributor Self-Review Form](.github/checklists/contributor-self-review.template.md)**
+
+## Contributor Self-Review
+
+Before requesting review or expecting payment approval, complete the [Contributor Self-Review Form](.github/checklists/contributor-self-review.template.md). This helps you evaluate your work objectively and ensures nothing is missed.
+
+The self-review covers:
+- Requirements review
+- Implementation completeness
+- Testing evidence
+- CI status
+- Documentation
+- Known limitations
+
+> **Tip:** Copy the template to `.github/checklists/contributor-self-review-<issue-number>.md` and fill it in as you work on your contribution.
 
 ---
 
