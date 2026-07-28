@@ -356,6 +356,17 @@ export {
   validateTransactionHash,
   stroopsToXLM,
   xlmToStroops,
+  // Safe amount model (issue #270)
+  SafeAmount,
+  parseAmount,
+  parsePositiveAmount,
+  safeParseAmount,
+  fromStroops,
+  toStroops,
+  formatStroops,
+  STROOPS_PER_UNIT,
+  AMOUNT_DECIMALS,
+  MAX_STROOPS,
   truncateAddress,
   // Explorer Links
   getAccountExplorerLink,
