@@ -110,7 +110,7 @@ export function getCapability(capability: string): CapabilitySpec | undefined {
 export function listCapabilities(status?: CapabilityStatus): string[] {
   const names = Object.keys(SDK_CAPABILITIES);
   if (!status) return names;
-  return names.filter((name) => SDK_CAPABILITIES[name].status === status);
+  return names.filter((name) => SDK_CAPABILITIES[name as keyof typeof SDK_CAPABILITIES]?.status === status);
 }
 
 /**

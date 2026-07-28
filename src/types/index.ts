@@ -577,43 +577,43 @@ export interface FundResult {
    * Transaction hash of the Friendbot funding transaction.
    * Present on success; used to look up the transaction on a block explorer.
    */
-  hash?: string;
+  hash?: string | undefined;
 
   /**
    * Friendbot's internal operation/record ID.
    * Useful as a fallback identifier when `hash` is not available.
    */
-  friendbotId?: string;
+  friendbotId?: string | undefined;
 
   /**
    * Ledger sequence number the funding transaction was included in.
    * Present on success.
    */
-  ledger?: number;
+  ledger?: number | undefined;
 
   /**
    * ISO 8601 timestamp of when the funding transaction was created.
    * Present on success.
    */
-  createdAt?: string;
+  createdAt?: string | undefined;
 
   /**
    * Fee charged by the Friendbot transaction (in stroops).
    * Present on success.
    */
-  feeCharged?: string;
+  feeCharged?: string | undefined;
 
   /**
    * The Friendbot's own source account public key.
    * Present on success; useful for audit purposes.
    */
-  friendbotAccount?: string;
+  friendbotAccount?: string | undefined;
 
   /**
    * Human-readable error message when `success` is `false`.
    * Contains the Friendbot HTTP status and response body on HTTP errors.
    */
-  error?: string;
+  error?: string | undefined;
 }
 
 // ─── Result Wrappers ────────────────────────────────────────────────────────
@@ -688,7 +688,7 @@ export interface ValidationMetadata {
   /** The reason validation failed (e.g., 'invalid_format', 'too_long') */
   reason: string;
   /** Optional: The value that was provided (never include secrets!) */
-  value?: string | number;
+  value?: string | number | undefined;
 }
 
 /**
@@ -719,31 +719,31 @@ export class PocketPayError extends Error {
   /** Machine-readable error code */
   public readonly code: string;
   /** HTTP status code (if applicable) */
-  public readonly statusCode?: number;
+  public readonly statusCode?: number | undefined;
   /** Original error that caused this error */
-  public readonly cause?: Error;
+  public readonly cause?: Error | undefined;
   /** Validation metadata (if this is a validation error) */
-  public readonly validation?: ValidationMetadata;
+  public readonly validation?: ValidationMetadata | undefined;
   /** Transaction hash (if associated with a transaction) */
-  public readonly transactionHash?: string;
+  public readonly transactionHash?: string | undefined;
   /** Whether the operation is safe to retry */
-  public readonly retryable?: boolean;
+  public readonly retryable?: boolean | undefined;
   /**
    * High-level error category (Wallet / Payment / Transaction / Network /
    * Soroban / Vault / SDK). Added for the public error taxonomy standard;
    * optional for backwards compatibility.
    */
-  public readonly category?: string;
+  public readonly category?: string | undefined;
   /**
    * User-safe summary that never contains secrets. Added for the public error
    * taxonomy standard; optional — falls back to `message` when absent.
    */
-  public readonly safeMessage?: string;
+  public readonly safeMessage?: string | undefined;
   /**
    * Where a timeout elapsed, when this error is one. Lets consumers pick a
    * recovery action without parsing the message.
    */
-  public readonly timeout?: TimeoutMetadata;
+  public readonly timeout?: TimeoutMetadata | undefined;
 
   constructor(
     message: string,
@@ -870,7 +870,7 @@ export interface StellarAssetSpec {
   /** Asset code (e.g. "XLM", "USDC", "EURT") */
   code: string;
   /** Stellar public key (G...) of the asset issuer (empty/omitted for native XLM) */
-  issuer?: string;
+  issuer?: string | undefined;
 }
 
 /** Status discriminant for trustline verification results. */

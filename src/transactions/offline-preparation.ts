@@ -125,7 +125,7 @@ export interface PreparedTransaction {
   /** Transaction operations (serialized) */
   operations: OfflinePaymentOperation[];
   /** Optional memo */
-  memo?: string;
+  memo?: string | undefined;
   /** Timebounds */
   timebounds: {
     minTime: number;
@@ -197,7 +197,7 @@ export interface TransactionSigningSummary {
     /** Asset code (XLM, USDC, etc.) */
     assetCode: string;
     /** Optional issuer for non-native assets */
-    assetIssuer?: string;
+    assetIssuer?: string | undefined;
     /** Human-readable summary of the operation */
     description: string;
   }>;
@@ -249,7 +249,7 @@ export function getTransactionSigningSummary(
     canSign = true;
     
     // Extract operations from the Stellar SDK transaction
-    operations = payload.transaction.operations.map(op => {
+    operations = payload.transaction.operations.map((op: any) => {
       if (op.type === 'payment') {
         return {
           destination: op.destination,
