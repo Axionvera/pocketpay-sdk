@@ -198,3 +198,38 @@ called.
 - **`isAvailable` on an `ExternalSignerAdapter` is advisory, not a
   guarantee.** A future adapter reporting `isAvailable: true` can still fail
   at `sign()` time.
+
+## Simulation before signing
+
+For state-changing smart contract calls (Soroban), a simulation step must occur **before** the transaction crosses the signing boundary. The `simulateContractCall()` function executes a dry run against the network, returning a `ContractSimulationResult`.
+
+This ensures that:
+1. **Errors are caught early**: If a contract call will fail, it fails during simulation before prompting the user for a signature.
+2. **Resource constraints are known**: CPU, RAM, and fee requirements are accurately calculated.
+3. **Signatures are valid for the exact outcome**: The user is signing a transaction with deterministic execution paths.
+
+### Example: Simulating a contract call
+
+```ts
+import { simulateContractCall, ContractSimulationParams } from 'stellar-pocketpay-sdk';
+
+const params: ContractSimulationParams = {
+  contractId: 'C...', // Contract ID
+  operation: 'deposit',
+  args: [ /* ScVal arguments */ ],
+  sourcePublicKey: 'G...',
+};
+
+const result = await simulateContractCall(params);
+
+if (!result.success) {
+  // Handle simulation failure (e.g. invalid arguments, contract trapped)
+  console.error("Simulation failed:", result.error);
+  return;
+}
+
+// Proceed to build and sign the transaction using result metrics
+console.log("Required CPU:", result.cost?.cpuInstructions);
+console.log("Estimated Fee:", result.cost?.minResourceFee);
+```
+
