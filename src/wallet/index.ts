@@ -3,10 +3,13 @@
  *
  * Create, import, and manage Stellar keypairs. Query balances. Fund testnet accounts.
  * 
- * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md)
- * for mitigation strategies regarding memory scraping, insecure key generation,
- * and accidental secret export.
- */
+ * @security 
+ * **Threat Model & Consumer Responsibilities**:
+ * - **Secret Handling**: Wallet secrets (`secretKey`) are held in memory only as long as necessary. The SDK NEVER persists these to disk or remote storage.
+ * - **Consumer Responsibility**: The host application MUST securely encrypt and store `secretKey` (e.g., in iOS Keychain or Android Keystore) immediately after creation.
+ * - **Mitigation**: `createWallet` does not expose internals. The `LocalSigner` implementation protects against accidental serialization leaks.
+ * - **Limitations**: If the host application memory is scraped or the device is compromised (rooted/jailbroken), secrets are vulnerable.
+ * See [Security Threat Model](../../docs/security_threat_model.md) and [Wallet Backup Responsibility](../../docs/security.md#wallet-backup-responsibility).
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
