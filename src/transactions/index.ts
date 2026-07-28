@@ -3,9 +3,13 @@
  *
  * Query transaction history and payment operations for a Stellar account.
  * 
- * @security See the [SDK Security Threat Model](../../docs/security_threat_model.md) 
- * for mitigation strategies regarding transaction malleability, replay attacks, 
- * and strict sequence number handling.
+ * @security 
+ * **Threat Model & Consumer Responsibilities**:
+ * - **Signing Boundaries**: Unsigned transactions MUST be built and verified prior to entering the signing phase. The SDK enforces capability checks (`canSign`) before attempting to sign.
+ * - **Transaction Submission Risks**: Malleability and replay attacks are mitigated by enforcing strict sequence numbers and time bounds (`setTimeout`) on every transaction builder.
+ * - **Consumer Responsibility**: Ensure destinations, amounts, and memos are validated correctly before building transactions. Handle retries carefully, taking note of HTTP 5xx versus 4xx responses.
+ * - **Limitations**: If network responses are delayed or ambiguous (e.g. timeout during submission), the SDK cannot definitively know if a transaction succeeded. Consumers must query the ledger.
+ * See [Security Threat Model](../../docs/security_threat_model.md) and [Signing Boundaries](../../docs/signing-boundaries.md).
  */
 
 import { getHorizonServer } from '../config';
