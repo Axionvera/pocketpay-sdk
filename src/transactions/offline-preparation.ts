@@ -263,7 +263,9 @@ export function getTransactionSigningSummary(
       throw new PocketPayError(
         `Unsupported operation type in transaction: ${op.type}`,
         'UNSUPPORTED_OPERATION',
-        { operationType: op.type }
+        // `operationType` is not a PocketPayError option; the detail belongs in
+        // validation metadata. See the repository-fix note in the PR.
+        { validation: { field: 'operationType', reason: 'unsupported', value: op.type } }
       );
     });
     

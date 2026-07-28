@@ -17,7 +17,7 @@ import {
 } from '../types';
 import { ErrorCode } from '../errors/codes';
 import { CapabilityMismatchError } from '../errors/unsupported';
-import { validateSecretKey, validatePublicKey, validateAmount, wrapError } from '../utils';
+import { validateSecretKey, validatePublicKey, validateAmount, toStroops, wrapError } from '../utils';
 import { withTimeout } from '../network';
 import {
   mapSorobanInvocationResult,
@@ -144,7 +144,9 @@ export async function depositToVault(
     );
 
     // Convert amount to i128 (stroops-like representation)
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
+    // Exact: parseFloat + float multiply cannot represent the upper range of
+    // Stellar amounts. toStroops() returns a bigint, encoded directly as i128.
+    const amountInStroops = toStroops(amount);
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {
@@ -236,7 +238,9 @@ export async function withdrawFromVault(
       sorobanServer.getAccount(publicKey),
     );
 
-    const amountInStroops = Math.round(parseFloat(amount) * 10_000_000);
+    // Exact: parseFloat + float multiply cannot represent the upper range of
+    // Stellar amounts. toStroops() returns a bigint, encoded directly as i128.
+    const amountInStroops = toStroops(amount);
 
     const contract = new StellarSDK.Contract(contractId);
     const tx = new StellarSDK.TransactionBuilder(account, {

@@ -16,6 +16,7 @@ import {
   EnhancedPocketPayResult,
 } from '../types';
 import type { ResultWarning, RecoveryHint } from '../errors';
+import { formatStroops, fromStroops, toStroops, safeParseAmount } from './amount';
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
@@ -128,8 +129,10 @@ export function validateAmount(amount: string): boolean {
       }
     );
   }
-  const num = parseFloat(amount);
-  if (num <= 0) {
+  // Exactness is delegated to the shared parser; the codes below stay as they
+  // were so existing consumers of validateAmount are unaffected.
+  const parsed = safeParseAmount(amount);
+  if (parsed.valid && parsed.amount.isZero) {
     throw new PocketPayError(
       `Invalid amount: "${amount}". Must be greater than zero.`,
       'INVALID_AMOUNT',
@@ -212,14 +215,46 @@ export function validateTransactionHash(hash: string): boolean {
 
 
 
+/**
+ * Formats a stroop count as a decimal string.
+ *
+ * Now exact for the whole protocol range: the digits are rebuilt from the
+ * integer instead of dividing through a float.
+ */
 export function stroopsToXLM(stroops: string | number): string {
-  const value = typeof stroops === 'string' ? parseInt(stroops, 10) : stroops;
-  return (value / 10_000_000).toFixed(7);
+  if (typeof stroops === 'number' && !Number.isSafeInteger(stroops)) {
+    throw new PocketPayError(
+      `Stroop value ${stroops} is not a safe integer. Pass it as a string to keep it exact.`,
+      'INVALID_AMOUNT',
+      { validation: { field: 'stroops', reason: 'unsafe_integer', value: String(stroops) } },
+    );
+  }
+  return formatStroops(fromStroops(String(stroops)).stroops);
 }
 
+/**
+ * Converts a decimal amount to stroops as a `number`.
+ *
+ * @deprecated `number` cannot represent the upper range of Stellar amounts —
+ * the protocol allows up to 9,223,372,036,854,775,807 stroops while
+ * `Number.MAX_SAFE_INTEGER` stops at 9,007,199,254,740,991. Use
+ * {@link toStroops}, which returns an exact `bigint`.
+ *
+ * Retained for compatibility, but it no longer loses precision silently: a
+ * value that cannot be represented exactly now throws instead of returning a
+ * wrong number.
+ */
 export function xlmToStroops(xlm: string | number): number {
-  const value = typeof xlm === 'string' ? parseFloat(xlm) : xlm;
-  return Math.round(value * 10_000_000);
+  const exact = toStroops(typeof xlm === 'number' ? String(xlm) : xlm);
+  if (exact > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new PocketPayError(
+      `Amount "${xlm}" is ${exact} stroops, beyond the exact range of a JavaScript number. ` +
+        'Use toStroops() for a bigint result.',
+      'INVALID_AMOUNT',
+      { validation: { field: 'amount', reason: 'exceeds_safe_integer', value: String(xlm) } },
+    );
+  }
+  return Number(exact);
 }
 
 export function truncateAddress(
@@ -493,3 +528,17 @@ export {
   MEMO_ID_MAX,
   SUPPORTED_MEMO_TYPES,
 } from './memo';
+
+// ─── Safe amount model ───────────────────────────────────────────────────────
+export {
+  SafeAmount,
+  parseAmount,
+  parsePositiveAmount,
+  safeParseAmount,
+  fromStroops,
+  toStroops,
+  formatStroops,
+  STROOPS_PER_UNIT,
+  AMOUNT_DECIMALS,
+  MAX_STROOPS,
+} from './amount';
