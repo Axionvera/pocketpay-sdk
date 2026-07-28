@@ -18,6 +18,23 @@ export {
   mapSorobanContractError,
 } from '../soroban';
 
+// ─── Capability model and action intents (issue #274) ───────────────────────
+export {
+  executeVaultIntent,
+  validateVaultIntent,
+  describeVaultReadiness,
+  isVaultActionSupported,
+  listSupportedVaultActions,
+  VAULT_ACTION_READINESS,
+  VAULT_LOCKS_FEATURE_FLAG,
+} from './intents';
+
+export type {
+  VaultActionKind,
+  VaultActionIntent,
+  VaultActionReadiness,
+} from './intents';
+
 export type {
   VaultDepositParams,
   VaultWithdrawParams,
