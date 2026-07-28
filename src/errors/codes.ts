@@ -85,6 +85,7 @@ export const ErrorCode = {
   // ─── SDK / generic ────────────────────────────────────────────────────────
   SDK_CONFIG_INVALID: 'SDK_CONFIG_INVALID',
   SDK_NOT_IMPLEMENTED: 'SDK_NOT_IMPLEMENTED',
+  SDK_FEATURE_DISABLED: 'SDK_FEATURE_DISABLED',
   SDK_INTERNAL: 'SDK_INTERNAL',
 } as const;
 
@@ -367,6 +368,12 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     retryable: false,
     safeMessage: 'This operation is not implemented.',
     developerHint: 'Feature gap; track via the project roadmap.',
+  },
+  [ErrorCode.SDK_FEATURE_DISABLED]: {
+    category: ErrorCategory.SDK,
+    retryable: false,
+    safeMessage: 'The requested experimental feature is disabled.',
+    developerHint: 'Enable the feature flag in SDKConfig or environment variables before using this capability.',
   },
   [ErrorCode.SDK_INTERNAL]: {
     category: ErrorCategory.SDK,

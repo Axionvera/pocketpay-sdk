@@ -12,6 +12,8 @@ This SDK can be configured via environment variables. If you also pass configura
 | `STELLAR_TIMEOUT` | Request timeout in milliseconds. | No | `30000` | `STELLAR_TIMEOUT=45000` |
 | `STELLAR_CONTRACT_ID` | Optional Soroban contract id used when resolving config (validated if provided). | No | Not set | `STELLAR_CONTRACT_ID=C...` |
 | `VAULT_CONTRACT_ID` | Vault contract id used by vault functions when `contractId` is not provided via params. | Conditional | No default — must be provided for vault ops without param | `VAULT_CONTRACT_ID=C...` |
+| `POCKETPAY_FEATURE_FLAGS` | Comma-separated list of experimental feature flags to enable. | No | Not set | `POCKETPAY_FEATURE_FLAGS=experimentalVault` |
+| `POCKETPAY_FEATURE_<FLAG>` | Enable specific experimental feature flag (e.g., `POCKETPAY_FEATURE_EXPERIMENTAL_VAULT=true`). | No | `false` | `POCKETPAY_FEATURE_EXPERIMENTAL_VAULT=true` |
 
 ## Network-based defaults
 

@@ -5,7 +5,7 @@
  * redacted first — see {@link redactDiagnosticsValue}.
  */
 
-import type { StellarNetwork } from '../types';
+import type { StellarNetwork, ConfigSourceMetadata } from '../types';
 import type { CapabilityStatus } from '../errors';
 
 /** Domains covered by diagnostics events and report sections. */
@@ -51,6 +51,10 @@ export interface SafeConfigSnapshot {
   contractIdConfigured: boolean;
   /** Public contract id when configured; omitted when unset. */
   contractId?: string;
+  /** Non-sensitive origin metadata for configuration settings. */
+  sources?: ConfigSourceMetadata;
+  /** Active experimental feature flags state. */
+  featureFlags?: Record<string, boolean>;
 }
 
 /** Safe network / connectivity-oriented snapshot. */

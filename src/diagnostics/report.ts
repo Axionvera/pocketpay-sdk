@@ -4,7 +4,7 @@
 
 import { resolveConfig, getNetworkPassphrase, getFriendbotUrl } from '../config';
 import { SDK_CAPABILITIES, getCapability } from '../errors';
-import type { SDKConfig } from '../types';
+import type { SDKConfig, ResolvedSDKConfig } from '../types';
 import { isDiagnosticsEnabled } from './hooks';
 import { redactDiagnosticsValue } from './redact';
 import type {
@@ -21,7 +21,7 @@ import type {
 const SDK_NAME = 'stellar-pocketpay-sdk';
 const SDK_VERSION = '1.0.0';
 
-function toSafeConfig(config: SDKConfig): SafeConfigSnapshot {
+function toSafeConfig(config: ResolvedSDKConfig): SafeConfigSnapshot {
   const configured =
     typeof config.contractId === 'string' && config.contractId.length > 0;
   return {
@@ -31,6 +31,8 @@ function toSafeConfig(config: SDKConfig): SafeConfigSnapshot {
     timeoutMs: config.timeout ?? 30_000,
     contractIdConfigured: configured,
     ...(configured ? { contractId: config.contractId } : {}),
+    sources: config.sources,
+    featureFlags: config.featureFlags,
   };
 }
 

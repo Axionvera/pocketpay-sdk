@@ -46,7 +46,7 @@ describe('validatePocketPayConfig', () => {
 
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
-      expect(result.config).toEqual({
+      expect(result.config).toMatchObject({
         network: 'testnet',
         horizonUrl: 'https://custom-testnet.example.com',
         sorobanRpcUrl: 'https://custom-soroban-testnet.example.com',

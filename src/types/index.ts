@@ -15,6 +15,30 @@ export * from './simulation';
 /** Supported Stellar networks */
 export type StellarNetwork = 'testnet' | 'mainnet';
 
+/** Identifies where a configuration value was resolved from. */
+export type ConfigSource = 'override' | 'env' | 'default';
+
+/** Safe configuration source metadata representing origin of each setting. */
+export interface ConfigSourceMetadata {
+  network: ConfigSource;
+  horizonUrl: ConfigSource;
+  sorobanRpcUrl: ConfigSource;
+  timeout: ConfigSource;
+  contractId?: ConfigSource;
+  featureFlags?: Record<string, ConfigSource>;
+}
+
+/** Known experimental feature flags in PocketPay SDK. */
+export type FeatureFlagKey =
+  | 'experimentalVault'
+  | 'experimentalSorobanEvents'
+  | 'experimentalMultiAssetVault'
+  | 'experimentalAsyncSigner'
+  | (string & {});
+
+/** Map of feature flag keys to boolean enablement status. */
+export type FeatureFlagsConfig = Record<string, boolean>;
+
 /** SDK configuration options */
 export interface SDKConfig {
   /** Network to connect to (default: "testnet") */
@@ -27,6 +51,19 @@ export interface SDKConfig {
   timeout?: number;
   /** Soroban contract ID for vault operations (optional) */
   contractId?: string;
+  /** Feature flags for experimental SDK capabilities (default: all disabled) */
+  featureFlags?: FeatureFlagsConfig;
+}
+
+/** Fully resolved SDK configuration including feature flags and safe config source metadata. */
+export interface ResolvedSDKConfig {
+  network: StellarNetwork;
+  horizonUrl: string;
+  sorobanRpcUrl: string;
+  timeout: number;
+  contractId?: string;
+  featureFlags: Record<string, boolean>;
+  sources: ConfigSourceMetadata;
 }
 
 /** Severity assigned to a configuration validation issue. */
@@ -47,7 +84,7 @@ export interface ConfigValidationResult {
   issues: ConfigValidationIssue[];
   errors: ConfigValidationIssue[];
   warnings: ConfigValidationIssue[];
-  config?: SDKConfig;
+  config?: ResolvedSDKConfig;
 }
 
 // ─── Wallet ─────────────────────────────────────────────────────────────────
