@@ -46,11 +46,12 @@
 
 ## Acceptance Criteria Coverage
 
-<!-- Map the issue's acceptance criteria to what you did. Check each, or note
-     it as out-of-scope with rationale. -->
-- [ ] Criterion 1:
-- [ ] Criterion 2:
-- [ ] Criterion 3:
+<!-- Map the issue's acceptance criteria to what you did using a Traceability Table. 
+     See docs/acceptance-criteria-traceability.md for instructions and examples. -->
+
+| Criterion | Status | Evidence / Location |
+| :--- | :---: | :--- |
+| (Copy from issue) | ⬜ Pending | (Link to code/tests or explain why skipped) |
 
 ## Contributor Self-Review
 
