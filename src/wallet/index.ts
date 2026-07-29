@@ -351,13 +351,16 @@ export async function fundTestnetAccount(
     };
   } catch (error) {
     if (error instanceof PocketPayError) {
-      // Map general HTTP errors to Friendbot-specific error code
-      if (error.code.startsWith('HTTP_ERROR_')) {
+      // Map HTTP-level failures (including the typed NET_RATE_LIMITED and
+      // NET_UNREACHABLE codes) to the Friendbot-specific error code, keeping
+      // retryability so callers can still branch on error.retryable.
+      if (error.code.startsWith('HTTP_ERROR_') || error.code === ErrorCode.NET_RATE_LIMITED || error.code === ErrorCode.NET_UNREACHABLE) {
         throw new PocketPayError(
           error.message,
           'FRIENDBOT_ERROR',
-          error.statusCode,
-          error.cause,
+          { statusCode: error.statusCode, cause: error.cause },
+          undefined,
+          error.retryable,
         );
       }
       if (error.code === 'NETWORK_ERROR') {
