@@ -73,6 +73,8 @@ export const ErrorCode = {
   // ─── Soroban ────────────────────────────────────────────────────────────────
   SOROBAN_CONTRACT_ERROR: 'SOROBAN_CONTRACT_ERROR',
   SOROBAN_SIMULATION_FAILED: 'SOROBAN_SIMULATION_FAILED',
+  SOROBAN_SIMULATION_UNSUPPORTED: 'SOROBAN_SIMULATION_UNSUPPORTED',
+  SOROBAN_SIMULATION_UNKNOWN: 'SOROBAN_SIMULATION_UNKNOWN',
   SOROBAN_RPC_UNAVAILABLE: 'SOROBAN_RPC_UNAVAILABLE',
   SOROBAN_INVALID_RESPONSE: 'SOROBAN_INVALID_RESPONSE',
 
@@ -318,6 +320,20 @@ export const ERROR_CODES: Record<ErrorCodeValue, ErrorCodeSpec> = {
     retryable: true,
     safeMessage: 'Contract simulation failed. Please try again.',
     developerHint: 'Often transient RPC; retry before giving up.',
+  },
+  [ErrorCode.SOROBAN_SIMULATION_UNSUPPORTED]: {
+    category: ErrorCategory.Soroban,
+    retryable: false,
+    safeMessage: 'This contract call cannot be completed as simulated.',
+    developerHint:
+      'Response requires a path the client does not support (e.g. state restore). Restore ledger entries, then retry.',
+  },
+  [ErrorCode.SOROBAN_SIMULATION_UNKNOWN]: {
+    category: ErrorCategory.Soroban,
+    retryable: false,
+    safeMessage: 'The simulation response could not be interpreted.',
+    developerHint:
+      'RPC returned an unexpected simulation shape; inspect rawSimulation in diagnostics only.',
   },
   [ErrorCode.SOROBAN_RPC_UNAVAILABLE]: {
     category: ErrorCategory.Soroban,

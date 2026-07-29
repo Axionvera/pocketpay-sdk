@@ -274,8 +274,14 @@ interface ContractInvokeResult<T = unknown> {
   value?: T;             // Parsed return value
   error?: string;        // Error message if failed
   errorCode?: string | number; // Stable SDK or contract-specific failure code
+  /** Typed simulation classification when relevant (see simulation-result-mapping.md) */
+  simulationStatus?: 'success' | 'warning' | 'failed' | 'unsupported' | 'unknown';
+  warnings?: Array<{ code: string; message: string }>;
 }
 ```
+
+Simulation responses are classified by `mapSimulationResult` before assemble/sign.
+See [Simulation result mapping](./simulation-result-mapping.md).
 
 ---
 

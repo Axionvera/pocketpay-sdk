@@ -21,8 +21,13 @@ import {
   validatePublicKey,
   validateSecretKey,
 } from '../utils';
-import { mapSorobanContractError } from './mapper';
-
+import {
+  mapSorobanContractError,
+  mapSimulationResult,
+  pocketPayErrorFromSimulation,
+  simulationStatusToInvocationStatus,
+} from './mapper';
+import type { SimulationMappedResult, SimulationWarning } from '../types';
 // ─── Type Definitions ───────────────────────────────────────────────────────────
 
 /**
@@ -68,6 +73,13 @@ export interface ContractInvokeResult<T = unknown> {
   error?: string;
   /** Contract-specific or SDK error code if failed. */
   errorCode?: string | number;
+  /**
+   * Typed simulation classification when the invoke path stopped (or warned)
+   * at simulation. See {@link mapSimulationResult}.
+   */
+  simulationStatus?: import('../types').SimulationResultStatus;
+  /** Non-fatal simulation advisories when status is warning. */
+  warnings?: SimulationWarning[];
 }
 
 /**
@@ -237,22 +249,12 @@ export class ContractClient<
       this.sorobanServer.simulateTransaction(tx),
     );
 
-    if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-      const mappedError = this.mapContractError((simulated as any).error);
-      throw new PocketPayError(
-        `Simulation failed: ${mappedError.error}`,
-        String(
-          mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
-        ),
-        {
-          cause: new Error(mappedError.error),
-          category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
-          safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
-        },
-      );
+    const mapped = this.mapSimulation(simulated);
+    if (!mapped.success) {
+      throw pocketPayErrorFromSimulation(mapped);
     }
 
-    const success = simulated as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
+    const success = mapped.rawSimulation as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
     return success.result?.auth ? [...success.result.auth] : [];
   }
 
@@ -283,26 +285,18 @@ export class ContractClient<
         this.sorobanServer.simulateTransaction(tx),
       );
 
-      if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-        const mappedError = this.mapContractError((simulated as any).error);
-        throw new PocketPayError(
-          `Simulation failed: ${mappedError.error}`,
-          String(
-            mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
-          ),
-          {
-            cause: new Error(mappedError.error),
-            category: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].category,
-            safeMessage: ERROR_CODES[ErrorCode.SOROBAN_SIMULATION_FAILED].safeMessage,
-          }
-        );
+      const mapped = this.mapSimulation(
+        simulated,
+        resultParser
+          ? (retval) => resultParser(retval as StellarSDK.xdr.ScVal)
+          : undefined,
+      );
+      if (!mapped.success) {
+        throw pocketPayErrorFromSimulation(mapped);
       }
 
-      // Extract and parse return value
-      const successSim = simulated as StellarSDK.rpc.Api.SimulateTransactionSuccessResponse;
-      if (successSim.result && successSim.result.retval) {
-        const parser = resultParser || StellarSDK.scValToNative;
-        return parser(successSim.result.retval) as T;
+      if (mapped.result !== undefined) {
+        return mapped.result as T;
       }
 
       return undefined as T;
@@ -352,19 +346,24 @@ export class ContractClient<
         this.sorobanServer.simulateTransaction(tx),
       );
 
-      if (StellarSDK.rpc.Api.isSimulationError(simulated)) {
-        const mappedError = this.mapContractError((simulated as any).error);
+      const mapped = this.mapSimulation(simulated);
+      if (!mapped.success) {
         return {
           success: false,
-          status: 'simulation_error',
-          error: `Simulation failed: ${mappedError.error}`,
-          errorCode:
-            mappedError.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
+          status: simulationStatusToInvocationStatus(mapped.status),
+          error: mapped.error ?? 'Simulation failed',
+          errorCode: mapped.errorCode ?? ErrorCode.SOROBAN_SIMULATION_FAILED,
+          simulationStatus: mapped.status,
         };
       }
 
       // Prepare and sign the transaction
-      const prepared = StellarSDK.rpc.assembleTransaction(tx, simulated).build();
+      const prepared = StellarSDK.rpc
+        .assembleTransaction(
+          tx,
+          mapped.rawSimulation as StellarSDK.rpc.Api.SimulateTransactionResponse,
+        )
+        .build();
       prepared.sign(keypair);
 
       // Submit the transaction
@@ -399,6 +398,8 @@ export class ContractClient<
           status: 'success',
           hash: sendResult.hash,
           value,
+          simulationStatus: mapped.status,
+          warnings: mapped.warnings,
         };
       }
 
@@ -563,6 +564,19 @@ export class ContractClient<
       }
     }
     return mapped;
+  }
+
+  /**
+   * Classifies a raw `simulateTransaction` response via {@link mapSimulationResult}.
+   */
+  private mapSimulation(
+    simulated: unknown,
+    parseRetval?: (retval: unknown) => unknown,
+  ): SimulationMappedResult {
+    return mapSimulationResult(simulated, {
+      mapError: (error) => this.mapContractError(error),
+      parseRetval,
+    });
   }
 
   /**

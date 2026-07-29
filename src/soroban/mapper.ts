@@ -6,7 +6,22 @@ import {
   VaultMappedResult,
   VaultOperationType,
   PocketPayError,
+  SimulationMappedResult,
+  SimulationResultStatus,
+  SimulationWarning,
 } from '../types';
+import { ErrorCode, ERROR_CODES, type ErrorCodeValue } from '../errors/codes';
+
+/** Optional remapping for contract-specific simulation error strings. */
+export interface MapSimulationResultOptions {
+  /**
+   * Maps a raw simulation `error` field (or thrown value) into a stable
+   * `{ error, errorCode }` pair. Used by {@link ContractClient} error maps.
+   */
+  mapError?: (error: unknown) => { error: string; errorCode?: string | number };
+  /** Optional parser for `result.retval` (defaults to `scValToNative`). */
+  parseRetval?: (retval: unknown) => unknown;
+}
 
 /**
  * Maps contract error objects or thrown exceptions into a standardized error representation.
@@ -281,4 +296,254 @@ export function mapVaultInvocationResult(
     hash,
     amount: context?.amount,
   };
+}
+
+// ─── Simulation result mapper (issue #337) ───────────────────────────────────
+
+function callApiGuard(
+  name: 'isSimulationError' | 'isSimulationRestore' | 'isSimulationSuccess',
+  response: unknown,
+): boolean | undefined {
+  const api = StellarSDK.rpc?.Api as
+    | Partial<
+        Record<
+          'isSimulationError' | 'isSimulationRestore' | 'isSimulationSuccess',
+          (value: unknown) => boolean
+        >
+      >
+    | undefined;
+  const fn = api?.[name];
+  if (typeof fn !== 'function') return undefined;
+  try {
+    return Boolean(fn(response));
+  } catch {
+    return undefined;
+  }
+}
+
+function extractSimulationCost(resp: Record<string, any>): SimulationMappedResult['cost'] {
+  const cpu =
+    resp.cost?.cpuIns ??
+    resp.cost?.cpuInstructions ??
+    resp.cost?.cpuInsns;
+  const mem = resp.cost?.memBytes ?? resp.cost?.ramBytes;
+  const fee = resp.minResourceFee;
+  if (cpu == null && mem == null && fee == null) return undefined;
+  return {
+    cpuInstructions: cpu != null ? String(cpu) : undefined,
+    ramBytes: mem != null ? String(mem) : undefined,
+    minResourceFee: fee != null ? String(fee) : undefined,
+  };
+}
+
+function collectSimulationWarnings(resp: Record<string, any>): SimulationWarning[] {
+  const warnings: SimulationWarning[] = [];
+
+  if (Array.isArray(resp.warnings)) {
+    for (const item of resp.warnings) {
+      if (typeof item === 'string') {
+        warnings.push({ code: 'SIMULATION_WARNING', message: item });
+      } else if (item && typeof item === 'object') {
+        const w = item as Record<string, unknown>;
+        warnings.push({
+          code: String(w.code ?? 'SIMULATION_WARNING'),
+          message: String(w.message ?? w.detail ?? JSON.stringify(item)),
+        });
+      }
+    }
+  }
+
+  if (Array.isArray(resp.events) && resp.events.length > 0) {
+    warnings.push({
+      code: 'SIMULATION_EVENTS',
+      message: `Simulation emitted ${resp.events.length} diagnostic event(s).`,
+    });
+  }
+
+  return warnings;
+}
+
+function parseSimulationRetval<T>(
+  resp: Record<string, any>,
+  parseRetval?: (retval: unknown) => unknown,
+): T | undefined {
+  const retval = resp.result?.retval;
+  if (retval === undefined || retval === null) return undefined;
+  if (parseRetval) {
+    try {
+      return parseRetval(retval) as T;
+    } catch {
+      return retval as T;
+    }
+  }
+  try {
+    return StellarSDK.scValToNative(retval) as T;
+  } catch {
+    return retval as T;
+  }
+}
+
+/**
+ * Classifies a raw Soroban `simulateTransaction` response into a typed
+ * {@link SimulationMappedResult}.
+ *
+ * Prefers Stellar SDK Api guards when present; falls back to structural checks
+ * so unit tests and alternate RPC shapes still map safely.
+ */
+export function mapSimulationResult<T = unknown>(
+  response: unknown,
+  options?: MapSimulationResultOptions,
+): SimulationMappedResult<T> {
+  if (response === null || response === undefined) {
+    return {
+      success: false,
+      status: 'unknown',
+      error: 'Empty or null simulation response',
+      errorCode: ErrorCode.SOROBAN_SIMULATION_UNKNOWN,
+      rawSimulation: response,
+    };
+  }
+
+  if (typeof response !== 'object') {
+    return {
+      success: false,
+      status: 'unknown',
+      error: 'Simulation response is not an object',
+      errorCode: ErrorCode.SOROBAN_SIMULATION_UNKNOWN,
+      rawSimulation: response,
+    };
+  }
+
+  const resp = response as Record<string, any>;
+  const mapError = options?.mapError ?? mapSorobanContractError;
+
+  const isError = callApiGuard('isSimulationError', response);
+  const isRestore = callApiGuard('isSimulationRestore', response);
+  const isSuccess = callApiGuard('isSimulationSuccess', response);
+
+  const hasErrorField =
+    resp.error != null &&
+    (typeof resp.error === 'string' || typeof resp.error === 'object');
+  const hasRestorePreamble =
+    resp.restorePreamble != null && typeof resp.restorePreamble === 'object';
+  const looksSuccessful =
+    resp.result != null ||
+    resp.transactionData != null ||
+    resp.minResourceFee != null;
+
+  const treatAsFailed =
+    isError === true || (isError === undefined && hasErrorField);
+  // Prefer restore when the SDK says so, or when a restore preamble is present
+  // even if isSimulationRestore returns false for incomplete fixtures.
+  const treatAsRestore =
+    !treatAsFailed && (isRestore === true || hasRestorePreamble);
+  const treatAsSuccess =
+    !treatAsFailed &&
+    !treatAsRestore &&
+    (isSuccess === true || looksSuccessful);
+
+  if (treatAsFailed) {
+    const mapped = mapError(resp.error ?? 'Soroban transaction simulation failed');
+    const genericCodes = new Set([
+      'SOROBAN_ERROR',
+      'UNKNOWN_SOROBAN_ERROR',
+      'SOROBAN_CONTRACT_ERROR',
+      'SIMULATION_ERROR',
+      'SIMULATION_FAILED',
+      'UNKNOWN_ERROR',
+    ]);
+    const mappedCode =
+      mapped.errorCode != null ? String(mapped.errorCode) : undefined;
+    const errorCode =
+      mappedCode && !genericCodes.has(mappedCode)
+        ? mapped.errorCode
+        : ErrorCode.SOROBAN_SIMULATION_FAILED;
+    return {
+      success: false,
+      status: 'failed',
+      error:
+        typeof mapped.error === 'string' && mapped.error.startsWith('Simulation failed')
+          ? mapped.error
+          : `Simulation failed: ${mapped.error}`,
+      errorCode,
+      rawSimulation: response,
+    };
+  }
+
+  if (treatAsRestore) {
+    return {
+      success: false,
+      status: 'unsupported',
+      error: 'State requires restoration before simulation can complete',
+      errorCode: ErrorCode.SOROBAN_SIMULATION_UNSUPPORTED,
+      rawSimulation: response,
+    };
+  }
+
+  if (treatAsSuccess) {
+    const warnings = collectSimulationWarnings(resp);
+    const status: SimulationResultStatus = warnings.length > 0 ? 'warning' : 'success';
+    return {
+      success: true,
+      status,
+      result: parseSimulationRetval<T>(resp, options?.parseRetval),
+      cost: extractSimulationCost(resp),
+      warnings: warnings.length > 0 ? warnings : undefined,
+      rawSimulation: response,
+    };
+  }
+
+  return {
+    success: false,
+    status: 'unknown',
+    error: 'Unknown simulation response state',
+    errorCode: ErrorCode.SOROBAN_SIMULATION_UNKNOWN,
+    rawSimulation: response,
+  };
+}
+
+/**
+ * Builds a typed {@link PocketPayError} from a non-proceedable simulation map.
+ * Callers must only invoke this when `mapped.success` is false.
+ */
+export function pocketPayErrorFromSimulation(
+  mapped: SimulationMappedResult,
+  fallbackMessage = 'Contract simulation failed',
+): PocketPayError {
+  const fallbackCode =
+    mapped.status === 'unsupported'
+      ? ErrorCode.SOROBAN_SIMULATION_UNSUPPORTED
+      : mapped.status === 'unknown'
+        ? ErrorCode.SOROBAN_SIMULATION_UNKNOWN
+        : ErrorCode.SOROBAN_SIMULATION_FAILED;
+
+  const codeStr = String(mapped.errorCode ?? fallbackCode);
+  const spec =
+    (ERROR_CODES as Record<string, (typeof ERROR_CODES)[ErrorCodeValue]>)[codeStr] ??
+    ERROR_CODES[fallbackCode];
+
+  return new PocketPayError(mapped.error ?? fallbackMessage, codeStr, {
+    cause: mapped.error ? new Error(mapped.error) : undefined,
+    category: spec.category,
+    safeMessage: spec.safeMessage,
+  });
+}
+
+/**
+ * Maps simulation status onto {@link SorobanInvocationStatus} for invoke results.
+ */
+export function simulationStatusToInvocationStatus(
+  status: SimulationResultStatus,
+): SorobanInvocationStatus {
+  switch (status) {
+    case 'success':
+    case 'warning':
+      return 'success';
+    case 'failed':
+    case 'unsupported':
+    case 'unknown':
+      return 'simulation_error';
+    default:
+      return 'simulation_error';
+  }
 }
