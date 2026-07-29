@@ -46,27 +46,94 @@ npm install @axionvera/pocketpay-sdk
 
 ## Documentation
 
+- [Architecture](./docs/architecture.md) - How the SDK is organized, what each module owns, and how a call flows from the package root to Horizon/Soroban
+- [SDK Package Boundary & Dependency Direction Map](./docs/dependency_direction_map.md) - Which module may import which, security-sensitive boundaries, and correct vs. incorrect import examples
 - [SDK Roadmap](./docs/roadmap.md) - Directional plans and contributor opportunities across the SDK
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
+- [SDK Module Test Matrix](./docs/module-test-matrix.md) - Required unit, fixture, error-path, and integration tests per major module
+- [Pre-PR Verification](./docs/pre-pr-verification.md) - Run `npm run verify:pr` before opening a pull request to confirm tests, docs, CI, and issue acceptance criteria
+- [Pre-submission Verification](./docs/pre-submission-verification.md) - Run `npm run presubmit` before submitting a PR (lint, tests, coverage, build)
+- [Contribution Quality Gate](./docs/contribution-quality-gate.md) - Maintainer checklist and examples of incomplete vs acceptable issue work before approval
 - [Getting Started](./docs/getting-started.md) - Step-by-step guide to install, create wallets, fund accounts, check balances, and send payments
+- [End-to-End App Integration Blueprint](./docs/app_integration_blueprint.md) - App-level flow combining config, diagnostics, wallet, account, payments, transactions, Soroban, vault, security, and typed error handling
+- [Testnet Account Funding](./docs/testnet-funding.md) - Funding and activating Testnet accounts with Friendbot, confirming activation, and common unfunded-account errors
 - [API Reference](./docs/api-reference.md) - Full reference with parameters, return types, and usage examples for every exported function
 - [React Native Compatibility](./docs/react-native.md) - Integration guide for Expo and bare React Native: polyfills, Metro config, secure storage, and known limitations
+- [Local Mobile Consumption](./docs/local-mobile-consumption.md) - Safely test unpublished SDK changes in `pocketpay-mobile`with tarballs, links, local paths, or workspaces
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
+- [Network Resilience Layer](./docs/network-resilience.md) - The `NetworkClient` abstraction, typed timeout/rate-limit/unreachable errors, and endpoint reachability diagnostics
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy` API
+- [Account Sequence & Concurrency Safety](./docs/sequence-safety.md) - Account sequence number handling, caching, stale sequence error classification, and in-process concurrency safety with SequenceProvider
+- [Meaningful Change Review Guide](./docs/meaningful-change-review.md) - what counts as real SDK work: behaviour, modules, tests, acceptance criteria + reviewer checks
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
+- [SDK Diagnostics](./docs/diagnostics.md) - Opt-in redacted lifecycle hooks and support-safe reports
+- [Logging: Transaction Payloads & Debug Mode](./docs/logging-payloads-and-debug.md) - Safely logging signed transaction XDR, memos, and debug output
 - [Security Best Practices](./docs/security.md) - Key management and transaction safety
+- [SDK Security Threat Model](./docs/security_threat_model.md) - Trust boundaries, secret handling, transaction submission risks, mitigation strategies, and consumer responsibilities
+- [Signing Boundaries](./docs/signing-boundaries.md) - Detailed rules on secret boundaries, capability checking, and transaction signing limits
+- [Dependency Review](./docs/dependency-review.md) - How SDK dependencies are evaluated, added, updated, and justified
+- [Package Provenance](./docs/package-provenance.md) - Publishing integrity, trusted publishing options, and consumer verification guidance
 - [Wallet Recovery Limitations](./docs/wallet-recovery-limitations.md) - What happens when keys are lost, what the SDK does not provide, and your application's responsibilities
 - [Wallet Secret Export Policy](./docs/wallet-secret-export.md) - Supported local-key access, unsupported export behaviour, security risks, and consumer responsibilities
 - [Soroban Vault](./docs/soroban-vault.md) - Savings vault helpers, configuration, and limitations
 - [Trustline Validation](./docs/trustline-validation.md) - Pre-flight trustline verification and issued asset payment safety
 - [Issued Asset Payments](./docs/issued-asset-payments.md) - Full guide to sending issued assets: asset identifiers, trustline setup, `sendAsset`, validation rules, and error reference
-- [Release Checklist](./docs/release-checklist.md) - Pre-release verification steps for maintainers
-- [Package Provenance](./docs/package-provenance.md) - Publishing integrity, trusted publishing options, and consumer verification guidance
-- [Architecture Decision Records](./docs/adr/) - Records of significant SDK design decisions and their rationale
+- [Multi-Asset Balance Model](./docs/multi-asset-balance-model.md) - Rich balance model for native XLM and issued credit assets with reserves and status taxonomy
+- [Asset Formatting Rules](./docs/asset-formatting.md) - Guidance for displaying native and issued asset codes, issuers, balances, decimals, unknown assets, and UX warnings safely
+- [SDK Release Readiness Checklist](./docs/release-checklist.md) - Repeatable release gates covering verification, public API review, security review, documentation, migration guidance, and publishing
+- [SDK Migration System](./docs/sdk_migration_system.md) - Compatibility classifications, deprecation lifecycle, migration requirements, and maintainer review process
+- [Migration Note Template](./docs/migration-note-template.md) - Reusable template for documenting breaking, configuration, runtime, and security-sensitive migrations
+- [Changelog Policy](./docs/changelog-policy.md) - Rules for changelog categories, Semantic Versioning, breaking changes, security entries, and migration links
+- [SDK Security Readiness Review](./docs/sdk_security_readiness_review.md) - Security review gates for secrets, signing, transactions, validation, networking, logging, dependencies, and public APIs
+- [Transaction Lifecycle ADR](./docs/adr/0005-transaction-lifecycle.md) - Safety boundaries for preparation, signing, submission, confirmation, retries, and future transaction work
+- [Architecture Decision Records](./docs/adr/) - Index of significant SDK design decisions and their rationale
 - [Support Policy](./docs/support-policy.md) - Supported runtimes, versions, network status, and maintenance expectations
+- [Dependency Review Standards](./docs/dependency-review.md) - Guidelines for evaluating, adding, and updating SDK dependencies
 - [Changelog](./CHANGELOG.md) - Track changes across SDK versions
+
+## Local Development
+
+When developing the SDK and
+[`Axionvera/pocketpay-mobile`](https://github.com/Axionvera/pocketpay-mobile)
+side by side, follow the
+[local mobile consumption guide](./docs/local-mobile-consumption.md). It
+recommends testing a locally packed tarball so Metro sees the same package
+layout that npm users receive, and also documents faster symlink-based
+alternatives and their cleanup steps.
+
+## Local Verification
+
+Before submitting a pull request, run the pre-submission command:
+
+```bash
+npm run presubmit
+```
+
+This is the contributor-facing pre-submission command. It runs the same
+CI-parity pipeline as `npm run verify`: **lint** → **circular-dependency check**
+→ **unit tests** → **coverage** → **build**, stops at the first failure, and
+prints fix guidance.
+
+See [Pre-submission Verification](./docs/pre-submission-verification.md) for
+usage and failure guidance. Details of each pipeline step also live in
+[Local Verification Workflow](./docs/local-verification.md).
+
+```bash
+npm run verify   # same checks without step banners
+```
+
+## Pull Request Expectations
+
+Every PR uses the
+[PR template](./.github/PULL_REQUEST_TEMPLATE.md), which requires you to state
+the related issue, implementation scope, **tests added** (or why tests don't
+apply), the **`npm run verify` / `npm run presubmit`** output you ran locally, CI status, and
+acceptance-criteria coverage. A merged PR is not automatically payment-approved;
+reward eligibility is assessed separately. See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for the full checklist.
+
 
 ## Package Root Imports
 
@@ -129,3 +196,5 @@ compatibility.
 
 import { PocketPay } from '@axionvera/pocketpay-sdk';
 const sdk = new PocketPay({ network: 'testnet' });
+
+==================================================
