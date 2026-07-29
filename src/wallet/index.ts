@@ -10,6 +10,7 @@
  * - **Mitigation**: `createWallet` does not expose internals. The `LocalSigner` implementation protects against accidental serialization leaks.
  * - **Limitations**: If the host application memory is scraped or the device is compromised (rooted/jailbroken), secrets are vulnerable.
  * See [Security Threat Model](../../docs/security_threat_model.md) and [Wallet Backup Responsibility](../../docs/security.md#wallet-backup-responsibility).
+ */
 
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, getFriendbotUrl, resolveConfig } from '../config';
