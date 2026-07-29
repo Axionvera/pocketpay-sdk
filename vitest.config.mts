@@ -9,9 +9,21 @@ export default defineConfig({
     hookTimeout: 30000,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      // Scope the baseline to SDK source only (issue #367).
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/*.d.ts',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/tests/**',
+        '**/examples/**',
+        '**/scripts/**',
+      ],
+      // text = terminal baseline; html = local drill-down; json-summary + lcov = CI
+      reporter: ['text', 'html', 'json-summary', 'lcov'],
+      reportsDirectory: 'coverage',
       // Coverage is reported but does not fail the run by default.
-      // Tighten with `100` thresholds once the suite is mature.
+      // Raise these once the suite is mature (see docs/coverage-baseline.md).
       thresholds: {
         statements: 0,
         branches: 0,

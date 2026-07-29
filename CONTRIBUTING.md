@@ -70,6 +70,9 @@ npm run lint
 # Pre-submission verification (lint, tests, coverage, build — run before opening a PR)
 npm run presubmit
 
+# Coverage baseline report (HTML + JSON + module summary)
+npm run coverage:baseline
+
 # Pre-PR verification (same checks + docs/CI reminders + acceptance criteria checklist)
 npm run verify:pr
 
@@ -120,6 +123,7 @@ Tests live in `tests/` and use [Vitest](https://vitest.dev/). We use fixtures in
 - Keep tests isolated — avoid relying on live network calls. Mock external requests where needed.
 - Use the existing fixture helpers (`tests/fixtures/accounts.ts`, `transactions.ts`, etc.) rather than hardcoding data.
 - Follow the [SDK Module Test Matrix](./docs/module-test-matrix.md) for required unit, fixture, error-path, and integration coverage per module (wallet, payments, transactions, vault, config, utils).
+- Run `npm run coverage:baseline` and review uncovered lines in changed modules (see [coverage-baseline.md](./docs/coverage-baseline.md)).
 
 Run the suite before opening a PR:
 
