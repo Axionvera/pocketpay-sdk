@@ -38,3 +38,6 @@ export {
 } from './hooks';
 
 export { buildDiagnosticsReport } from './report';
+
+export { probeConfiguredEndpoints } from './probe';
+export type { EndpointDiagnostics } from './probe';
