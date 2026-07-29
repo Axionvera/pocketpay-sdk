@@ -13,6 +13,81 @@ import { ErrorCode, ERROR_CODES } from '../errors/codes';
 const FALLBACK_TIMEOUT_MS = 30_000;
 
 /**
+ * Low-level socket/DNS error codes that mean the endpoint itself could not
+ * be reached — distinct from a request that reached the server and merely
+ * timed out or was rate-limited. Node, browsers, and undici all surface
+ * these on `error.code` or a wrapped `error.cause.code`.
+ */
+const UNREACHABLE_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+]);
+
+/** Extracts a low-level network error code from a raw fetch rejection. */
+function nativeErrorCode(error: unknown): string | undefined {
+  const err = error as { code?: unknown; cause?: { code?: unknown } };
+  return (
+    (typeof err?.code === 'string' && err.code) ||
+    (typeof err?.cause?.code === 'string' && err.cause.code) ||
+    undefined
+  );
+}
+
+/**
+ * Builds a typed `NET_UNREACHABLE` error for a socket/DNS-level failure,
+ * i.e. the request never reached the endpoint at all.
+ */
+function unreachableError(operation: string, cause: Error): PocketPayError {
+  const spec = ERROR_CODES[ErrorCode.NET_UNREACHABLE];
+  return new PocketPayError(
+    `${operation} could not reach the endpoint: ${cause.message}`,
+    ErrorCode.NET_UNREACHABLE,
+    { category: spec.category, safeMessage: spec.safeMessage, cause },
+    undefined,
+    true,
+  );
+}
+
+/**
+ * Builds a typed error for a non-2xx HTTP response. 429 maps to
+ * `NET_RATE_LIMITED` and 5xx maps to `NET_UNREACHABLE` (the endpoint is up
+ * but not currently serving requests); both are retryable. Other statuses
+ * keep the existing `HTTP_ERROR_<status>` code for backward compatibility.
+ */
+function httpStatusError(operation: string, status: number, detail: string): PocketPayError {
+  const msg = detail
+    ? `${operation} failed with status ${status}: ${detail}`
+    : `${operation} failed with status ${status}`;
+
+  if (status === 429) {
+    const spec = ERROR_CODES[ErrorCode.NET_RATE_LIMITED];
+    return new PocketPayError(
+      msg,
+      ErrorCode.NET_RATE_LIMITED,
+      { statusCode: status, category: spec.category, safeMessage: spec.safeMessage },
+      undefined,
+      true,
+    );
+  }
+
+  if (status >= 500) {
+    const spec = ERROR_CODES[ErrorCode.NET_UNREACHABLE];
+    return new PocketPayError(
+      msg,
+      ErrorCode.NET_UNREACHABLE,
+      { statusCode: status, category: spec.category, safeMessage: spec.safeMessage },
+      undefined,
+      true,
+    );
+  }
+
+  return new PocketPayError(msg, `HTTP_ERROR_${status}`, status);
+}
+
+/**
  * Infers the lifecycle stage from the operation label a caller already passes.
  *
  * Every timeout in the SDK flows through {@link withTimeout}, whose first
@@ -233,20 +308,18 @@ export class NetworkClient {
           typeof errorBody === 'string'
             ? errorBody
             : (errorBody as any)?.detail || (errorBody as any)?.message || '';
-        const msg = bodyStr
-          ? `${operation} failed with status ${response.status}: ${bodyStr}`
-          : `${operation} failed with status ${response.status}`;
-        throw new PocketPayError(
-          msg,
-          `HTTP_ERROR_${response.status}`,
-          response.status,
-        );
+        throw httpStatusError(operation, response.status, bodyStr);
       }
 
       return (await response.json()) as T;
     } catch (error) {
       if (error instanceof PocketPayError) {
         throw error;
+      }
+      // A socket/DNS-level code means the endpoint itself is unreachable,
+      // as opposed to a request that reached the server and failed there.
+      if (error instanceof Error && UNREACHABLE_ERROR_CODES.has(nativeErrorCode(error) ?? '')) {
+        throw unreachableError(operation, error);
       }
       throw wrapError(error, operation, 'NETWORK_ERROR');
     }
@@ -294,6 +367,41 @@ export async function executeSorobanOperation<T>(
       throw error;
     }
     throw wrapError(error, operation, 'SOROBAN_ERROR');
+  }
+}
+
+/** Result of an endpoint reachability probe. Contains no request/response bodies. */
+export interface EndpointReachability {
+  url: string;
+  reachable: boolean;
+  latencyMs?: number;
+  /** Typed error code when unreachable (e.g. NET_UNREACHABLE, REQUEST_TIMEOUT). */
+  errorCode?: string;
+}
+
+/**
+ * Probes an endpoint with a lightweight GET and reports whether it responded,
+ * without exposing response bodies, headers, or request payloads. Any HTTP
+ * status (including 4xx/5xx) counts as "reachable" — this checks connectivity,
+ * not application-level success.
+ *
+ * @param url - Endpoint to probe (e.g. a resolved Horizon or Soroban RPC URL)
+ * @param timeoutMs - Probe timeout in milliseconds (default: 5000)
+ */
+export async function checkEndpointReachability(
+  url: string,
+  timeoutMs = 5_000,
+): Promise<EndpointReachability> {
+  const startedAt = Date.now();
+  try {
+    await fetchWithTimeout(url, { method: 'GET' }, 'Endpoint reachability probe', timeoutMs);
+    return { url, reachable: true, latencyMs: Date.now() - startedAt };
+  } catch (error) {
+    // A PocketPayError (e.g. REQUEST_TIMEOUT) already carries a typed code.
+    // Any other rejection (ECONNREFUSED, ENOTFOUND, etc.) means the socket
+    // or DNS lookup itself failed, which we surface uniformly as unreachable.
+    const code = error instanceof PocketPayError ? error.code : ErrorCode.NET_UNREACHABLE;
+    return { url, reachable: false, latencyMs: Date.now() - startedAt, errorCode: code };
   }
 }
 
