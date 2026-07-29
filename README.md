@@ -67,6 +67,7 @@ npm install @axionvera/pocketpay-sdk
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy` API
 - [Account Sequence & Concurrency Safety](./docs/sequence-safety.md) - Account sequence number handling, caching, stale sequence error classification, and in-process concurrency safety with SequenceProvider
 - [Meaningful Change Review Guide](./docs/meaningful-change-review.md) - what counts as real SDK work: behaviour, modules, tests, acceptance criteria + reviewer checks
+- [Evaluation Readiness Index](./docs/evaluation-readiness.md) - one page linking payment expectations, testing standard, CI guidance, acceptance criteria audit, self-assessment, and reviewer checklist before you open a PR or ask about payment status
 - [Error Handling](./docs/error-handling.md) - SDK error handling overview
 - [Logging Guidance](./docs/logging.md) - Safe logging practices for SDK applications
 - [SDK Diagnostics](./docs/diagnostics.md) - Opt-in redacted lifecycle hooks and support-safe reports
