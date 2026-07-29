@@ -123,6 +123,7 @@ Tests live in `tests/` and use [Vitest](https://vitest.dev/). We use fixtures in
 - Keep tests isolated — avoid relying on live network calls. Mock external requests where needed.
 - Use the existing fixture helpers (`tests/fixtures/accounts.ts`, `transactions.ts`, etc.) rather than hardcoding data.
 - Follow the [SDK Module Test Matrix](./docs/module-test-matrix.md) for required unit, fixture, error-path, and integration coverage per module (wallet, payments, transactions, vault, config, utils).
+- See the [Test-First Contribution Guide](./docs/test-first-guide.md) for copy-paste example tests per module (wallet, payments, transactions, vault, config, errors), explicit negative-path expectations, and the rules for when a PR may ship without new tests.
 - Run `npm run coverage:baseline` and review uncovered lines in changed modules (see [coverage-baseline.md](./docs/coverage-baseline.md)).
 
 Run the suite before opening a PR:
