@@ -23,6 +23,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage",
+    "coverage:baseline": "npm run test:coverage && tsx scripts/print-coverage-baseline.ts",
+    "coverage:report": "tsx scripts/print-coverage-baseline.ts",
     "lint": "tsc --noEmit",
     "check:circular": "tsx scripts/check-circular-deps.ts",
     "verify": "npm run lint && npm run check:circular && npm run test && npm run test:coverage && npm run build",

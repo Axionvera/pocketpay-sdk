@@ -51,9 +51,16 @@ Running it locally first is the fastest way to avoid a red ✗ on the PR.
 - Thresholds are set to `0` (non-blocking) so the report is informational.
   Once the suite matures, raise them (e.g. `statements: 80`) to enforce a floor.
 - The HTML report is written to `coverage/` (gitignored).
+- For the full baseline workflow, changed-module expectations, sample output,
+  and CI guidance, see [coverage-baseline.md](./coverage-baseline.md).
+
+```bash
+npm run coverage:baseline
+```
 
 ## Related
 
 - `npm run test:watch` — re-run tests on change during development.
 - `npm run test:integration` — integration lane (needs Testnet; separate config).
 - [testing.md](./testing.md) — unit vs integration lanes and the offline guarantee.
+- [coverage-baseline.md](./coverage-baseline.md) — coverage baseline report and CI notes.

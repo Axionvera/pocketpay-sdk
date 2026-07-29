@@ -27,11 +27,14 @@
 
 <!-- Run `npm run presubmit` (or `npm run verify`) and paste the result.
      This is the single local gate that mirrors CI:
-     lint -> circular check -> tests -> coverage -> build. -->
+     lint -> circular check -> tests -> coverage -> build.
+     Prefer also pasting `npm run coverage:baseline` for changed-module context
+     (see docs/coverage-baseline.md). -->
 - [ ] `npm run presubmit` passed locally (or `npm run verify`)
+- [ ] `npm run coverage:baseline` reviewed for changed modules (or N/A: docs-only)
 
 ```
-<paste `npm run presubmit` / `npm run verify` output summary here>
+<paste `npm run presubmit` / `npm run coverage:baseline` output summary here>
 ```
 
 ## CI Status

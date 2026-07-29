@@ -50,6 +50,9 @@ occasionally non-deterministic. Keep them out of the critical path: the default
 For module-by-module expectations (wallet, payments, transactions, vault,
 config, utils), see the [SDK Module Test Matrix](./module-test-matrix.md).
 
+For generating and interpreting coverage reports (including CI upload
+guidance), see [Test Coverage Baseline](./coverage-baseline.md).
+
 ## Scripts
 
 | Command                        | What it runs                                  |
@@ -60,4 +63,9 @@ config, utils), see the [SDK Module Test Matrix](./module-test-matrix.md).
 | `npm run test:integration`     | Integration suite (opt-in, needs the env flag)|
 | `npm run verify`               | Lint, circular-deps check, unit tests, coverage, and build |
 | `npm run presubmit`            | Pre-submission command (same checks + step banners / failure hints) |
+| `npm run test:coverage`        | Unit suite with V8 coverage report (`coverage/`) |
+| `npm run coverage:baseline`    | Coverage run + module baseline summary (see [coverage-baseline.md](./coverage-baseline.md)) |
 | `npm run verify:pr`            | Pre-PR script: automated checks + docs/CI/criteria reminders |
+
+For changed-module coverage expectations and CI upload guidance, see
+[Test Coverage Baseline](./coverage-baseline.md).
