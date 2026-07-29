@@ -1,58 +1,66 @@
 # Package Provenance and Publishing Integrity
 
-This guide explains how PocketPay SDK releases should preserve package
-provenance and how consumers can verify that an installed package came from the
-official repository and release process.
+This guide defines how PocketPay SDK releases should preserve package
+provenance, publishing integrity, and consumer trust.
 
-## Maintainer Release Practices
+## Goals
 
-- Publish only from the official `Axionvera/pocketpay-sdk` repository or a
-  documented release workflow owned by the project.
-- Keep the package name, version, git tag, and changelog entry aligned before
-  publishing.
-- Run the release checklist and verification script before any publish attempt.
-- Prefer npm trusted publishing or provenance-enabled publishing when the
-  project adds an automated release workflow.
-- Require maintainer review before changing package metadata, build scripts,
-  publish scripts, or release workflow files.
+- Make each published npm package traceable to the official repository.
+- Keep publishing credentials out of local machines, logs, issues, and pull
+  requests.
+- Give consumers repeatable checks for package source and integrity.
+- Keep release metadata reviewable before a version is published.
 
-## What Maintainers Should Avoid
+## Recommended Publishing Model
 
-- Do not publish from an unreviewed local checkout, personal fork, or dirty
-  working tree.
-- Do not paste npm tokens, one-time passwords, signing keys, or registry
-  credentials into issues, pull requests, logs, or documentation.
-- Do not bypass `prepublishOnly`, build output review, or test verification to
-  speed up a release.
-- Do not change `package.json` scripts or package entrypoints in the same PR as
-  an emergency publish unless reviewers explicitly approve the combined scope.
+Prefer npm trusted publishing with GitHub Actions provenance enabled for future
+SDK releases. In that model, maintainers publish from a protected release
+workflow instead of a local laptop, and npm records provenance that links the
+package back to the repository workflow run.
+
+When trusted publishing is not available, maintainers should still publish only
+from a clean checkout of the approved release commit and should record the
+commit, tag, package version, and verification evidence in the release PR.
+
+## Maintainer Rules
+
+- Do not commit npm tokens, GitHub tokens, `.env` files, or registry
+  credentials.
+- Do not paste package tokens or one-time passwords into issues, pull requests,
+  CI logs, or chat transcripts.
+- Do not publish from a branch with unreviewed changes.
+- Do not reuse, overwrite, or force-move release tags after publication.
+- Do not publish a package whose `npm pack --dry-run` output contains
+  unexpected files.
+- Rotate any credential that may have appeared in logs or local shell history.
+
+## Release Integrity Checklist
+
+Before publishing, maintainers should confirm:
+
+- The release commit is merged and tagged from the official repository.
+- `package.json` and `package-lock.json` contain the intended version.
+- `npm ci`, `npm run verify`, and applicable smoke checks pass.
+- `npm pack --dry-run` contains only intended package files.
+- The npm package name, version, license, entry points, and repository metadata
+  match the reviewed source.
+- Any provenance or publishing workflow run is linked from the release notes.
 
 ## Consumer Verification
 
-Consumers can perform lightweight checks before upgrading:
+Consumers who need stronger assurance can:
 
-1. Confirm the package name and version match the release notes or git tag.
-2. Inspect the npm package metadata for repository and provenance information
-   when available.
-3. Compare the package contents against the documented public entrypoints and
-   expected `dist/` output.
-4. Review dependency changes before installing in production applications.
-5. Pin versions in lockfiles and upgrade through reviewed pull requests rather
-   than ad-hoc installs on production machines.
+- Compare the npm package version with the GitHub release tag.
+- Inspect npm provenance metadata when available.
+- Check that the package `repository` field points to the official repo.
+- Use lockfiles so package integrity hashes are reviewed and repeatable.
+- Reinstall in a clean environment when investigating supply-chain concerns.
+- Avoid packages with unexpected names, unpublished source, or missing release
+  history.
 
-## Trusted Publishing Roadmap
+## Incident Response
 
-The current release checklist documents a manual publish flow. If the project
-adopts automated publishing later, the workflow should:
-
-- run verification from a protected branch or signed tag,
-- use npm trusted publishing or short-lived identity-based credentials,
-- publish with provenance metadata enabled,
-- avoid storing long-lived registry tokens in repository secrets when a safer
-  trusted-publishing path exists, and
-- make release logs available without exposing secrets.
-
-## Related Documents
-
-- [Release Checklist](./release-checklist.md)
-- [Security Best Practices](./security.md)
+If a provenance or publishing-integrity issue is suspected, maintainers should
+pause further releases, preserve the affected package metadata, rotate relevant
+credentials, publish a corrective release if needed, and document consumer
+actions in the changelog or release notes.
