@@ -102,6 +102,19 @@ diagnostics: [
 'emitDiagnosticsEvent',
 'buildDiagnosticsReport',
 'redactDiagnosticsValue',
+'probeConfiguredEndpoints',
+],
+network: [
+'NetworkClient',
+'withTimeout',
+'fetchWithTimeout',
+'executeHorizonOperation',
+'executeSorobanOperation',
+'checkEndpointReachability',
+'submitTransactionIdempotently',
+'pollTransactionStatus',
+'withRetryPolicy',
+'fetchFeeEstimate',
 ],
 } as const;
 
@@ -154,6 +167,12 @@ describe('Package root exports', () => {
 
   it('exports diagnostics helpers from the package root', () => {
     for (const name of REQUIRED_PUBLIC_EXPORTS.diagnostics) {
+      expectExported(name);
+    }
+  });
+
+  it('exports the network resilience layer from the package root', () => {
+    for (const name of REQUIRED_PUBLIC_EXPORTS.network) {
       expectExported(name);
     }
   });

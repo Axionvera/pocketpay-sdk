@@ -2,6 +2,10 @@
 
 This guide helps PocketPay SDK consumers handle transient failures from Stellar network services correctly.
 
+> See [Network Resilience Layer](./network-resilience.md) for the `NetworkClient`
+> abstraction, endpoint diagnostics, and how read-only retries differ from
+> transaction submission.
+
 ## Overview
 
 Stellar network calls can fail for different reasons. Some failures are temporary and should be retried. Others indicate a problem with the request or account state and should be shown to the user.
@@ -20,6 +24,8 @@ These errors are temporary. Retry with exponential backoff (start at 1s, double 
 | ECONNRESET / ETIMEDOUT | Network interruption | Retry with backoff |
 | REQUEST_TIMEOUT | SDK timeout during preparation or a plain read | Retry with backoff or increase `timeout` |
 | 500 Internal Server Error | Transient Horizon issue | Retry once, then fail |
+| NET_UNREACHABLE | Endpoint unreachable (5xx, ECONNREFUSED, DNS failure) — thrown by `NetworkClient`, `checkEndpointReachability` | Retry with backoff |
+| NET_RATE_LIMITED | 429 — thrown by `NetworkClient` with the typed code instead of a raw HTTP status | Retry after Retry-After |
 
 ### Friendbot
 
