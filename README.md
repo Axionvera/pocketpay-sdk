@@ -62,6 +62,7 @@ npm install @axionvera/pocketpay-sdk
 - [Local Mobile Consumption](./docs/local-mobile-consumption.md) - Safely test unpublished SDK changes in `pocketpay-mobile`with tarballs, links, local paths, or workspaces
 - [Transaction Date Formatting](./docs/transaction-timestamps.md) - Format of every `createdAt` timestamp returned by the SDK
 - [Network Error Handling](./docs/network-errors.md) - Retry guidance for Horizon, Friendbot, and Soroban RPC failures
+- [Network Resilience Layer](./docs/network-resilience.md) - The `NetworkClient` abstraction, typed timeout/rate-limit/unreachable errors, and endpoint reachability diagnostics
 - [Safe Retry Policy](./docs/retry-policy.md) - Classifying submission outcomes, safe retry rules, and the `withRetryPolicy` API
 - [Account Sequence & Concurrency Safety](./docs/sequence-safety.md) - Account sequence number handling, caching, stale sequence error classification, and in-process concurrency safety with SequenceProvider
 - [Meaningful Change Review Guide](./docs/meaningful-change-review.md) - what counts as real SDK work: behaviour, modules, tests, acceptance criteria + reviewer checks
