@@ -329,7 +329,16 @@ export {
   pollTransactionStatus,
   withRetryPolicy,
   fetchFeeEstimate,
+  // Network resilience layer (issue #272)
+  NetworkClient,
+  withTimeout,
+  fetchWithTimeout,
+  executeHorizonOperation,
+  executeSorobanOperation,
+  checkEndpointReachability,
 } from './network';
+
+export type { EndpointReachability } from './network';
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
 export {
@@ -376,6 +385,7 @@ export type {
   DiagnosticsReport,
   DiagnosticsEvent,
   DiagnosticsSensitiveKey,
+  EndpointDiagnostics,
 } from './diagnostics';
 
 export {
@@ -392,6 +402,7 @@ export {
   getDiagnosticsHooks,
   emitDiagnosticsEvent,
   buildDiagnosticsReport,
+  probeConfiguredEndpoints,
 } from './diagnostics';
 
 export type {
