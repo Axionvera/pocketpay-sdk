@@ -199,3 +199,5 @@ import { PocketPay } from '@axionvera/pocketpay-sdk';
 const sdk = new PocketPay({ network: 'testnet' });
 
 ==================================================
+## Public API Compatibility
+Before submitting changes to exported functions or types, review the [Public API Compatibility Checklist](docs/PUBLIC_API_COMPATIBILITY_CHECKLIST.md) to ensure backwards compatibility and proper migration guidance.
