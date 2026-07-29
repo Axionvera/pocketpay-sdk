@@ -172,6 +172,8 @@ describe('Soroban contract client factory', () => {
       status: 'success',
       hash: 'transaction-hash',
       value: 'confirmed',
+      simulationStatus: 'success',
+      warnings: undefined,
     });
     expect(mocks.preparedTransaction.sign).toHaveBeenCalledOnce();
     expect(mocks.server.sendTransaction).toHaveBeenCalledOnce();
@@ -198,9 +200,31 @@ describe('Soroban contract client factory', () => {
       status: 'simulation_error',
       error: 'Simulation failed: insufficient balance',
       errorCode: 'VAULT_INSUFFICIENT_BALANCE',
+      simulationStatus: 'failed',
     });
     expect(mocks.assembleTransaction).not.toHaveBeenCalled();
     expect(mocks.server.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('maps restore-required simulations as unsupported without signing', async () => {
+    mocks.server.simulateTransaction.mockResolvedValue({
+      restorePreamble: { minResourceFee: '1', transactionData: {} },
+    });
+    const client = createContractClient({ contractId, methods });
+
+    const result = await client.invoke({
+      method: 'deposit',
+      params: { user: sourcePublicKey, amount: '1' },
+      signWith: sourceSecret,
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      status: 'simulation_error',
+      simulationStatus: 'unsupported',
+      errorCode: 'SOROBAN_SIMULATION_UNSUPPORTED',
+    });
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported methods before account lookup or simulation', async () => {

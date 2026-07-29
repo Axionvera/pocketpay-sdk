@@ -38,7 +38,12 @@ export {
   mapSorobanInvocationResult,
   mapVaultInvocationResult,
   mapSorobanContractError,
-};
+  mapSimulationResult,
+  pocketPayErrorFromSimulation,
+  simulationStatusToInvocationStatus,
+} from './mapper';
+export type { MapSimulationResultOptions } from './mapper';
+
 
 // ─── Contract Client Factory ─────────────────────────────────────────────────────
 export {

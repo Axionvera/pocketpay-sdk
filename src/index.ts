@@ -304,6 +304,13 @@ export {
   mapSorobanInvocationResult,
   mapVaultInvocationResult,
   mapSorobanContractError,
+  mapSimulationResult,
+  pocketPayErrorFromSimulation,
+  simulationStatusToInvocationStatus,
+  simulateContractCall,
+} from './soroban';
+export type {
+  MapSimulationResultOptions,
 } from './soroban';
 
 // ─── Vault capability model and action intents (issue #274) ─────────────────

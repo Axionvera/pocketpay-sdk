@@ -201,7 +201,7 @@ called.
 
 ## Simulation before signing
 
-For state-changing smart contract calls (Soroban), a simulation step must occur **before** the transaction crosses the signing boundary. The `simulateContractCall()` function executes a dry run against the network, returning a `ContractSimulationResult`.
+For state-changing smart contract calls (Soroban), a simulation step must occur **before** the transaction crosses the signing boundary. The `simulateContractCall()` function executes a dry run against the network, returning a `ContractSimulationResult` with a typed `status` (`success` | `warning` | `failed` | `unsupported` | `unknown`). See [Simulation result mapping](./simulation-result-mapping.md).
 
 This ensures that:
 1. **Errors are caught early**: If a contract call will fail, it fails during simulation before prompting the user for a signature.
@@ -223,13 +223,17 @@ const params: ContractSimulationParams = {
 const result = await simulateContractCall(params);
 
 if (!result.success) {
-  // Handle simulation failure (e.g. invalid arguments, contract trapped)
-  console.error("Simulation failed:", result.error);
+  // failed | unsupported | unknown — do not sign
+  console.error('Simulation failed:', result.status, result.error);
   return;
 }
 
+if (result.status === 'warning') {
+  console.warn('Simulation advisories:', result.warnings);
+}
+
 // Proceed to build and sign the transaction using result metrics
-console.log("Required CPU:", result.cost?.cpuInstructions);
-console.log("Estimated Fee:", result.cost?.minResourceFee);
+console.log('Required CPU:', result.cost?.cpuInstructions);
+console.log('Estimated Fee:', result.cost?.minResourceFee);
 ```
 
