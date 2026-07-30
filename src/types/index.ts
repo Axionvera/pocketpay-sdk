@@ -3,6 +3,7 @@ export * from './transaction';
 export * from './balance';
 export * from './auth';
 export * from './simulation';
+export * from './payment-intent';
 
 /**
  * Stellar PocketPay SDK — Type Definitions

@@ -21,22 +21,44 @@ import { formatStroops, fromStroops, toStroops, safeParseAmount } from './amount
 // ─── Validation ─────────────────────────────────────────────────────────────
 
 export function validatePublicKey(publicKey: string): boolean {
-  try {
-    StellarSDK.Keypair.fromPublicKey(publicKey);
-    return true;
-  } catch {
+  if (!publicKey || typeof publicKey !== 'string') {
+    throw new PocketPayError('Invalid Stellar public key', 'INVALID_PUBLIC_KEY', {
+      validation: { field: 'publicKey', reason: 'not_a_string', value: publicKey },
+    });
+  }
+  const trimmed = publicKey.trim();
+  if (!trimmed.startsWith('G') || trimmed.length !== 56) {
     throw new PocketPayError(
-      `Invalid Stellar public key: ${publicKey}`,
+      `Invalid Stellar public key: ${trimmed}`,
       'INVALID_PUBLIC_KEY',
       {
         validation: {
           field: 'publicKey',
           reason: 'invalid_format',
-          value: publicKey
-        }
-      }
+          value: trimmed,
+        },
+      },
     );
   }
+  if (typeof StellarSDK?.Keypair?.fromPublicKey === 'function') {
+    try {
+      StellarSDK.Keypair.fromPublicKey(trimmed);
+      return true;
+    } catch {
+      throw new PocketPayError(
+        `Invalid Stellar public key: ${trimmed}`,
+        'INVALID_PUBLIC_KEY',
+        {
+          validation: {
+            field: 'publicKey',
+            reason: 'invalid_checksum',
+            value: trimmed,
+          },
+        },
+      );
+    }
+  }
+  return true;
 }
 
 export function validateSecretKey(secretKey: unknown): boolean {

@@ -52,7 +52,7 @@ describe('Typed Asset Model', () => {
     it('validates AlphaNum12 issued asset', () => {
       const longAsset: IssuedAsset = {
         type: 'issued',
-        code: 'STELLARCODE12',
+        code: 'STELLARCODE1',
         issuer: VALID_ISSUER,
       };
       expect(validateAsset(longAsset).valid).toBe(true);

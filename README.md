@@ -52,6 +52,7 @@ npm install @axionvera/pocketpay-sdk
 - [Testing](./docs/testing.md) - Unit vs integration test lanes and the offline guarantee
 - [Test Coverage Baseline](./docs/coverage-baseline.md) - Generate coverage reports and changed-module expectations (`npm run coverage:baseline`)
 - [SDK Module Test Matrix](./docs/module-test-matrix.md) - Required unit, fixture, error-path, and integration tests per major module
+- [Test-First Contribution Guide](./docs/test-first-guide.md) - Per-module test examples, happy/negative-path expectations, no-test justification rules, and local commands
 - [Pre-PR Verification](./docs/pre-pr-verification.md) - Run `npm run verify:pr` before opening a pull request to confirm tests, docs, CI, and issue acceptance criteria
 - [Acceptance Criteria Traceability](./docs/acceptance-criteria-traceability.md) - Format for mapping SDK changes to issue criteria in PRs
 - [Pre-submission Verification](./docs/pre-submission-verification.md) - Run `npm run presubmit` before submitting a PR (lint, tests, coverage, build)

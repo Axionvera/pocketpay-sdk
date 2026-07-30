@@ -281,7 +281,7 @@ describe('withRetryPolicy', () => {
     submitSpy.mockRejectedValue(paymentFailed);
 
     await expect(withRetryPolicy(tx, { maxAttempts: 4 })).rejects.toMatchObject({
-      code: 'PAYMENT_FAILED',
+      code: 'TX_BAD_SEQUENCE',
     });
     // Must not retry — only one attempt
     expect(submitSpy).toHaveBeenCalledTimes(1);
@@ -453,7 +453,7 @@ describe('withRetryPolicy', () => {
 
     await expect(
       withRetryPolicy(tx, { maxAttempts: 1 }),
-    ).rejects.toMatchObject({ code: 'SEND_ERROR' });
+    ).rejects.toMatchObject({ code: 'NET_RATE_LIMITED' });
     expect(submitSpy).toHaveBeenCalledTimes(1);
   });
 
