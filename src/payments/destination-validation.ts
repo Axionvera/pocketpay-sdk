@@ -476,7 +476,7 @@ export async function safeValidateDestination(
   options?: DestinationValidationOptions,
 ): Promise<PocketPayResult<DestinationValidationResult>> {
   return toResult(
-    () => validateDestinationComplete(destination, options),
+    () => validateDestinationOrThrow(destination, options),
     'Failed to validate destination',
     'DESTINATION_VALIDATION_ERROR',
   );
@@ -495,6 +495,15 @@ export function safeValidateDestinationLocal(
 ): PocketPayResult<DestinationValidationResult> {
   try {
     const result = validateDestinationLocal(destination, options);
+    if (!result.valid) {
+      return {
+        ok: false,
+        error: new PocketPayError(
+          result.message || 'Local destination validation failed',
+          result.errorCode || 'DESTINATION_VALIDATION_FAILED',
+        ),
+      };
+    }
     return { ok: true, value: result };
   } catch (error) {
     const pocketErr = error instanceof PocketPayError

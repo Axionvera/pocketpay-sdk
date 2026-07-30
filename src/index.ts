@@ -180,6 +180,10 @@ export {
   buildPaymentReceipt,
   buildReceiptFromSubmission,
   buildReceiptFromSoroban,
+  createPaymentIntent,
+  validatePaymentIntent,
+  evaluateAssetState,
+  checkPaymentIntentTrustline,
 } from './payments';
 
 export type {

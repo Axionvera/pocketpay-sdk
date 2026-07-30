@@ -1,7 +1,7 @@
 import * as StellarSDK from '@stellar/stellar-sdk';
 import { getHorizonServer, resolveConfig } from '../config';
 import { FeeEstimate, SDKConfig } from '../types';
-import { executeHorizonOperation } from './index';
+import { executeHorizonOperation } from './operations';
 
 /**
  * Fetches the current fee estimation from the network.
@@ -36,8 +36,8 @@ export async function fetchFeeEstimate(config?: Partial<SDKConfig>): Promise<Fee
   } catch (error) {
     // Fallback behaviour
     return {
-      high: String(StellarSDK.BASE_FEE * 5),
-      standard: String(StellarSDK.BASE_FEE * 2),
+      high: String(Number(StellarSDK.BASE_FEE) * 5),
+      standard: String(Number(StellarSDK.BASE_FEE) * 2),
       low: String(StellarSDK.BASE_FEE),
       baseFee: String(StellarSDK.BASE_FEE),
       surgePricing: false,

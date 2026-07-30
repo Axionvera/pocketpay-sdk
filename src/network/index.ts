@@ -327,48 +327,7 @@ export class NetworkClient {
 }
 
 /**
- * Executes a Horizon server operation with timeout and consistent error handling.
- */
-export async function executeHorizonOperation<T>(
-  operation: string,
-  timeoutMs: number | undefined,
-  fn: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await withTimeout(operation, timeoutMs, fn());
-  } catch (error) {
-    if (error instanceof PocketPayError) {
-      throw error;
-    }
-    const horizonError = error as any;
-    if (horizonError?.response?.status === 404) {
-      throw new PocketPayError(
-        'Resource not found',
-        'NOT_FOUND',
-        404,
-      );
-    }
-    throw wrapError(error, operation, 'HORIZON_ERROR');
-  }
-}
-
-/**
- * Executes a Soroban RPC operation with timeout and consistent error handling.
- */
-export async function executeSorobanOperation<T>(
-  operation: string,
-  timeoutMs: number | undefined,
-  fn: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await withTimeout(operation, timeoutMs, fn());
-  } catch (error) {
-    if (error instanceof PocketPayError) {
-      throw error;
-    }
-    throw wrapError(error, operation, 'SOROBAN_ERROR');
-  }
-}
+export { executeHorizonOperation, executeSorobanOperation } from './operations';
 
 /** Result of an endpoint reachability probe. Contains no request/response bodies. */
 export interface EndpointReachability {
@@ -408,3 +367,4 @@ export async function checkEndpointReachability(
 export { submitTransactionIdempotently, pollTransactionStatus } from './idempotency';
 export { withRetryPolicy } from './retry-policy';
 export { fetchFeeEstimate } from './fee';
+export { executeHorizonOperation, executeSorobanOperation } from './operations';
