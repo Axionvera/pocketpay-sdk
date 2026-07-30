@@ -259,11 +259,11 @@ export type {
   DestinationValidationOptions,
   DestinationValidationResult,
 } from './destination-validation';
-
 // ─── Send-XLM Input Validation (non-throwing) ───────────────────────────────
 export {
   validateSendXLMParams,
 } from './validation';
+export { parseQRPayload, QRPayload, QRParseResult } from './qrParser';
 export type {
   ValidationError,
   ValidationErrorCode,
