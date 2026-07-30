@@ -60,7 +60,7 @@ describe('Idempotency Strategy - Error Classification', () => {
     };
 
     const classified = classifySubmitError(rawError, 'dummy-hash');
-    expect(classified.code).toBe('PAYMENT_FAILED');
+    expect(classified.code).toBe('TX_BAD_SEQUENCE');
     expect(classified.statusCode).toBe(400);
     expect(classified.transactionHash).toBe('dummy-hash');
     expect(classified.retryable).toBe(false);
@@ -76,7 +76,7 @@ describe('Idempotency Strategy - Error Classification', () => {
     };
 
     const classified = classifySubmitError(rawError, 'dummy-hash');
-    expect(classified.code).toBe('SEND_ERROR');
+    expect(classified.code).toBe('NET_RATE_LIMITED');
     expect(classified.statusCode).toBe(429);
     expect(classified.retryable).toBe(true);
     expect(isRetryableError(classified)).toBe(true);

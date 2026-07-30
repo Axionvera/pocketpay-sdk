@@ -19,24 +19,24 @@ import {
   type DestinationValidationStatus,
 } from '../src/payments/destination-validation';
 import { PocketPayError } from '../src/types';
+import { setHorizonServerFactory, resetHorizonServerFactory } from '../src/config';
 
-// Mock Stellar SDK and Horizon
-vi.mock('@stellar/stellar-sdk', () => ({
-  default: {
-    Keypair: {
-      fromSecret: vi.fn(),
+// Mock Stellar SDK and Horizon preserving actual Keypair validation
+vi.mock('@stellar/stellar-sdk', async (importActual) => {
+  const actual = await importActual<typeof import('@stellar/stellar-sdk')>();
+  return {
+    ...actual,
+    Networks: {
+      TESTNET: 'Test SDF Network ; September 2015',
+      PUBLIC: 'Public Global Stellar Network ; September 2015',
     },
-  },
-  Networks: {
-    TESTNET: 'Test SDF Network ; September 2015',
-    PUBLIC: 'Public Global Stellar Network ; September 2015',
-  }
-}));
+  };
+});
 
 describe('Destination Validation - Local Validation', () => {
-  const validPublicKey = 'GD5JQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const validPublicKey = 'GBQ3UUVRLPBINPRTKWKPRQWKA4LYXJCTYYHR5DAICXVYXVFQ32P5CADH';
   const invalidPublicKey = 'INVALID_PUBLIC_KEY';
-  const anotherValidKey = 'GB7TQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const anotherValidKey = 'GBMD2ACBNHKTDBF26BW7VZKPB3CXO63HVVYM26DBPLXK5J76ELTGUDG7';
 
   describe('validateDestinationLocal', () => {
     it('should validate a correct public key', () => {
@@ -157,9 +157,9 @@ describe('Destination Validation - Local Validation', () => {
 });
 
 describe('Destination Validation - Network Validation', () => {
-  const validPublicKey = 'GD5JQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
-  const unfundedPublicKey = 'GB7TQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
-  const issuerPublicKey = 'GC5TQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const validPublicKey = 'GBQ3UUVRLPBINPRTKWKPRQWKA4LYXJCTYYHR5DAICXVYXVFQ32P5CADH';
+  const unfundedPublicKey = 'GBMD2ACBNHKTDBF26BW7VZKPB3CXO63HVVYM26DBPLXK5J76ELTGUDG7';
+  const issuerPublicKey = 'GC7ZCFHCZJ6UWVN3EMR3HBDY75IWNXUOOZKCGYC3AQUF3PTVV4AYRIOZ';
 
   // Mock Horizon server
   const mockLoadAccount = vi.fn();
@@ -169,17 +169,11 @@ describe('Destination Validation - Network Validation', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock config resolution
-    vi.doMock('../src/config', () => ({
-      getHorizonServer: () => mockServer,
-      resolveConfig: (config?: any) => ({
-        network: 'testnet',
-        horizonUrl: 'https://horizon-testnet.stellar.org',
-        sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
-        timeout: 30000,
-        ...config,
-      }),
-    }));
+    setHorizonServerFactory(() => mockServer as any);
+  });
+
+  afterEach(() => {
+    resetHorizonServerFactory();
   });
 
   describe('validateDestinationNetwork - Account Existence', () => {
@@ -417,7 +411,7 @@ describe('Destination Validation - Network Validation', () => {
 });
 
 describe('Destination Validation - Complete Validation', () => {
-  const validPublicKey = 'GD5JQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const validPublicKey = 'GBQ3UUVRLPBINPRTKWKPRQWKA4LYXJCTYYHR5DAICXVYXVFQ32P5CADH';
 
   const mockLoadAccount = vi.fn();
   const mockServer = {
@@ -426,16 +420,11 @@ describe('Destination Validation - Complete Validation', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.doMock('../src/config', () => ({
-      getHorizonServer: () => mockServer,
-      resolveConfig: (config?: any) => ({
-        network: 'testnet',
-        horizonUrl: 'https://horizon-testnet.stellar.org',
-        sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
-        timeout: 30000,
-        ...config,
-      }),
-    }));
+    setHorizonServerFactory(() => mockServer as any);
+  });
+
+  afterEach(() => {
+    resetHorizonServerFactory();
   });
 
   describe('validateDestinationComplete', () => {
@@ -543,39 +532,17 @@ describe('Destination Validation - Complete Validation', () => {
 });
 
 describe('Destination Validation - Error Handling', () => {
-  const validPublicKey = 'GD5JQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const validPublicKey = 'GBQ3UUVRLPBINPRTKWKPRQWKA4LYXJCTYYHR5DAICXVYXVFQ32P5CADH';
 
   it('should handle network errors gracefully', async () => {
-    const mockLoadAccount = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-    const mockServer = { loadAccount: mockLoadAccount };
-
-    vi.doMock('../src/config', () => ({
-      getHorizonServer: () => mockServer,
-      resolveConfig: () => ({
-        network: 'testnet',
-        horizonUrl: 'https://horizon-testnet.stellar.org',
-        sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
-        timeout: 30000,
-      }),
-    }));
+    setHorizonServerFactory(() => ({ loadAccount: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) } as any));
 
     await expect(validateDestinationNetwork(validPublicKey))
       .rejects.toThrow();
   });
 
   it('should handle timeout errors', async () => {
-    const mockLoadAccount = vi.fn().mockRejectedValue(new Error('TIMEDOUT'));
-    const mockServer = { loadAccount: mockLoadAccount };
-
-    vi.doMock('../src/config', () => ({
-      getHorizonServer: () => mockServer,
-      resolveConfig: () => ({
-        network: 'testnet',
-        horizonUrl: 'https://horizon-testnet.stellar.org',
-        sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
-        timeout: 30000,
-      }),
-    }));
+    setHorizonServerFactory(() => ({ loadAccount: vi.fn().mockRejectedValue(new Error('TIMEDOUT')) } as any));
 
     await expect(validateDestinationNetwork(validPublicKey))
       .rejects.toThrow();
@@ -583,7 +550,7 @@ describe('Destination Validation - Error Handling', () => {
 });
 
 describe('Destination Validation - Edge Cases', () => {
-  const validPublicKey = 'GD5JQ6K7LZD4NRBF7FQ4I6V7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7E7Z7';
+  const validPublicKey = 'GBQ3UUVRLPBINPRTKWKPRQWKA4LYXJCTYYHR5DAICXVYXVFQ32P5CADH';
 
   it('should handle case-insensitive asset codes', () => {
     const options: DestinationValidationOptions = {

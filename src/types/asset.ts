@@ -82,3 +82,15 @@ export function assertValidAsset(asset: Asset): void {
     throw new Error(`Invalid Asset: ${result.error}`);
   }
 }
+
+/**
+ * Checks if two assets are logically identical (same type, code, and issuer if issued).
+ */
+export function areAssetsEqual(a: Asset, b: Asset): boolean {
+  if (a.type !== b.type) return false;
+  if (a.type === 'native' && b.type === 'native') return true;
+  if (a.type === 'issued' && b.type === 'issued') {
+    return a.code === b.code && a.issuer === b.issuer;
+  }
+  return false;
+}
